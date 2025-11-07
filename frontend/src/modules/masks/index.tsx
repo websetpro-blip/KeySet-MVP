@@ -1,11 +1,6 @@
-﻿import "./index.css";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import App from "./App";
+import MasksApp from "./App";
+import "./index.css";
 
-export default function MasksModuleWrapper() {
-  return (
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
+export default function MasksModule() {
+  return <MasksApp />;
 }

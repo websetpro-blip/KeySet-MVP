@@ -1,11 +1,6 @@
-﻿import "./index.css";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import App from "./App";
+import AnalyticsApp from "./App";
+import "./index.css";
 
 export default function AnalyticsModule() {
-  return (
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
+  return <AnalyticsApp />;
 }

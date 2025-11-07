@@ -1,18 +1,16 @@
-﻿// @ts-nocheck
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import type {
-  KeySetStoreV5,
-  Phrase,
-  Group,
+import type { 
+  KeySetStoreV5, 
+  Phrase, 
+  Group, 
   LogEntry,
   AppState,
   Stopword,
   Filter,
   ColumnVisibility
 } from '../types';
-import { mockPhrases, mockGroups } from '../data/mockData';
 
 // Интерфейс для снимка состояния
 interface StateSnapshot {
@@ -24,8 +22,8 @@ interface StateSnapshot {
 
 // Начальное состояние
 const initialState: Omit<AppState, 'history'> = {
-  phrases: mockPhrases,
-  groups: mockGroups,
+  phrases: [],
+  groups: [],
   stopwords: [],
   filters: {},
   savedFilters: [],
@@ -73,7 +71,7 @@ const MAX_HISTORY_SIZE = 50;
 const createSnapshot = (state: any): StateSnapshot => {
   try {
     // Безопасное клонирование данных
-    const safeClone = (obj: any) => {
+    const safeClone = (obj: any): any => {
       try {
         if (obj === null || typeof obj !== 'object') {
           return obj;

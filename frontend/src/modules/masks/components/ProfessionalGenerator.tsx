@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 // components/ProfessionalGenerator.tsx
 // Профессиональный генератор масок для Yandex.Direct
 
@@ -17,7 +16,7 @@ const FormulaParser: React.FC<{
   onChange: (formula: string) => void;
   onValidation: (isValid: boolean, errors: string[], preview: string[]) => void;
 }> = ({ formula, onChange, onValidation }) => {
-  const [validation, setValidation] = useState({ isValid: true, errors: [], preview: [] });
+  const [validation, setValidation] = useState<{ isValid: boolean; errors: string[]; preview: string[] }>({ isValid: true, errors: [], preview: [] });
   
   // Мемоизация примера формулы - избегаем создания экземпляра на каждом рендере
   const examples = React.useMemo(() => {
