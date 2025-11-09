@@ -1245,10 +1245,12 @@ export const useStore = create<KeySetStoreV5>()(
           state.markedPhraseIds = safeRestoreSet('markedPhraseIds');
           state.pinnedGroupIds = safeRestoreSet('pinnedGroupIds');
           
-          // Приветственное сообщение
-          if (state.addLog) {
-            state.addLog('success', 'Данные загружены из localStorage');
-          }
+          // Приветственное сообщение нужно откладывать, иначе React падает с error #185
+          setTimeout(() => {
+            if (state.addLog) {
+              state.addLog('success', 'Данные загружены из localStorage');
+            }
+          }, 0);
         }
       },
     }
