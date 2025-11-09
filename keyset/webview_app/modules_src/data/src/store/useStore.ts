@@ -1040,10 +1040,13 @@ export const useStore = create<KeySetStoreV5>()(
           state.markedPhraseIds = safeRestoreSet('markedPhraseIds');
           state.pinnedGroupIds = safeRestoreSet('pinnedGroupIds');
           
-          // Приветственное сообщение
-          if (state.addLog) {
-            state.addLog('success', 'Данные загружены из localStorage');
-          }
+          // Приветственное сообщение будет добавлено после полной гидратации
+          // чтобы избежать вложенных обновлений состояния
+          setTimeout(() => {
+            if (state.addLog) {
+              state.addLog('success', 'Данные загружены из localStorage');
+            }
+          }, 0);
         }
       },
     }

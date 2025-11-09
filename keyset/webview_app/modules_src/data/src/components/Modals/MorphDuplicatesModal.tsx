@@ -20,13 +20,7 @@ export const MorphDuplicatesModal: React.FC<MorphDuplicatesModalProps> = ({ isOp
   const [toDelete, setToDelete] = React.useState<Set<string>>(new Set());
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
-  React.useEffect(() => {
-    if (isOpen) {
-      analyzeDuplicates();
-    }
-  }, [isOpen, activeTab, phrases]);
-
-  const analyzeDuplicates = () => {
+  const analyzeDuplicates = React.useCallback(() => {
     setIsAnalyzing(true);
     setToDelete(new Set());
     
@@ -50,7 +44,13 @@ export const MorphDuplicatesModal: React.FC<MorphDuplicatesModalProps> = ({ isOp
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [activeTab, phrases, addLog]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      analyzeDuplicates();
+    }
+  }, [isOpen, analyzeDuplicates]);
 
   const togglePhrase = (phraseId: string) => {
     const newSet = new Set(toDelete);

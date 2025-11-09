@@ -21,13 +21,7 @@ export const DataQualityModal: React.FC<DataQualityModalProps> = ({ isOpen, onCl
   const [processingResult, setProcessingResult] = React.useState<ProcessingResult | null>(null);
   const [useMorphology, setUseMorphology] = React.useState(true);
 
-  React.useEffect(() => {
-    if (isOpen && !analysis) {
-      runAnalysis();
-    }
-  }, [isOpen]);
-
-  const runAnalysis = async () => {
+  const runAnalysis = React.useCallback(async () => {
     setIsAnalyzing(true);
     setProcessingResult(null);
     
@@ -40,7 +34,13 @@ export const DataQualityModal: React.FC<DataQualityModalProps> = ({ isOpen, onCl
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [phrases, addLog]);
+
+  React.useEffect(() => {
+    if (isOpen && !analysis) {
+      runAnalysis();
+    }
+  }, [isOpen, analysis, runAnalysis]);
 
   const handleQuickCleanup = async () => {
     setIsProcessing(true);

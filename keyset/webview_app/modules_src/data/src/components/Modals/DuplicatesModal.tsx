@@ -18,7 +18,7 @@ export const DuplicatesModal: React.FC<{
   } | null>(null);
   const [isSearching, setIsSearching] = React.useState(false);
   
-  const handleSearch = () => {
+  const handleSearch = React.useCallback(() => {
     setIsSearching(true);
     
     // Имитация асинхронной работы для UI
@@ -39,9 +39,9 @@ export const DuplicatesModal: React.FC<{
       
       addLog('info', `Найдено дублей: ${totalDuplicates} (точных: ${exactGroups.length}, морфологических: ${morphGroups.length})`);
     }, 300);
-  };
+  }, [phrases, addLog]);
   
-  const handleRemoveDuplicates = (type: 'exact' | 'morphological' | 'all') => {
+  const handleRemoveDuplicates = React.useCallback((type: 'exact' | 'morphological' | 'all') => {
     if (!duplicates) return;
     
     const idsToDelete: string[] = [];
@@ -71,14 +71,14 @@ export const DuplicatesModal: React.FC<{
       // Обновить результаты поиска
       handleSearch();
     }
-  };
+  }, [duplicates, deletePhrases, addLog, handleSearch]);
   
   // Поиск при открытии модалки
   React.useEffect(() => {
     if (isOpen && !duplicates) {
       handleSearch();
     }
-  }, [isOpen]);
+  }, [isOpen, duplicates, handleSearch]);
   
   // Сброс при закрытии
   React.useEffect(() => {
