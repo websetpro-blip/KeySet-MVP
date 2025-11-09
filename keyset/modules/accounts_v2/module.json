@@ -1,0 +1,11 @@
+{
+  "id": "accounts_v2",
+  "title": "Аккаунты v2",
+  "icon": "🔑",
+  "description": "Управление аккаунтами с антидетектом и прокси",
+  "version": "2.0.0",
+  "entry": "modules.accounts_v2.widget:create_accounts_v2_tab",
+  "order": 10,
+  "dependencies": [],
+  "enabled": true
+}

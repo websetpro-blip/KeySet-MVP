@@ -1,0 +1,11 @@
+{
+  "id": "demo_ui_module",
+  "title": "Demo UI",
+  "icon": "🎨",
+  "description": "Demo module loaded from .ui file",
+  "version": "1.0.0",
+  "ui": "demo.ui",
+  "order": 999,
+  "dependencies": [],
+  "enabled": false
+}

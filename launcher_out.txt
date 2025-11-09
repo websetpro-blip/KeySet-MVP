@@ -1,0 +1,5 @@
+INFO:     127.0.0.1:63325 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63325 - "GET /assets/index-ByGD9LKy.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54275 - "GET /assets/index-2D3zJ5--.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56593 - "GET /vite.svg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56593 - "GET /assets/fa-solid-900-8GirhLYJ.woff2 HTTP/1.1" 200 OK

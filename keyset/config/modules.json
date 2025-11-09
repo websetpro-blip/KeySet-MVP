@@ -1,0 +1,4 @@
+{
+  "disabled": [],
+  "note": "Add module IDs to 'disabled' array to prevent them from loading without code changes"
+}

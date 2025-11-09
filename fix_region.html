@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fix Region in DB</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #output { margin-top: 20px; white-space: pre-wrap; background: #f0f0f0; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Fix Database Region Schema</h1>
+    <p>This will remove hardcoded region=225 and make it nullable.</p>
+    <button onclick="fixDB()">Fix Now!</button>
+    <div id="output"></div>
+
+    <script>
+async function fixDB() {
+    const out = document.getElementById('output');
+    out.textContent = '⏳ Reading backend/db.py...\n';
+    
+    try {
+        // Use PyWebView API
+        const data = await window.pywebview.api.read_file('backend/db.py');
+        let content = data.content;
+        
+        out.textContent += `✅ File read: ${content.length} bytes\n\n`;
+        
+        // Count occurrences
+        const pattern1 = 'region = Column(Integer, default=225)';
+        const pattern2 = 'region = Column(Integer, default=225, index=True)';
+        const count1 = (content.match(new RegExp(pattern1.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'), 'g')) || []).length;
+        const count2 = (content.match(new RegExp(pattern2.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'), 'g')) || []).length;
+        
+        out.textContent += `Found:\n`;
+        out.textContent += `  - ${count1} x '${pattern1}'\n`;
+        out.textContent += `  - ${count2} x '${pattern2}'\n\n`;
+        
+        // Replace
+        content = content.replaceAll(pattern1, 'region = Column(Integer, nullable=True)');
+        content = content.replaceAll(pattern2, 'region = Column(Integer, nullable=True, index=True)');
+        
+        out.textContent += '⏳ Saving modified file...\n';
+        
+        // Save using PyWebView API
+        const result = await window.pywebview.api.save_file('backend/db.py', content);
+        
+        out.textContent += `\n✅ SUCCESS!\n\nResult: ${JSON.stringify(result, null, 2)}\n\n`;
+        out.textContent += '✅ Database schema fixed! Region is now nullable.\n';
+        out.textContent += '⚠️  Please restart backend to apply changes.';
+    } catch (e) {
+        out.textContent += `\n❌ ERROR: ${e.message}\n${e.stack}`;
+    }
+}
+    </script>
+</body>
+</html>

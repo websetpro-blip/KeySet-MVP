@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyset v2.0 - Вкладка Аккаунты</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- TOP BAR with Tabs -->
+        <div class="top-bar">
+            <div class="main-tabs">
+                <button class="tab-button active" data-tab="accounts">
+                    <i class="fas fa-key"></i> Аккаунты
+                </button>
+                <button class="tab-button" data-tab="browser">
+                    <i class="fas fa-rocket"></i> Запуск браузера
+                </button>
+                <button class="tab-button" data-tab="consistency">
+                    <i class="fas fa-search"></i> Проверка консистентности
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Accounts Tab Content -->
+            <div id="tab-accounts" class="tab-content active">
+                <div class="content-header">
+                    <div class="content-actions">
+                        <button class="btn btn-primary" id="addAccountBtn">
+                            <i class="fas fa-plus"></i> Добавить
+                        </button>
+                        <button class="btn btn-secondary" id="editAccountBtn">
+                            <i class="fas fa-edit"></i> Изменить
+                        </button>
+                        <button class="btn btn-secondary" id="deleteAccountBtn">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
+                        <button class="btn btn-info" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                        <button class="btn btn-success" id="launchBtn">
+                            <i class="fas fa-play"></i> Запустить
+                        </button>
+                        <button class="btn btn-warning" id="proxyManagerBtn">
+                            <i class="fas fa-cogs"></i> Менеджер прокси
+                        </button>
+                    </div>
+                </div>
+
+                <div class="search-filter-bar">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Поиск по email..." id="searchInput">
+                    </div>
+                    <div class="filter-box">
+                        <select id="statusFilter">
+                            <option value="">Все статусы</option>
+                            <option value="active">✅ Активен</option>
+                            <option value="needs_login">⚠️ Требует входа</option>
+                            <option value="error">❌ Ошибка</option>
+                            <option value="working">🔄 В работе</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Быстрые фильтры -->
+                <div class="quick-filters" style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-small btn-secondary" onclick="filterByStatus('active')">Только активные</button>
+                    <button class="btn btn-small btn-secondary" onclick="filterByStatus('needs_login')">Требуют входа</button>
+                    <button class="btn btn-small btn-secondary" onclick="filterByStatus('error')">С ошибками</button>
+                    <button class="btn btn-small btn-secondary" onclick="filterByProxy()">С прокси</button>
+                    <button class="btn btn-small btn-secondary" onclick="clearAllFilters()">Очистить</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="accounts-table">
+                        <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAll">
+                                </th>
+                                <th>Аккаунт</th>
+                                <th>Статус</th>
+                                <th>Прокси</th>
+                                <th>Отпечаток</th>
+                                <th>Последний запуск</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountsTableBody">
+                            <!-- Данные будут загружены JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 3 блока в одну строку -->
+                <div class="info-blocks-row">
+                    <!-- Блок 1: Управление прокси -->
+                    <div class="info-block proxy-block"></div>
+                    
+                    <!-- Блок 2: Управление отпечатками -->
+                    <div class="info-block fingerprint-block"></div>
+                    
+                    <!-- Блок 3: Статистика и мониторинг -->
+                    <div class="info-block stats-block"></div>
+                </div>
+            </div>
+            
+            <!-- Browser Launch Tab Content -->
+            <div id="tab-browser" class="tab-content">
+                <div class="browser-launch-content">
+                    <div class="content-header">
+                        <h2><i class="fas fa-rocket"></i> Запуск браузера</h2>
+                        <p>Функция запуска браузера с настройками профиля</p>
+                    </div>
+                    
+                    <div class="launch-options">
+                        <div class="option-card">
+                            <h3><i class="fas fa-user"></i> Выбор аккаунта</h3>
+                            <label>Выберите аккаунт для запуска:</label>
+                            <select id="browserAccountSelect">
+                                <option value="">-- Выберите аккаунт --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="option-card">
+                            <h3><i class="fas fa-cog"></i> Параметры запуска</h3>
+                            <div class="form-group">
+                                <label>Режим запуска:</label>
+                                <select id="launchMode">
+                                    <option value="normal">Обычный</option>
+                                    <option value="headless">Фоновый</option>
+                                    <option value="incognito">Приватный</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Дополнительные параметры:</label>
+                                <textarea id="browserArgs" placeholder="Дополнительные аргументы для браузера..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="option-card launch-action">
+                            <button class="btn btn-success btn-large" id="startBrowserBtn">
+                                <i class="fas fa-play"></i> Запустить браузер
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Consistency Check Tab Content -->
+            <div id="tab-consistency" class="tab-content">
+                <div class="consistency-check-content">
+                    <div class="content-header">
+                        <h2><i class="fas fa-search"></i> Проверка консистентности</h2>
+                        <p>Проверка соответствия данных аккаунтов настройкам профиля</p>
+                    </div>
+                    
+                    <div class="check-options">
+                        <div class="option-card">
+                            <h3><i class="fas fa-tasks"></i> Параметры проверки</h3>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="checkAccounts" checked> Все аккаунты</label>
+                                <label><input type="checkbox" id="checkProxies"> Проверка прокси</label>
+                                <label><input type="checkbox" id="checkFingerprints"> Проверка отпечатков</label>
+                                <label><input type="checkbox" id="checkCookies"> Проверка cookies</label>
+                                <label><input type="checkbox" id="checkNetwork"> Проверка сетевых настроек</label>
+                            </div>
+                        </div>
+                        
+                        <div class="option-card">
+                            <h3><i class="fas fa-filter"></i> Фильтры</h3>
+                            <div class="form-group">
+                                <label>Фильтр по статусу:</label>
+                                <select id="consistencyStatusFilter">
+                                    <option value="">Все статусы</option>
+                                    <option value="active">Активные</option>
+                                    <option value="needs_login">Требуют входа</option>
+                                    <option value="error">С ошибками</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="option-card check-action">
+                            <button class="btn btn-info btn-large" id="startConsistencyCheck">
+                                <i class="fas fa-search"></i> Начать проверку
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="sidebar" id="settingsSidebar">
+            <div class="sidebar-header">
+                <h3>Настройки аккаунта</h3>
+                <button class="sidebar-close" id="sidebarClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="main">Основное</button>
+                <button class="tab-btn" data-tab="network">Сеть</button>
+                <button class="tab-btn" data-tab="fingerprint">Fingerprint</button>
+                <button class="tab-btn" data-tab="captcha">Капча</button>
+                <button class="tab-btn" data-tab="proxy">Менеджер прокси</button>
+            </div>
+
+            <!-- Tab Contents -->
+            <div class="sidebar-content">
+                <!-- Main Tab -->
+                <div id="tab-main" class="tab-content active">
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="accountEmail" placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль:</label>
+                        <input type="password" id="accountPassword" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label>Название профиля:</label>
+                        <input type="text" id="accountName" placeholder="Мой профиль">
+                    </div>
+                    <div class="form-group">
+                        <label>Примечания:</label>
+                        <textarea id="accountNotes" rows="3" placeholder="Дополнительная информация..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Network Tab -->
+                <div id="tab-network" class="tab-content">
+                    <div class="form-group">
+                        <label>Прокси:</label>
+                        <select id="proxySelect">
+                            <option value="">Без прокси</option>
+                        </select>
+                        <button class="btn btn-small" id="addProxyBtn">
+                            <i class="fas fa-plus"></i> Добавить прокси
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label>User-Agent:</label>
+                        <input type="text" id="userAgent" placeholder="Mozilla/5.0...">
+                    </div>
+                    <div class="form-group">
+                        <label>Язык:</label>
+                        <select id="language">
+                            <option value="ru-RU">Русский</option>
+                            <option value="en-US">English</option>
+                            <option value="de-DE">Deutsch</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Часовой пояс:</label>
+                        <select id="timezone">
+                            <option value="Europe/Moscow">Москва</option>
+                            <option value="Europe/London">Лондон</option>
+                            <option value="America/New_York">Нью-Йорк</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Fingerprint Tab -->
+                <div id="tab-fingerprint" class="tab-content">
+                    <div class="form-group">
+                        <label>Отпечаток браузера:</label>
+                        <select id="fingerprintProfile">
+                            <option value="">По умолчанию</option>
+                        </select>
+                        <button class="btn btn-small" id="addFingerprintBtn">
+                            <i class="fas fa-plus"></i> Добавить отпечаток
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label>WebGL:</label>
+                        <select id="webglMode">
+                            <option value="real">Реальный</option>
+                            <option value="spoof">Поддельный</option>
+                            <option value="disabled">Отключен</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Canvas:</label>
+                        <select id="canvasMode">
+                            <option value="real">Реальный</option>
+                            <option value="spoof">Поддельный</option>
+                            <option value="disabled">Отключен</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>AudioContext:</label>
+                        <select id="audioMode">
+                            <option value="real">Реальный</option>
+                            <option value="spoof">Поддельный</option>
+                            <option value="disabled">Отключен</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Captcha Tab -->
+                <div id="tab-captcha" class="tab-content">
+                    <div class="form-group">
+                        <label>Сервис решения капчи:</label>
+                        <select id="captchaService">
+                            <option value="2captcha">2captcha.com</option>
+                            <option value="anticaptcha">AntiCaptcha.com</option>
+                            <option value="deathbycaptcha">DeathByCaptcha.com</option>
+                            <option value="rucaptcha">RuCaptcha.com</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>API ключ:</label>
+                        <input type="password" id="captchaApiKey" placeholder="Ваш API ключ">
+                    </div>
+                    <div class="form-group">
+                        <label>Типы капчи для решения:</label>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" value="recaptcha_v2" checked> reCAPTCHA v2</label>
+                            <label><input type="checkbox" value="recaptcha_v3" checked> reCAPTCHA v3</label>
+                            <label><input type="checkbox" value="hcaptcha" checked> hCaptcha</label>
+                            <label><input type="checkbox" value="image"> Текстовая капча</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Proxy Manager Tab -->
+                <div id="tab-proxy" class="tab-content">
+                    <div class="proxy-stats">
+                        <div class="stat-item">
+                            <span class="stat-value" id="totalProxies">0</span>
+                            <span class="stat-label">Всего прокси</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="activeProxies">0</span>
+                            <span class="stat-label">Активных</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="proxyUsage">0</span>
+                            <span class="stat-label">В использовании</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button class="btn btn-primary btn-block" id="importProxyBtn">
+                            <i class="fas fa-download"></i> Импорт прокси
+                        </button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button class="btn btn-success btn-block" id="testAllProxiesBtn">
+                            <i class="fas fa-check"></i> Проверить все прокси
+                        </button>
+                    </div>
+                    
+                    <div class="proxy-list" id="proxyList">
+                        <!-- Список прокси будет загружен JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Large Launch Button -->
+            <div class="sidebar-footer">
+                <button class="btn btn-success btn-large" id="saveAccountBtn">
+                    <i class="fas fa-save"></i>
+                    <span>СОХРАНИТЬ</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Modal for Import Proxy -->
+    <div id="importProxyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Импорт прокси</h3>
+                <button class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Источник</label>
+                    <select id="proxySource">
+                        <option value="fineproxy">fineproxy.org</option>
+                        <option value="proxyelite">proxyelite.info</option>
+                        <option value="htmlweb">htmlweb.ru</option>
+                        <option value="advanced">advanced.name</option>
+                        <option value="custom">Свой URL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Тип прокси</label>
+                    <select id="proxyProtocol">
+                        <option value="http">HTTP</option>
+                        <option value="socks5">SOCKS5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Фильтр по стране</label>
+                    <select id="proxyCountry">
+                        <option value="">Любая</option>
+                        <option value="US">США</option>
+                        <option value="RU">Россия</option>
+                        <option value="DE">Германия</option>
+                        <option value="FR">Франция</option>
+                        <option value="GB">Великобритания</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Количество</label>
+                    <input type="number" id="proxyCount" value="10" min="1" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Проверять после импорта</label>
+                    <input type="checkbox" id="testAfterImport" checked>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelProxyImport">Отмена</button>
+                <button class="btn btn-primary" id="confirmProxyImport">Импортировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>

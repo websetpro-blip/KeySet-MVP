@@ -1,0 +1,2179 @@
+# Архитектура парсера KeySet
+
+## Executive Summary
+
+KeySet — это высокопроизводительная система парсинга частотностей Яндекс.Wordstat с поддержкой:
+- **Массового парсинга тысяч фраз** через 10 параллельных вкладок браузера
+- **Множественных аккаунтов** с автоматическим управлением куками и прокси
+- **Тысяч геолокаций** (4414 регионов) с автоматической подменой региона в API запросах
+- **CDP (Chrome DevTools Protocol)** для перехвата и модификации сетевых запросов
+- **Многопоточного выполнения** с одновременным запуском N аккаунтов
+
+Производительность: **~526 фраз/мин** при использовании 5 аккаунтов × 10 вкладок = 50 параллельных потоков.
+
+---
+
+## 1. Обзор системы
+
+### 1.1. Схема компонентов
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           UI Layer                                   │
+│  ┌────────────────┐      ┌──────────────────┐                       │
+│  │ ParsingTab     │ ───> │ Выбор регионов   │                       │
+│  │ (кнопка Частотка) │   │ Выбор аккаунтов  │                       │
+│  └────────┬───────┘      └──────────────────┘                       │
+└───────────┼──────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Worker Layer                                    │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ MultiParsingWorker (QThread)                                 │   │
+│  │  ├─> SingleParsingTask (Profile 1)                           │   │
+│  │  ├─> SingleParsingTask (Profile 2)                           │   │
+│  │  └─> SingleParsingTask (Profile N)                           │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└───────────┼──────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Parser Layer                                    │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ TurboParser (turbo_parser_improved.py)                       │   │
+│  │  ├─> Playwright launch_persistent_context                    │   │
+│  │  ├─> 10 вкладок × N регионов                                 │   │
+│  │  ├─> CDP перехват /wordstat/api/**                           │   │
+│  │  ├─> Патч region в POST payload                              │   │
+│  │  └─> Сбор результатов через response handler                 │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└───────────┼──────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Browser Layer                                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ Playwright (Chromium)                                        │   │
+│  │  ├─> Chrome profile (user-data-dir)                          │   │
+│  │  ├─> Прокси (http://user:pass@host:port)                     │   │
+│  │  ├─> Куки (БД + профиль + расшифровка v10/v11)               │   │
+│  │  └─> 10 параллельных вкладок                                 │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└───────────┼──────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Wordstat API                                     │
+│  POST https://wordstat.yandex.ru/wordstat/api/...                   │
+│  Request: {"searchValue": "купить iphone", "region": 1, "lr": 1}    │
+│  Response: {"totalValue": 1500}                                      │
+└───────────┼──────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Database Layer                                  │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ SQLite (data/keyset.db)                                      │   │
+│  │  ├─> accounts (куки, прокси, профили)                        │   │
+│  │  ├─> tasks (задачи парсинга)                                 │   │
+│  │  ├─> frequencies (результаты Wordstat)                       │   │
+│  │  └─> freq_results (частотности с метаданными)                │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. База данных
+
+### 2.1. Модели данных
+
+#### Account (аккаунт Яндекса)
+
+**Файл:** `core/models.py`
+
+```python
+class Account(Base):
+    __tablename__ = 'accounts'
+    
+    # Основные поля
+    id: int                                 # PRIMARY KEY
+    name: str                               # Email аккаунта (UNIQUE)
+    profile_path: str                       # Путь к Chrome профилю
+    
+    # Прокси
+    proxy: str | None                       # URI прокси (http://user:pass@host:port)
+    proxy_id: str | None                    # ID прокси из proxy store
+    proxy_strategy: str = 'fixed'           # Стратегия прокси: fixed/rotate
+    
+    # Авторизация
+    cookies: str | None                     # JSON с куками Яндекса
+    captcha_key: str | None                 # Ключ для антикапча сервиса
+    
+    # Статус
+    status: str = 'ok'                      # ok/cooldown/captcha/banned/disabled/error
+    captcha_tries: int = 0                  # Количество попыток решения капчи
+    
+    # Временные метки
+    created_at: datetime
+    updated_at: datetime
+    last_used_at: datetime | None           # Последнее использование
+    cooldown_until: datetime | None         # До какого времени в кулдауне
+    
+    # Заметки
+    notes: str | None                       # Произвольные заметки
+    
+    # Связи
+    tasks: list[Task]                       # Задачи этого аккаунта
+```
+
+**Ключевые особенности:**
+- **cookies** хранится в JSON формате с расшифрованными значениями
+- **profile_path** указывает на директорию Chrome user-data-dir
+- **proxy** может быть заполнен вручную или через proxy_store
+- **status** автоматически обновляется при детекции капчи/бана
+
+#### Task (задача парсинга)
+
+```python
+class Task(Base):
+    __tablename__ = 'tasks'
+    
+    id: int                                 # PRIMARY KEY
+    account_id: int | None                  # FOREIGN KEY -> accounts.id
+    
+    # Параметры
+    seed_file: str                          # Файл с фразами
+    region: int = 225                       # ID региона (lr параметр)
+    headless: bool = False                  # Headless режим браузера
+    dump_json: bool = False                 # Сохранять ли JSON лог
+    kind: str = 'frequency'                 # Тип задачи: frequency/forecast/etc
+    params: str | None                      # JSON с доп. параметрами
+    
+    # Статус
+    status: str = 'queued'                  # queued/running/completed/failed
+    
+    # Временные метки
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    
+    # Результаты
+    log_path: str | None                    # Путь к логу задачи
+    output_path: str | None                 # Путь к файлу с результатами
+    error_message: str | None               # Текст ошибки если status=failed
+    
+    # Связи
+    account: Account | None
+```
+
+#### FrequencyResult (результат парсинга частотности)
+
+```python
+class FrequencyResult(Base):
+    __tablename__ = 'freq_results'
+    
+    id: int                                 # PRIMARY KEY
+    
+    # Фраза и регион
+    mask: str                               # Фраза (ключевое слово)
+    region: int = 225                       # ID региона
+    
+    # Частотности
+    freq_total: int = 0                     # Широкая частотность (WS)
+    freq_quotes: int = 0                    # Частотность в кавычках ("WS")
+    freq_exact: int = 0                     # Точная частотность (!WS)
+    
+    # Метаданные
+    group: str | None                       # Группа для организации
+    status: str = 'queued'                  # queued/ok/error
+    attempts: int = 0                       # Количество попыток парсинга
+    error: str | None                       # Текст ошибки
+    
+    # Временные метки
+    created_at: datetime
+    updated_at: datetime
+    
+    # Ограничения
+    UNIQUE(mask, region)                    # Уникальность пары фраза+регион
+```
+
+#### frequencies (временная таблица для пайплайна)
+
+Создаётся в `core/db.py:ensure_schema()`:
+
+```sql
+CREATE TABLE frequencies (
+    phrase TEXT PRIMARY KEY,
+    freq INTEGER,
+    region INTEGER DEFAULT 225,
+    processed BOOLEAN DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+Используется для хранения промежуточных результатов парсинга перед обработкой.
+
+### 2.2. Связи между таблицами
+
+```
+Account (1) ──┬──> (N) Task
+              │
+              └──> cookies (JSON в поле)
+              └──> profile_path (Chrome profile)
+              └──> proxy (URI строка)
+
+Task (1) ────────> (1) Account
+
+FrequencyResult  (независимая таблица для агрегации)
+```
+
+### 2.3. Работа с куками
+
+**Хранение:**
+- В поле `Account.cookies` в формате JSON массива
+- Каждый cookie: `{name, value, domain, path, secure, httpOnly, expires, sameSite}`
+
+**Загрузка куков:**
+1. **Из БД** → `multiparser_manager.load_cookies_from_db_to_context()`
+2. **Из Chrome профиля** → `multiparser_manager.load_cookies_from_profile_to_context()`
+   - Копирует файл Cookies из profile_path
+   - Расшифровывает encrypted_value через DPAPI (Windows)
+   - Поддерживает v10/v11 куки (AES-GCM с master key из Local State)
+
+**Сохранение куков:**
+- После успешного парсинга: `multiparser_manager.save_cookies_to_db()`
+- Получает все cookies из `context.cookies()` и сохраняет в БД
+
+---
+
+## 3. Основной парсер (turbo_parser_improved.py)
+
+### 3.1. Точка входа
+
+**Функция для внешнего использования:**
+
+```python
+async def turbo_parser_10tabs(
+    account_name: str,             # Email аккаунта
+    profile_path: pathlib.Path,    # Путь к Chrome профилю
+    phrases: Iterable[str],        # Фразы для парсинга
+    *,
+    headless: bool = False,        # Headless режим
+    proxy_uri: str | None = None,  # Прокси URI
+    region_id: int = 225,          # ID региона (lr)
+) -> WordstatResult:               # Dict[str, int] с метаданными
+    """Запускает парсинг 10 вкладок для одного аккаунта"""
+```
+
+**Внутренняя реализация:**
+
+```python
+class TurboParser:
+    def __init__(
+        self,
+        account_name: str,
+        profile_path: pathlib.Path,
+        phrases: List[str],
+        headless: bool = False,
+        proxy_uri: str | None = None,
+    ):
+        self.account_name = account_name
+        self.profile_path = profile_path
+        self.phrases = phrases
+        self.headless = headless
+        self.proxy_uri = proxy_uri
+        self.region_id = 225
+        self.waiters: Dict[str, asyncio.Future[int]] = {}
+        self.results: Dict[str, Any] = {}
+        self.result_status: Dict[str, str] = {}
+        
+    async def run(self) -> WordstatResult:
+        """Главный метод запуска парсера"""
+```
+
+### 3.2. Константы и настройки
+
+```python
+# Количество вкладок (параллельных потоков на аккаунт)
+TABS_COUNT = 10
+
+# Размер батча фраз (не используется в текущей версии)
+BATCH_SIZE = 50
+
+# Задержки
+DELAY_BETWEEN_TABS = 0.3          # Секунд между открытием вкладок
+DELAY_BETWEEN_QUERIES = 0.5       # Секунд между запросами
+RESPONSE_TIMEOUT = 3000           # Таймаут ожидания API ответа (мс)
+RELOAD_DELAY_SECONDS = 0.5        # Пауза после reload
+
+# Таймауты загрузки Wordstat
+WORDSTAT_LOAD_TIMEOUT_MS = 30000  # 30 секунд
+WORDSTAT_MAX_ATTEMPTS = 3         # Попыток загрузки вкладки
+WORDSTAT_RETRY_DELAY_BASE = 1.5   # Базовая задержка (сек)
+
+# Retry для фраз
+PHRASE_MAX_ATTEMPTS = 3           # Попыток получить частотность
+API_MAX_WAIT_SECONDS = 5.0        # Максимальное ожидание API ответа
+API_POLL_INTERVAL = 0.2           # Интервал проверки ответа
+```
+
+### 3.3. Алгоритм работы
+
+#### Шаг 1: Инициализация браузера
+
+```python
+async with async_playwright() as p:
+    # Парсим прокси
+    proxy_config = get_proxy_config(self.proxy_uri)
+    # proxy_config = {
+    #     "server": "http://host:port",
+    #     "username": "user",
+    #     "password": "pass"
+    # }
+    
+    # Запускаем Chrome с persistent context
+    context: BrowserContext = await p.chromium.launch_persistent_context(
+        user_data_dir=str(self.profile_path),
+        headless=self.headless,
+        channel="chrome",               # Использовать установленный Chrome
+        proxy=proxy_config,
+        args=[
+            "--start-maximized",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=IsolateOrigins,site-per-process",
+            "--no-first-run",
+        ],
+        viewport=None,
+        locale="ru-RU",
+    )
+```
+
+**Ключевые моменты:**
+- `launch_persistent_context` использует существующий профиль Chrome
+- Куки и localStorage загружаются автоматически из профиля
+- Прокси передаётся через Playwright proxy API
+
+#### Шаг 2: Настройка CDP роутинга для патча региона
+
+```python
+async def _enforce_region(route, request):
+    """Перехватывает POST запросы к Wordstat API и патчит region"""
+    if request.method.upper() == "POST" and "/wordstat/api" in request.url:
+        post_data = request.post_data or ""
+        if post_data:
+            try:
+                payload = json.loads(post_data)
+                # Патчим region/lr в payload
+                mutated = self._inject_region_into_payload(payload)
+                if mutated is not None:
+                    # Отправляем изменённый payload
+                    await route.continue_(
+                        post_data=json.dumps(payload, ensure_ascii=False)
+                    )
+                    return
+            except Exception as exc:
+                pass
+    await route.continue_()
+
+# Регистрируем роут
+await context.route("**/wordstat/api/**", _enforce_region)
+```
+
+**Метод `_inject_region_into_payload`:**
+
+```python
+def _inject_region_into_payload(self, payload: Any) -> Dict[str, Any] | None:
+    """Подставляет region_id в JSON запроса к Wordstat API"""
+    if not isinstance(payload, dict):
+        return None
+    
+    region_id = int(self.region_id)
+    changed = False
+    
+    # Патчим все возможные варианты полей региона
+    for key in ("lr", "region", "regionId", "geoId"):
+        if key in payload and payload.get(key) != region_id:
+            payload[key] = region_id
+            changed = True
+    
+    # Патчим массивы регионов
+    for key in ("regions", "regionIds", "geoIds"):
+        if key in payload and isinstance(payload[key], list):
+            new_value = [region_id]
+            if payload[key] != new_value:
+                payload[key] = new_value
+                changed = True
+    
+    # Добавляем lr и region если отсутствуют
+    if "lr" not in payload:
+        payload["lr"] = region_id
+        changed = True
+    if "region" not in payload:
+        payload["region"] = region_id
+        changed = True
+    
+    return payload if changed else None
+```
+
+**Важно:** Это ключевой механизм работы с тысячами регионов! Парсер перехватывает все POST запросы к Wordstat API и **на лету подменяет** region/lr параметры на нужный `region_id`.
+
+#### Шаг 3: Загрузка и проверка куков
+
+```python
+page = context.pages[0] if context.pages else await context.new_page()
+cookies = await context.cookies()
+
+# Проверка наличия Яндекс куков
+if not has_yandex_cookie(cookies):
+    # 1. Пробуем загрузить из БД
+    loaded = await load_cookies_from_db_to_context(context, account_name, logger)
+    if loaded:
+        cookies = await context.cookies()
+    
+    # 2. Пробуем извлечь из локального профиля
+    if not has_yandex_cookie(cookies):
+        loaded = await load_cookies_from_profile_to_context(
+            context, account_name, profile_path, logger, persist=True
+        )
+        if loaded:
+            cookies = await context.cookies()
+
+# Переход на Wordstat
+await page.goto("https://wordstat.yandex.ru", wait_until="domcontentloaded")
+await page.wait_for_load_state("networkidle", timeout=10000)
+
+# Проверка авторизации
+auth_ok = await verify_authorization(page, account_name, logger)
+```
+
+**Функция `has_yandex_cookie`:**
+
+```python
+def has_yandex_cookie(cookies: List[Dict[str, Any]]) -> bool:
+    for cookie in cookies:
+        domain = cookie.get("domain", "") or ""
+        if "yandex" in domain:
+            return True
+    return False
+```
+
+#### Шаг 4: Открытие 10 вкладок
+
+```python
+pages: List[Page] = [page]  # Первая вкладка уже есть
+
+async def create_tab(index: int) -> Page:
+    page_new = await context.new_page()
+    return page_new
+
+# Создаём дополнительные 9 вкладок
+if TABS_COUNT > 1:
+    additional_pages = await asyncio.gather(
+        *[create_tab(i) for i in range(2, TABS_COUNT + 1)]
+    )
+    pages.extend(additional_pages)
+
+# Итого: 10 вкладок в списке pages
+```
+
+#### Шаг 5: Загрузка Wordstat на всех вкладках
+
+```python
+async def load_wordstat(page: Page, index: int) -> bool:
+    """Загружает Wordstat на вкладке с retry логикой"""
+    url = f"https://wordstat.yandex.ru/?region={self.region_id}"
+    
+    for attempt in range(1, WORDSTAT_MAX_ATTEMPTS + 1):
+        try:
+            await page.goto(
+                url,
+                wait_until="domcontentloaded",
+                timeout=WORDSTAT_LOAD_TIMEOUT_MS,
+            )
+            return True
+        except Exception as e:
+            if attempt < WORDSTAT_MAX_ATTEMPTS:
+                delay = WORDSTAT_RETRY_DELAY_BASE * attempt
+                await asyncio.sleep(delay)
+    return False
+
+# Загружаем параллельно на всех вкладках
+tasks = [load_wordstat(page, i) for i, page in enumerate(pages)]
+results_load = await asyncio.gather(*tasks)
+
+# Оставляем только успешно загруженные вкладки
+working_pages = [p for i, p in enumerate(pages) if results_load[i]]
+```
+
+#### Шаг 6: Настройка обработчика API ответов
+
+```python
+async def handle_response(response: Response):
+    """Обрабатывает ответы от Wordstat API"""
+    if "/wordstat/api" not in response.url or response.status != 200:
+        return
+    
+    try:
+        data = await response.json()
+        
+        # Извлекаем фразу из POST запроса
+        post_data = response.request.post_data
+        phrase = None
+        if post_data:
+            payload = json.loads(post_data)
+            phrase = payload.get("searchValue")
+        
+        # Извлекаем частотность из ответа
+        freq = (
+            data.get("totalValue")
+            or data.get("data", {}).get("totalValue")
+            or 0
+        )
+        
+        if phrase:
+            value = int(freq) if isinstance(freq, (int, float)) else 0
+            
+            # Резолвим Future если кто-то ждёт
+            waiter = self.waiters.get(phrase)
+            if waiter and not waiter.done():
+                waiter.set_result(value)
+            
+            # Сохраняем результат
+            self.results[phrase] = value
+            
+            # Логируем
+            log_parsing_debug({
+                'timestamp': datetime.now().isoformat(),
+                'account': self.account_name,
+                'phrase': phrase,
+                'status': 'api_response_received',
+                'ws': freq,
+            })
+    except Exception as e:
+        logger.error(f"Error handling response: {e}")
+
+# Регистрируем обработчик на всех вкладках
+for page in working_pages:
+    page.on("response", handle_response)
+```
+
+**Как работает сбор результатов:**
+1. Парсер создаёт `asyncio.Future` для каждой фразы
+2. Когда приходит ответ от API, `handle_response` резолвит Future
+3. Основной код ждёт Future с таймаутом `API_MAX_WAIT_SECONDS`
+
+#### Шаг 7: Распределение фраз по вкладкам и парсинг
+
+```python
+# Равномерно распределяем фразы по вкладкам
+tab_phrases_list = []
+for i in range(len(working_pages)):
+    start_idx = i * len(self.phrases) // len(working_pages)
+    end_idx = (i + 1) * len(self.phrases) // len(working_pages)
+    tab_phrases_list.append(self.phrases[start_idx:end_idx])
+
+# Функция парсинга для одной вкладки
+async def parse_tab(page: Page, tab_phrases: List[str], tab_index: int):
+    """Парсит фразы на одной вкладке последовательно"""
+    for phrase in tab_phrases:
+        phrase = phrase.strip()
+        if not phrase or phrase in self.results:
+            continue
+        
+        success = False
+        value = 0
+        
+        # Retry логика (до 3 попыток)
+        for attempt in range(1, PHRASE_MAX_ATTEMPTS + 1):
+            if attempt > 1:
+                # Перезагружаем страницу перед повторной попыткой
+                await page.reload(wait_until="domcontentloaded")
+                await asyncio.sleep(RELOAD_DELAY_SECONDS)
+            
+            # Очищаем предыдущие результаты
+            self.waiters.pop(phrase, None)
+            self.results.pop(phrase, None)
+            
+            # Переходим на Wordstat с фразой в URL
+            url = (
+                f"https://wordstat.yandex.ru/"
+                f"?words={quote(phrase)}&region={self.region_id}&lr={self.region_id}"
+            )
+            await page.goto(url, wait_until="domcontentloaded")
+            
+            # Создаём Future для ожидания результата
+            future: asyncio.Future[int] = asyncio.get_running_loop().create_future()
+            self.waiters[phrase] = future
+            
+            # Находим поле ввода и жмём Enter (на всякий случай)
+            try:
+                input_field = await page.wait_for_selector(
+                    "input[name='text'], input[placeholder]",
+                    timeout=1500
+                )
+                await input_field.fill(phrase)
+                await input_field.press("Enter")
+            except Exception:
+                pass  # Wordstat уже обработал words в URL
+            
+            # Ждём ответ от API через Future
+            try:
+                value = await asyncio.wait_for(future, timeout=API_MAX_WAIT_SECONDS)
+                success = True
+                break  # Получили результат, выходим из retry
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout for '{phrase}' (attempt {attempt})")
+            finally:
+                if not future.done():
+                    future.cancel()
+        
+        # Сохраняем финальный результат
+        self.results[phrase] = value
+        if success:
+            self.result_status[phrase] = "OK"
+        else:
+            self.result_status[phrase] = "NO_DATA"
+
+# Запускаем парсинг на всех вкладках параллельно
+parse_tasks = [
+    parse_tab(page, phrases, i)
+    for i, (page, phrases) in enumerate(zip(working_pages, tab_phrases_list))
+]
+await asyncio.gather(*parse_tasks)
+```
+
+**Важные моменты:**
+- Фразы распределяются **равномерно** по вкладкам
+- Каждая вкладка обрабатывает свои фразы **последовательно**
+- Между вкладками парсинг идёт **параллельно**
+- Если фраза не получена за 3 попытки → ставится 0 и статус "NO_DATA"
+
+#### Шаг 8: Сохранение куков и завершение
+
+```python
+# Сохраняем обновлённые куки в БД
+await save_cookies_to_db(self.account_name, context, self.logger)
+
+# Закрываем браузер
+await context.close()
+
+# Формируем результат с метаданными
+result = WordstatResult(self.results)
+result.meta = {
+    "statuses": dict(self.result_status),
+    "no_data": [phrase for phrase, status in self.result_status.items() 
+                if status == "NO_DATA"],
+}
+return result
+```
+
+**Формат результата:**
+
+```python
+{
+    "купить iphone": 1500,
+    "samsung s24": 2300,
+    "huawei p60": 0,  # NO_DATA
+}
+
+# + метаданные:
+result.meta = {
+    "statuses": {
+        "купить iphone": "OK",
+        "samsung s24": "OK",
+        "huawei p60": "NO_DATA"
+    },
+    "no_data": ["huawei p60"]
+}
+```
+
+---
+
+## 4. Работа с тысячами геолокаций
+
+### 4.1. Источник данных
+
+**Файл:** `data/regions.json` (4414 регионов)
+
+**Формат:**
+
+```json
+[
+  {"id": 225, "name": "Россия"},
+  {"id": 213, "name": "Москва"},
+  {"id": 2, "name": "Санкт-Петербург"},
+  {"id": 1095, "name": "Абакан"},
+  {"id": 20734, "name": "Абиджан"},
+  ...
+]
+```
+
+**Загрузка:** `core/regions.py`
+
+```python
+@dataclass(frozen=True)
+class Region:
+    id: int
+    name: str
+
+def load_regions() -> List[Region]:
+    """Загружает регионы из data/regions.json"""
+    if not DATA_FILE.exists():
+        return list(_DEFAULT_REGIONS)  # Дефолтные ~24 региона
+    
+    raw = json.loads(DATA_FILE.read_text(encoding='utf-8-sig'))
+    regions = []
+    for item in raw:
+        rid = int(item['id'])
+        name = str(item['name']).strip()
+        regions.append(Region(rid, name))
+    return regions
+```
+
+### 4.2. Использование в UI
+
+**Файл:** `app/tabs/parsing_tab.py`
+
+Пользователь выбирает регионы через диалог выбора:
+
+```python
+regions_map: Dict[int, str] = {
+    225: "Россия (225)",
+    213: "Москва (213)",
+    2: "Санкт-Петербург (2)",
+    # ... выбранные регионы
+}
+```
+
+### 4.3. Передача в парсер
+
+При запуске задачи создаётся `SingleParsingTask` с `region_plan`:
+
+```python
+class SingleParsingTask:
+    def __init__(
+        self,
+        region_plan: Sequence[Tuple[int, str]],  # [(225, "Россия"), (213, "Москва")]
+        ...
+    ):
+        self.region_plan = region_plan
+    
+    async def run(self):
+        """Запуск парсинга для всех регионов"""
+        for region_id, region_name in self.region_plan:
+            # Запускаем парсер с конкретным region_id
+            ws_results = await turbo_parser_10tabs(
+                account_name=self.profile_email,
+                profile_path=self.profile_path,
+                phrases=self.phrases,
+                region_id=region_id,  # <-- Передаём region_id
+                proxy_uri=self.proxy,
+            )
+            
+            # Сохраняем результаты с region_id
+            for phrase, freq in ws_results.items():
+                self.results.append({
+                    "phrase": phrase,
+                    "ws": freq,
+                    "region_id": region_id,
+                    "region_name": region_name,
+                })
+```
+
+### 4.4. Патч региона в API запросах
+
+**Ключевой момент:** Парсер **НЕ использует** параметр `?region=` в URL Wordstat напрямую для изменения региона.
+
+Вместо этого:
+
+1. Парсер открывает Wordstat с любым регионом (или без параметра)
+2. При отправке POST запроса к `/wordstat/api/` **перехватывает** запрос через CDP
+3. **Изменяет** поля `lr`, `region`, `regionId` в JSON payload на нужный `region_id`
+4. Отправляет **модифицированный** запрос
+
+**Преимущества:**
+- Не нужно перезагружать страницу при смене региона
+- Работает с **любым** регионом (даже если UI Wordstat его не поддерживает)
+- Полный контроль над параметрами запроса
+
+**Код патча:**
+
+```python
+async def _enforce_region(route, request):
+    if request.method.upper() == "POST" and "/wordstat/api" in request.url:
+        post_data = request.post_data or ""
+        if post_data:
+            payload = json.loads(post_data)
+            # Патчим все поля региона
+            payload["lr"] = self.region_id
+            payload["region"] = self.region_id
+            payload["regionId"] = self.region_id
+            # Отправляем изменённый payload
+            await route.continue_(post_data=json.dumps(payload))
+            return
+    await route.continue_()
+```
+
+### 4.5. Массовый парсинг по регионам
+
+Для парсинга **тысяч регионов** используется последовательный подход:
+
+```python
+for region_id, region_name in region_plan:
+    # 1. Устанавливаем region_id в парсере
+    parser.region_id = region_id
+    
+    # 2. Запускаем парсинг (откроет браузер, распарсит фразы)
+    results = await parser.run()
+    
+    # 3. Сохраняем результаты с region_id
+    save_results_with_region(results, region_id)
+    
+    # 4. Переходим к следующему региону
+```
+
+**Оптимизация для множественных регионов:**
+- Можно запустить **несколько аккаунтов параллельно**, каждый парсит свой набор регионов
+- Пример: 5 аккаунтов × 200 регионов = 1000 регионов распределяются между аккаунтами
+
+---
+
+## 5. Система аккаунтов
+
+### 5.1. Структура аккаунта
+
+**Полная структура из БД:**
+
+```python
+account = {
+    "id": 1,
+    "name": "test@yandex.ru",             # Email (уникальный идентификатор)
+    "profile_path": "C:/profiles/test",   # Путь к Chrome user-data-dir
+    "proxy": "http://user:pass@1.2.3.4:8080",
+    "proxy_id": "proxy_001",
+    "proxy_strategy": "fixed",            # fixed / rotate
+    "cookies": '[{"name":"Session_id",...}]',  # JSON массив
+    "captcha_key": "abc123...",           # Ключ для антикапчи
+    "status": "ok",                       # ok/cooldown/captcha/banned/disabled/error
+    "captcha_tries": 0,
+    "created_at": "2024-01-01 10:00:00",
+    "updated_at": "2024-01-15 15:30:00",
+    "last_used_at": "2024-01-15 15:30:00",
+    "cooldown_until": null,
+    "notes": "Основной аккаунт для парсинга"
+}
+```
+
+### 5.2. Lifecycle аккаунта
+
+```
+┌─────────────────┐
+│  1. Создание    │  Пользователь добавляет аккаунт в UI
+│  аккаунта       │  → Задаёт email, profile_path, proxy
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  2. Автологин   │  workers/auto_login_worker.py
+│  (опционально)  │  → Запускает Chrome
+└────────┬────────┘  → Логинится в Яндекс
+         │            → Сохраняет куки в profile_path
+         ▼
+┌─────────────────┐
+│  3. Извлечение  │  multiparser_manager._extract_profile_cookies()
+│  куков          │  → Копирует файл Cookies из profile
+└────────┬────────┘  → Расшифровывает encrypted_value
+         │            → Конвертирует в Playwright формат
+         ▼
+┌─────────────────┐
+│  4. Сохранение  │  multiparser_manager.save_cookies_to_db()
+│  в БД           │  → JSON массив в Account.cookies
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  5. Парсинг     │  turbo_parser_10tabs()
+│                 │  → load_cookies_from_db_to_context()
+└────────┬────────┘  → Запускает браузер с cookies
+         │            → Парсит фразы
+         ▼
+┌─────────────────┐
+│  6. Обновление  │  После парсинга:
+│  статуса        │  → Обновляет last_used_at
+└────────┬────────┘  → Сохраняет свежие куки
+         │            → Обновляет status (ok/captcha/banned)
+         ▼
+┌─────────────────┐
+│  7. Ротация     │  Если status=cooldown:
+│  (если нужно)   │  → Переключается на следующий аккаунт
+└─────────────────┘  → Ждёт cooldown_until
+```
+
+### 5.3. Автологин
+
+**Файлы:** `workers/auto_login_worker.py`, `workers/yandex_smart_login.py`
+
+**Процесс:**
+
+1. Запуск Chrome с профилем: `launch_persistent_context(user_data_dir=profile_path)`
+2. Переход на `passport.yandex.ru`
+3. Заполнение формы логина (email, password)
+4. Решение капчи (если есть)
+5. Проверка успешного входа (появление кнопки "Выход")
+6. Сохранение куков
+
+**Важно:** Автологин используется только при первой настройке аккаунта. В дальнейшем куки загружаются из БД.
+
+### 5.4. Работа с куками
+
+#### Формат куков в БД
+
+```json
+[
+  {
+    "name": "Session_id",
+    "value": "3:1234567890.5.0.1234567890:...",
+    "domain": ".yandex.ru",
+    "path": "/",
+    "secure": true,
+    "httpOnly": true,
+    "expires": 1735689600,
+    "sameSite": "None"
+  },
+  {
+    "name": "yandexuid",
+    "value": "1234567890123456789",
+    "domain": ".yandex.ru",
+    "path": "/",
+    "secure": false,
+    "httpOnly": false,
+    "expires": 1767225600,
+    "sameSite": "Lax"
+  }
+]
+```
+
+#### Извлечение куков из Chrome профиля
+
+**Файл:** `services/multiparser_manager.py`
+
+```python
+def _extract_profile_cookies(profile_path: Path, logger: Logger) -> List[Dict]:
+    """Извлекает куки из Chrome профиля на диске"""
+    
+    # 1. Ищем файл Cookies
+    candidates = [
+        profile_path / "Default" / "Network" / "Cookies",
+        profile_path / "Default" / "Cookies",
+        profile_path / "Cookies",
+    ]
+    source_path = next((p for p in candidates if p.exists()), None)
+    
+    # 2. Копируем файл (Chrome блокирует прямое чтение)
+    tmp_copy = tempfile.gettempdir() / f"cookies_{profile_path.name}.db"
+    shutil.copy2(source_path, tmp_copy)
+    
+    # 3. Читаем SQLite
+    conn = sqlite3.connect(tmp_copy)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT host_key, name, value, encrypted_value, path, expires_utc,
+               is_secure, is_httponly, samesite
+        FROM cookies
+    """)
+    rows = cursor.fetchall()
+    
+    # 4. Расшифровываем v10/v11 куки
+    master_key = _get_chrome_master_key(profile_path, logger)
+    
+    cookies = []
+    for row in rows:
+        host_key, name, value, encrypted_value, ... = row
+        
+        # Если value пустой, расшифровываем encrypted_value
+        if not value and encrypted_value:
+            value = _decrypt_chrome_value(encrypted_value, master_key)
+        
+        # Фильтруем только Яндекс куки
+        if "yandex" not in host_key:
+            continue
+        
+        cookies.append({
+            "name": name,
+            "value": value,
+            "domain": host_key,
+            "path": path_value,
+            "secure": bool(is_secure),
+            "httpOnly": bool(is_httponly),
+            "expires": expires_utc_to_unix(expires_utc),
+            "sameSite": sameSiteMap[same_site],
+        })
+    
+    tmp_copy.unlink()
+    return cookies
+```
+
+#### Расшифровка v10/v11 куков
+
+**Chrome хранит куки в зашифрованном виде:**
+
+- **v10** - AES-128-GCM шифрование с master key
+- **Master key** хранится в `Local State` (зашифрован через Windows DPAPI)
+
+```python
+def _get_chrome_master_key(profile_path: Path, logger: Logger) -> bytes:
+    """Извлекает master key из Local State"""
+    local_state_path = profile_path / "Local State"
+    data = json.loads(local_state_path.read_text())
+    
+    encrypted_key_b64 = data["os_crypt"]["encrypted_key"]
+    encrypted_key = base64.b64decode(encrypted_key_b64)
+    
+    # Убираем префикс "DPAPI"
+    if encrypted_key.startswith(b"DPAPI"):
+        encrypted_key = encrypted_key[5:]
+    
+    # Расшифровываем через Windows DPAPI
+    master_key = win32crypt.CryptUnprotectData(encrypted_key)[1]
+    return master_key
+
+def _decrypt_chrome_value(encrypted_value: bytes, master_key: bytes) -> str:
+    """Расшифровывает значение куки"""
+    if encrypted_value.startswith(b'v10') or encrypted_value.startswith(b'v11'):
+        # AES-GCM расшифровка
+        nonce = encrypted_value[3:15]          # 12 байт
+        ciphertext = encrypted_value[15:-16]   # Данные
+        tag = encrypted_value[-16:]            # Auth tag
+        
+        aesgcm = AESGCM(master_key)
+        decrypted = aesgcm.decrypt(nonce, ciphertext + tag, None)
+        return decrypted.decode("utf-8")
+    else:
+        # Старые куки (DPAPI)
+        decrypted = win32crypt.CryptUnprotectData(encrypted_value)[1]
+        return decrypted.decode("utf-8")
+```
+
+---
+
+## 6. Прокси
+
+### 6.1. Форматы прокси
+
+KeySet поддерживает несколько форматов:
+
+```python
+# С авторизацией
+"http://username:password@host:port"
+"socks5://username:password@host:port"
+
+# Без авторизации
+"http://host:port"
+"host:port"  # По умолчанию http
+
+# Примеры
+"http://user:pass@1.2.3.4:8080"
+"1.2.3.4:8080"
+```
+
+### 6.2. Парсинг прокси
+
+**Файл:** `turbo_parser_improved.py`
+
+```python
+def get_proxy_config(proxy_uri: str | None) -> dict | None:
+    """Конвертирует URI прокси в формат Playwright"""
+    if not proxy_uri:
+        return None
+    
+    # Используем модуль proxy.py если доступен
+    if PROXY_MODULE_AVAILABLE:
+        return proxy_to_playwright(proxy_uri)
+    
+    # Fallback парсер
+    return parse_proxy_fallback(proxy_uri)
+
+def parse_proxy_fallback(uri: str) -> dict | None:
+    """Запасной парсер прокси"""
+    # Паттерны
+    patterns = [
+        r'^(\w+)://(.+):(.+)@(.+):(\d+)$',  # http://user:pass@host:port
+        r'^(.+):(.+)@(.+):(\d+)$',          # user:pass@host:port
+        r'^(\w+)://(.+):(\d+)$',            # http://host:port
+        r'^(.+):(\d+)$',                    # host:port
+    ]
+    
+    for pattern in patterns:
+        match = re.match(pattern, uri)
+        if match:
+            groups = match.groups()
+            if len(groups) == 5:  # С авторизацией
+                scheme, username, password, host, port = groups
+                return {
+                    "server": f"{scheme}://{host}:{port}",
+                    "username": username,
+                    "password": password,
+                }
+            # ... остальные варианты
+    
+    return None
+```
+
+### 6.3. Передача прокси в Playwright
+
+```python
+proxy_config = get_proxy_config("http://user:pass@1.2.3.4:8080")
+# Результат:
+# {
+#     "server": "http://1.2.3.4:8080",
+#     "username": "user",
+#     "password": "pass"
+# }
+
+# Передаём в launch_persistent_context
+context = await p.chromium.launch_persistent_context(
+    user_data_dir=str(profile_path),
+    proxy=proxy_config,  # <-- Здесь
+    ...
+)
+```
+
+### 6.4. Ротация прокси
+
+**Стратегии:**
+
+1. **fixed** - Один прокси на аккаунт (по умолчанию)
+2. **rotate** - Ротация прокси из proxy_store
+
+```python
+# В Account модели:
+account.proxy_strategy = "fixed"   # Использовать account.proxy
+account.proxy_strategy = "rotate"  # Брать из proxy_store по proxy_id
+```
+
+**Proxy Store** (`core/proxy_store.py`) - хранилище прокси с пулом доступных прокси для ротации.
+
+---
+
+## 7. Chrome профили
+
+### 7.1. Структура профиля
+
+Chrome профиль (user-data-dir) содержит:
+
+```
+C:/Users/User/AppData/Local/KeySet/profiles/test@yandex.ru/
+├── Default/
+│   ├── Cookies              # База куков (SQLite)
+│   ├── Network/
+│   │   └── Cookies          # Альтернативное расположение
+│   ├── History              # История браузера
+│   ├── Local Storage/       # localStorage данные
+│   ├── Session Storage/     # sessionStorage
+│   └── Preferences          # Настройки Chrome
+├── Local State              # Master key для расшифровки v10 куков
+├── First Run                # Файл первого запуска
+└── ...
+```
+
+### 7.2. Создание нового профиля
+
+При добавлении аккаунта:
+
+```python
+# 1. Пользователь указывает путь профиля
+profile_path = Path("C:/profiles/test@yandex.ru")
+
+# 2. Создаётся директория (автоматически при первом запуске Chrome)
+profile_path.mkdir(parents=True, exist_ok=True)
+
+# 3. При первом запуске Playwright создаёт структуру
+context = await p.chromium.launch_persistent_context(
+    user_data_dir=str(profile_path),
+    ...
+)
+# Chrome автоматически создаст Default/, Local State, etc.
+```
+
+### 7.3. Связь профиль ↔ аккаунт
+
+```
+Account.profile_path → Путь к Chrome user-data-dir
+                     → В профиле хранятся куки, кэш, localStorage
+                     → Playwright загружает профиль автоматически
+```
+
+**Преимущества:**
+- Автоматическая авторизация (куки в профиле)
+- Сохранение состояния между запусками
+- Изоляция аккаунтов (каждый в своём профиле)
+
+### 7.4. Очистка/сброс профиля
+
+Для сброса аккаунта:
+
+```python
+# 1. Удалить куки из БД
+account.cookies = None
+session.commit()
+
+# 2. Удалить профиль с диска
+shutil.rmtree(account.profile_path)
+
+# 3. Пересоздать профиль
+profile_path.mkdir(parents=True, exist_ok=True)
+
+# 4. Запустить автологин заново
+```
+
+---
+
+## 8. Полная цепочка парсинга
+
+### 8.1. Запуск из UI
+
+**Компоненты:**
+- **Файл:** `app/tabs/parsing_tab.py`
+- **Класс:** `ParsingTab`
+- **Кнопка:** "🎯 Частотка"
+
+**Действия пользователя:**
+
+1. Открывает вкладку "Парсинг"
+2. Добавляет фразы в таблицу (вручную, из файла, из буфера)
+3. Выбирает режимы парсинга: `☑ WS` (широкая частотность)
+4. Выбирает регионы через диалог (1-N регионов)
+5. Выбирает аккаунты (1-N аккаунтов)
+6. Нажимает кнопку "🎯 Частотка"
+
+**Обработчик нажатия:**
+
+```python
+class ParsingTab:
+    def on_collect_frequency(self):
+        """Обработчик кнопки 'Частотка'"""
+        # 1. Валидация
+        phrases = self.get_selected_phrases()  # Выделенные фразы из таблицы
+        if not phrases:
+            QMessageBox.warning(self, "Ошибка", "Нет фраз для парсинга")
+            return
+        
+        selected_profiles = self.get_selected_accounts()  # Выбранные аккаунты
+        if not selected_profiles:
+            QMessageBox.warning(self, "Ошибка", "Выберите аккаунты")
+            return
+        
+        regions_map = self.get_selected_regions()  # {225: "Россия (225)", ...}
+        if not regions_map:
+            QMessageBox.warning(self, "Ошибка", "Выберите регионы")
+            return
+        
+        modes = self.get_selected_modes()  # ["ws", "qws", "bws"]
+        
+        # 2. Создание воркера
+        worker = MultiParsingWorker(
+            phrases=phrases,
+            modes=modes,
+            regions_map=regions_map,
+            geo_ids=list(regions_map.keys()),
+            selected_profiles=selected_profiles,
+            parent=self,
+        )
+        
+        # 3. Подключение сигналов
+        worker.log_signal.connect(self.append_log)
+        worker.progress_signal.connect(self.update_progress)
+        worker.task_completed.connect(self.on_task_completed)
+        worker.all_finished.connect(self.on_all_finished)
+        
+        # 4. Запуск воркера
+        worker.start()
+        self.current_worker = worker
+```
+
+### 8.2. Подготовка данных
+
+**Класс:** `MultiParsingWorker` (QThread)
+
+```python
+class MultiParsingWorker(QThread):
+    def __init__(
+        self,
+        phrases: List[str],
+        modes: Sequence[str],
+        regions_map: Dict[int, str],
+        geo_ids: List[int],
+        selected_profiles: List[dict],
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        self.phrases = phrases
+        self.modes = modes  # ["ws"]
+        self.region_plan = [(rid, label) for rid, label in regions_map.items()]
+        self.selected_profiles = selected_profiles
+        self.tasks: List[SingleParsingTask] = []
+        self._stop_flag = False
+```
+
+### 8.3. Создание задач
+
+```python
+def run(self):
+    """Метод выполнения воркера (в отдельном потоке)"""
+    self.log_signal.emit("=== НАЧАЛО ПАРСИНГА ===")
+    
+    # 1. Создаём задачу для каждого профиля
+    for profile_data in self.selected_profiles:
+        # Предварительно проверяем куки
+        cookie_count, error = _probe_profile_cookies(profile_data)
+        
+        task = SingleParsingTask(
+            profile_email=profile_data["name"],
+            profile_path=profile_data["profile_path"],
+            proxy=profile_data.get("proxy", ""),
+            phrases=self.phrases,
+            session_id=self.session_id,
+            region_plan=self.region_plan,
+            modes=self.modes,
+            cookie_count=cookie_count,
+        )
+        self.tasks.append(task)
+        
+        self.log_signal.emit(f"[{task.profile_email}] Задача создана")
+    
+    # 2. Запускаем все задачи параллельно
+    self._run_all_tasks_parallel()
+```
+
+### 8.4. Исполнение (параллельный запуск)
+
+```python
+def _run_all_tasks_parallel(self):
+    """Запускает все задачи параллельно через asyncio"""
+    
+    # Создаём новый event loop для этого потока
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        # Запускаем все задачи параллельно
+        async def run_all():
+            tasks_coros = [task.run() for task in self.tasks]
+            await asyncio.gather(*tasks_coros)
+        
+        loop.run_until_complete(run_all())
+        
+    finally:
+        loop.close()
+    
+    # Сигнал завершения
+    all_results = []
+    for task in self.tasks:
+        all_results.extend(task.results)
+    
+    self.all_finished.emit(all_results)
+```
+
+**Что происходит внутри:**
+
+```python
+# Для каждого аккаунта параллельно:
+asyncio.gather(
+    task1.run(),  # Аккаунт 1: test1@yandex.ru
+    task2.run(),  # Аккаунт 2: test2@yandex.ru
+    task3.run(),  # Аккаунт 3: test3@yandex.ru
+)
+
+# Каждый task.run() для каждого региона последовательно:
+for region_id, region_name in self.region_plan:
+    # Запускает turbo_parser_10tabs с 10 вкладками
+    results = await turbo_parser_10tabs(
+        account_name=self.profile_email,
+        profile_path=self.profile_path,
+        phrases=self.phrases,
+        region_id=region_id,
+        proxy_uri=self.proxy,
+    )
+    
+    # Внутри turbo_parser_10tabs:
+    # - Открывает 10 вкладок
+    # - Распределяет фразы по вкладкам
+    # - Парсит параллельно на всех вкладках
+```
+
+### 8.5. Сбор результатов
+
+**Формат результата из парсера:**
+
+```python
+ws_results = {
+    "купить iphone": 1500,
+    "samsung s24": 2300,
+    "huawei p60": 0,
+}
+
+# Конвертируем в записи с метаданными
+for phrase, freq in ws_results.items():
+    record = {
+        "phrase": phrase,
+        "ws": freq,            # Широкая частотность
+        "qws": 0,              # В кавычках (пока не поддерживается)
+        "bws": 0,              # Точная (пока не поддерживается)
+        "status": "OK",
+        "profile": "test@yandex.ru",
+        "region_id": 225,
+        "region_name": "Россия (225)",
+    }
+    task.results.append(record)
+```
+
+**Агрегация результатов:**
+
+```python
+# После завершения всех задач
+all_results = []
+for task in self.tasks:
+    all_results.extend(task.results)
+
+# all_results = [
+#     {"phrase": "купить iphone", "ws": 1500, "region_id": 225, "profile": "test1@yandex.ru"},
+#     {"phrase": "купить iphone", "ws": 1480, "region_id": 213, "profile": "test1@yandex.ru"},
+#     {"phrase": "купить iphone", "ws": 1520, "region_id": 225, "profile": "test2@yandex.ru"},
+#     ...
+# ]
+```
+
+### 8.6. Обновление UI
+
+**Сигналы воркера → UI:**
+
+```python
+# 1. Прогресс каждой задачи
+worker.progress_signal.connect(self.update_progress)
+
+def update_progress(self, progress_dict: dict):
+    """Обновление прогресс-баров для каждого профиля"""
+    for email, progress in progress_dict.items():
+        # Обновляем прогресс-бар для этого профиля
+        progress_bar = self.profile_progress_bars[email]
+        progress_bar.setValue(progress)
+
+# 2. Лог событий
+worker.log_signal.connect(self.append_log)
+
+def append_log(self, message: str):
+    """Добавление строки в журнал активности"""
+    self.log_widget.append(message)
+
+# 3. Завершение задачи
+worker.task_completed.connect(self.on_task_completed)
+
+def on_task_completed(self, email: str, results: List[dict]):
+    """Обработка результатов одного профиля"""
+    self.log_widget.append(f"[{email}] ✓ Завершён: {len(results)} записей")
+    
+    # Добавляем результаты в таблицу
+    for record in results:
+        self.add_result_to_table(record)
+
+# 4. Завершение всех задач
+worker.all_finished.connect(self.on_all_finished)
+
+def on_all_finished(self, all_results: List[dict]):
+    """Все задачи завершены"""
+    self.log_widget.append("=== ПАРСИНГ ЗАВЕРШЁН ===")
+    self.log_widget.append(f"Всего записей: {len(all_results)}")
+    
+    # Сохраняем в БД
+    self.save_results_to_db(all_results)
+    
+    # Экспорт в CSV/XLSX (опционально)
+    if self.auto_export_enabled:
+        self.export_results(all_results)
+```
+
+### 8.7. Сохранение в БД
+
+**Таблица frequencies:**
+
+```python
+def save_results_to_db(self, results: List[dict]):
+    """Сохранение результатов в БД"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        for record in results:
+            cursor.execute("""
+                INSERT INTO frequencies (phrase, freq, region, processed, created_at)
+                VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
+                ON CONFLICT(phrase) DO UPDATE SET
+                    freq = excluded.freq,
+                    region = excluded.region,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (
+                record["phrase"],
+                record["ws"],
+                record["region_id"],
+            ))
+        
+        conn.commit()
+```
+
+### 8.8. Обработка ошибок
+
+**Уровни обработки ошибок:**
+
+1. **Уровень вкладки** (parse_tab)
+   - Таймаут ожидания API → Retry (до 3 попыток)
+   - Ошибка навигации → Reload и retry
+   - Финальный фейл → Ставим 0 и статус "NO_DATA"
+
+2. **Уровень фразы** (parse_tab loop)
+   - Каждая фраза пробуется до 3 раз (PHRASE_MAX_ATTEMPTS)
+   - Между попытками reload страницы + RELOAD_DELAY_SECONDS
+
+3. **Уровень региона** (SingleParsingTask.run)
+   - Если парсинг региона фейлится → Логируем ошибку, переходим к следующему
+
+4. **Уровень аккаунта** (MultiParsingWorker)
+   - Если задача аккаунта падает → task.status = "error"
+   - Остальные аккаунты продолжают работать
+
+5. **Уровень браузера** (TurboParser.run)
+   - Ошибка запуска Chrome → Raise exception
+   - Ошибка загрузки Wordstat → Закрываем браузер, return {}
+
+**Логирование ошибок:**
+
+```python
+# Детальный JSONL лог в logs/parsing_debug.jsonl
+log_parsing_debug({
+    'timestamp': datetime.now().isoformat(),
+    'account': 'test@yandex.ru',
+    'tab': 3,
+    'phrase': 'купить iphone',
+    'status': 'timeout',
+    'message': 'API не ответил за 5.0s',
+    'elapsed': 5.123,
+})
+```
+
+---
+
+## 9. Sequence Diagram: Парсинг одной фразы
+
+```
+User                 UI (ParsingTab)     Worker (QThread)      Parser           Playwright        Wordstat API
+ │                         │                    │                 │                   │                  │
+ │ [Нажимает "Частотка"]   │                    │                 │                   │                  │
+ ├────────────────────────>│                    │                 │                   │                  │
+ │                         │                    │                 │                   │                  │
+ │                         │ [Создаёт Worker]   │                 │                   │                  │
+ │                         ├───────────────────>│                 │                   │                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │ [Создаёт Tasks] │                   │                  │
+ │                         │                    ├────────────────>│                   │                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │ [launch_persistent_context]         │
+ │                         │                    │                 ├──────────────────>│                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │                   │ [Open 10 tabs]   │
+ │                         │                    │                 │                   ├─────────────────>│
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │ [Setup CDP route] │                  │
+ │                         │                    │                 ├──────────────────>│                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │ [goto wordstat]   │                  │
+ │                         │                    │                 ├──────────────────>│                  │
+ │                         │                    │                 │                   │ [GET /]          │
+ │                         │                    │                 │                   ├─────────────────>│
+ │                         │                    │                 │                   │<─────────────────│
+ │                         │                    │                 │                   │  [HTML]          │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │ [Fill input + Enter]                 │
+ │                         │                    │                 ├──────────────────>│                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │                   │ [POST /api]      │
+ │                         │                    │                 │                   ├─────────────────>│
+ │                         │                    │                 │                   │ {searchValue: "phrase", region: 225}
+ │                         │                    │                 │<──────────────────┤                  │
+ │                         │                    │                 │ [CDP intercept]   │                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │                 │ [Patch region]    │                  │
+ │                         │                    │                 ├──────────────────>│                  │
+ │                         │                    │                 │                   │ [POST /api]      │
+ │                         │                    │                 │                   ├─────────────────>│
+ │                         │                    │                 │                   │ {searchValue: "phrase", region: 1, lr: 1}
+ │                         │                    │                 │                   │<─────────────────│
+ │                         │                    │                 │                   │ {totalValue: 1500}
+ │                         │                    │                 │<──────────────────┤                  │
+ │                         │                    │                 │ [handle_response] │                  │
+ │                         │                    │                 │                   │                  │
+ │                         │                    │<────────────────┤                   │                  │
+ │                         │                    │ [results]       │                   │                  │
+ │                         │<───────────────────┤                 │                   │                  │
+ │                         │ [update UI]        │                 │                   │                  │
+ │<────────────────────────┤                    │                 │                   │                  │
+ │                         │                    │                 │                   │                  │
+```
+
+---
+
+## 10. Data Flow: От фразы до результата
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                          INPUT                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐            │
+│  │   Phrases    │  │   Accounts   │  │   Regions    │            │
+│  │ ["phrase1",  │  │ ["test@ya",  │  │ [{225, "RU"},│            │
+│  │  "phrase2"]  │  │  "test2@ya"] │  │  {213, "MSK"}]            │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘            │
+└─────────┼──────────────────┼──────────────────┼────────────────────┘
+          │                  │                  │
+          └──────────┬───────┴──────────────────┘
+                     ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                      DISTRIBUTION                                  │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ MultiParsingWorker                                         │   │
+│  │  ├─> Task1: test@ya × [phrase1, phrase2] × [RU, MSK]      │   │
+│  │  └─> Task2: test2@ya × [phrase1, phrase2] × [RU, MSK]     │   │
+│  └────────────────────────────────────────────────────────────┘   │
+└───────────┼────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                      EXECUTION (parallel)                          │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ Task1 (async)                     Task2 (async)            │   │
+│  │  ├─> Region RU (225)               ├─> Region RU (225)     │   │
+│  │  │   ├─> turbo_parser_10tabs       │   ├─> turbo_parser_10tabs│
+│  │  │   │   ├─> Tab1: phrase1         │   │   ├─> Tab1: phrase1│  │
+│  │  │   │   └─> Tab2: phrase2         │   │   └─> Tab2: phrase2│  │
+│  │  │   └─> Results: {p1:1500, p2:2300}   │   └─> Results       │
+│  │  │                                 │   │                     │   │
+│  │  └─> Region MSK (213)              └─> Region MSK (213)     │   │
+│  │      ├─> turbo_parser_10tabs           ├─> turbo_parser_10tabs│
+│  │      └─> Results: {p1:1480, p2:2280}   └─> Results         │   │
+│  └────────────────────────────────────────────────────────────┘   │
+└───────────┼────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                      AGGREGATION                                   │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ all_results = []                                           │   │
+│  │   ├─> {phrase:"p1", ws:1500, region:225, account:"test"}  │   │
+│  │   ├─> {phrase:"p2", ws:2300, region:225, account:"test"}  │   │
+│  │   ├─> {phrase:"p1", ws:1480, region:213, account:"test"}  │   │
+│  │   ├─> {phrase:"p2", ws:2280, region:213, account:"test"}  │   │
+│  │   ├─> {phrase:"p1", ws:1520, region:225, account:"test2"} │   │
+│  │   └─> ... (8 записей для 2 фраз × 2 региона × 2 аккаунта)│   │
+│  └────────────────────────────────────────────────────────────┘   │
+└───────────┼────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                         OUTPUT                                     │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │ 1. UI Table - обновление строк                             │   │
+│  │    phrase1 │ WS: 1500 (RU) / 1480 (MSK) │ test@ya          │   │
+│  │                                                             │   │
+│  │ 2. Database - frequencies table                            │   │
+│  │    INSERT INTO frequencies (phrase, freq, region) ...      │   │
+│  │                                                             │   │
+│  │ 3. Export - CSV/XLSX/JSON                                  │   │
+│  │    phrase,ws,qws,bws,region,account                        │   │
+│  │    "phrase1",1500,0,0,225,"test@ya"                        │   │
+│  │                                                             │   │
+│  │ 4. Session Log - parsing_session.json                      │   │
+│  │    {"session_id":"...", "results":[...], "stats":{...}}    │   │
+│  └────────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 11. Конфигурация и настройки
+
+### 11.1. Константы парсера
+
+**Файл:** `turbo_parser_improved.py`
+
+```python
+# Параллелизм
+TABS_COUNT = 10                   # Вкладок на аккаунт
+
+# Таймауты
+WORDSTAT_LOAD_TIMEOUT_MS = 30000  # Загрузка Wordstat (мс)
+API_MAX_WAIT_SECONDS = 5.0        # Ожидание API ответа
+RESPONSE_TIMEOUT = 3000           # Таймаут response (мс)
+
+# Retry
+WORDSTAT_MAX_ATTEMPTS = 3         # Попыток загрузки вкладки
+PHRASE_MAX_ATTEMPTS = 3           # Попыток получить частотность
+
+# Задержки
+DELAY_BETWEEN_TABS = 0.3          # Секунд между открытием вкладок
+DELAY_BETWEEN_QUERIES = 0.5       # Секунд между запросами
+RELOAD_DELAY_SECONDS = 0.5        # Пауза после reload
+WORDSTAT_RETRY_DELAY_BASE = 1.5   # Базовая задержка retry
+```
+
+### 11.2. Логирование
+
+**Уровни:**
+- **INFO** - Основные события (запуск, завершение, этапы)
+- **DEBUG** - Детальная отладка (CDP, куки, payload)
+- **WARNING** - Таймауты, retry попытки
+- **ERROR** - Критические ошибки
+
+**Файлы логов:**
+
+```
+logs/
+├── turbo_parser.log           # Основной лог парсера
+├── multiparser.log            # Лог MultiParserManager
+├── parsing_debug.jsonl        # Детальный JSONL (каждая фраза)
+└── parsing_session.json       # Сессия парсинга с результатами
+```
+
+**Пример parsing_debug.jsonl:**
+
+```json
+{"timestamp":"2024-01-15T15:30:00","account":"test@ya","tab":1,"phrase":"купить iphone","status":"started","message":"Начало парсинга"}
+{"timestamp":"2024-01-15T15:30:02","account":"test@ya","tab":1,"phrase":"купить iphone","status":"api_response_received","ws":1500}
+{"timestamp":"2024-01-15T15:30:02","account":"test@ya","tab":1,"phrase":"купить iphone","status":"success","ws":1500,"elapsed":2.15}
+```
+
+### 11.3. База данных
+
+**Путь:** `data/keyset.db`
+
+**Конфигурация:** `core/db.py`
+
+```python
+DATABASE_URL = 'sqlite:///data/keyset.db'
+
+# WAL режим для лучшего concurrency
+PRAGMA journal_mode=WAL
+PRAGMA synchronous=NORMAL
+PRAGMA foreign_keys=ON
+```
+
+---
+
+## 12. Производительность и оптимизация
+
+### 12.1. Текущая производительность
+
+**Базовая конфигурация:**
+- 1 аккаунт × 10 вкладок = 10 параллельных потоков
+- Средняя скорость: ~50-60 фраз/мин
+
+**Масштабированная конфигурация:**
+- 5 аккаунтов × 10 вкладок = 50 параллельных потоков
+- Средняя скорость: **~526 фраз/мин** (по замерам)
+
+### 12.2. Узкие места
+
+1. **API_MAX_WAIT_SECONDS = 5.0** - Таймаут ожидания API
+   - Если API долго отвечает → фраза ждёт 5 секунд × 3 попытки = 15 сек
+   - Оптимизация: Уменьшить до 3.0 секунд
+
+2. **Retry логика** - 3 попытки на фразу
+   - При таймауте: reload + RELOAD_DELAY_SECONDS = лишние ~2 секунды на попытку
+   - Оптимизация: Убрать reload, использовать только retry
+
+3. **Последовательная обработка фраз в вкладке**
+   - Каждая вкладка обрабатывает фразы последовательно
+   - Не влияет на производительность (параллелизм через вкладки)
+
+4. **Регионы обрабатываются последовательно**
+   - Если 100 регионов → 100 запусков парсера
+   - Оптимизация: Batch regions (парсить несколько регионов за один запуск)
+
+### 12.3. Рекомендации по масштабированию
+
+**Для парсинга тысяч фраз:**
+
+```python
+# Оптимальная конфигурация
+accounts = 10              # Аккаунтов
+tabs_per_account = 10      # Вкладок
+phrases = 10000            # Фраз
+
+# Распределение
+phrases_per_account = 10000 / 10 = 1000 фраз
+phrases_per_tab = 1000 / 10 = 100 фраз
+
+# Время
+avg_time_per_phrase = 0.15 секунд  # С учётом параллелизма
+total_time = 100 × 0.15 = 15 минут на аккаунт
+
+# Результат: 10000 фраз за ~15 минут
+```
+
+**Для парсинга тысяч регионов:**
+
+```python
+# Стратегия: Распределить регионы между аккаунтами
+accounts = 10
+regions = 1000
+
+regions_per_account = 1000 / 10 = 100 регионов
+phrases = 100
+
+# Каждый аккаунт парсит свои 100 регионов
+# Время на регион: ~2 минуты (100 фраз × 10 вкладок)
+# Общее время: 100 × 2 = 200 минут = 3.3 часа на аккаунт
+
+# С 10 аккаунтами параллельно:
+# 1000 регионов × 100 фраз = 100,000 комбинаций за ~3.3 часа
+```
+
+---
+
+## 13. Примеры использования
+
+### 13.1. Программный запуск парсера
+
+**Пример 1: Простой запуск**
+
+```python
+import asyncio
+from pathlib import Path
+from turbo_parser_improved import turbo_parser_10tabs
+
+async def main():
+    results = await turbo_parser_10tabs(
+        account_name="test@yandex.ru",
+        profile_path=Path("C:/profiles/test"),
+        phrases=["купить iphone", "samsung s24"],
+        region_id=1,  # Москва
+        proxy_uri="http://user:pass@1.2.3.4:8080",
+        headless=False,
+    )
+    
+    print(results)
+    # {"купить iphone": 1500, "samsung s24": 2300}
+    
+    # Метаданные
+    print(results.meta)
+    # {"statuses": {"купить iphone": "OK", ...}}
+
+asyncio.run(main())
+```
+
+**Пример 2: Парсинг множества регионов**
+
+```python
+from core.regions import load_regions
+
+regions = load_regions()
+phrases = ["купить iphone", "samsung s24"]
+profile_path = Path("C:/profiles/test")
+
+all_results = []
+
+for region in regions[:10]:  # Первые 10 регионов
+    print(f"Парсинг региона: {region.name} ({region.id})")
+    
+    results = await turbo_parser_10tabs(
+        account_name="test@yandex.ru",
+        profile_path=profile_path,
+        phrases=phrases,
+        region_id=region.id,
+        headless=True,
+    )
+    
+    # Сохраняем с регионом
+    for phrase, freq in results.items():
+        all_results.append({
+            "phrase": phrase,
+            "freq": freq,
+            "region_id": region.id,
+            "region_name": region.name,
+        })
+
+# Сохраняем в CSV
+import csv
+with open("results.csv", "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["phrase", "freq", "region_id", "region_name"])
+    writer.writeheader()
+    writer.writerows(all_results)
+```
+
+**Пример 3: Параллельный запуск нескольких аккаунтов**
+
+```python
+accounts = [
+    {"name": "test1@yandex.ru", "profile": Path("C:/profiles/test1"), "proxy": None},
+    {"name": "test2@yandex.ru", "profile": Path("C:/profiles/test2"), "proxy": "http://..."},
+]
+
+phrases = ["купить iphone", "samsung s24"]
+
+async def parse_account(account):
+    return await turbo_parser_10tabs(
+        account_name=account["name"],
+        profile_path=account["profile"],
+        phrases=phrases,
+        region_id=225,
+        proxy_uri=account["proxy"],
+    )
+
+# Запускаем параллельно
+results = await asyncio.gather(*[parse_account(acc) for acc in accounts])
+
+# Агрегируем результаты
+for i, account in enumerate(accounts):
+    print(f"{account['name']}: {len(results[i])} фраз")
+```
+
+### 13.2. Использование через UI
+
+**Сценарий 1: Парсинг 1000 фраз в 3 регионах**
+
+1. Открываем вкладку "Парсинг"
+2. Импортируем фразы: `Файл → Открыть` → выбираем TXT/CSV с 1000 фразами
+3. Выбираем режимы: `☑ WS`
+4. Выбираем регионы: Нажимаем "Выбор регионов" → Выбираем "Россия", "Москва", "СПб"
+5. Выбираем аккаунты: `☑ test1@yandex.ru` `☑ test2@yandex.ru`
+6. Нажимаем "🎯 Частотка"
+7. Следим за прогрессом в журнале активности
+8. После завершения: `Файл → Экспорт → CSV`
+
+**Сценарий 2: Массовый парсинг по всем регионам**
+
+1. Подготовить список нужных регионов (например, 100 городов России)
+2. Создать JSON файл с регионами:
+   ```json
+   [
+     {"id": 225, "name": "Россия"},
+     {"id": 213, "name": "Москва"},
+     ...
+   ]
+   ```
+3. В UI: "Выбор регионов" → "Импорт из файла" → выбрать JSON
+4. Выбрать все доступные аккаунты для максимальной скорости
+5. Запустить парсинг
+6. Результат: Таблица с фразами × регионы × аккаунты
+
+---
+
+## 14. FAQ
+
+### Q: Как работает патч региона?
+
+**A:** Парсер использует CDP (Chrome DevTools Protocol) для перехвата POST запросов к Wordstat API и модификации JSON payload на лету:
+
+1. Регистрируется route handler: `context.route("**/wordstat/api/**", _enforce_region)`
+2. При отправке POST запроса handler вызывается
+3. Извлекается payload: `json.loads(request.post_data)`
+4. Патчатся поля `lr`, `region`, `regionId`: `payload["lr"] = region_id`
+5. Отправляется модифицированный запрос: `route.continue_(post_data=json.dumps(payload))`
+
+Это позволяет парсить **любой регион** без изменения URL или UI Wordstat.
+
+### Q: Можно ли парсить 1000 регионов одновременно?
+
+**A:** Технически возможно, но не рекомендуется:
+
+**Последовательный подход (рекомендуется):**
+- Для каждого региона запускается отдельная сессия парсера
+- 1000 регионов = 1000 запусков браузера
+- С 10 аккаунтами параллельно: 100 регионов на аккаунт
+
+**Параллельный подход (экспериментально):**
+- Модифицировать парсер для смены региона без перезапуска
+- Использовать batch API запросы с разными регионами
+- Требует доработки кода
+
+### Q: Где хранятся куки?
+
+**A:** В трёх местах:
+
+1. **Chrome профиль** (profile_path)
+   - Файл: `{profile_path}/Default/Cookies` (SQLite база)
+   - Формат: encrypted_value (v10/v11 шифрование)
+   - Расшифровка через master key из `Local State`
+
+2. **База данных KeySet** (data/keyset.db)
+   - Таблица: `accounts`
+   - Поле: `cookies` (TEXT)
+   - Формат: JSON массив с расшифрованными куками
+
+3. **Память Playwright context**
+   - После `launch_persistent_context()` куки загружаются в context
+   - Доступ: `await context.cookies()`
+   - Добавление: `await context.add_cookies([...])`
+
+### Q: Как обрабатываются дубликаты фраз?
+
+**A:** При загрузке фраз в парсер:
+
+```python
+def load_phrases(path: Path) -> List[str]:
+    phrases = []
+    first_occurrence = {}
+    duplicates = {}
+    
+    for line_number, phrase in enumerate(file):
+        if phrase in first_occurrence:
+            duplicates[phrase] = [first_occurrence[phrase], line_number]
+        else:
+            first_occurrence[phrase] = line_number
+        phrases.append(phrase)  # Дубликаты НЕ удаляются
+    
+    # Логируется предупреждение
+    logger.warning(f"Found {len(duplicates)} duplicates")
+    
+    return phrases
+```
+
+При парсинге:
+- Проверка `if phrase in self.results: continue`
+- Дубликаты пропускаются, парсятся только уникальные
+
+### Q: Что делать если аккаунт забанен?
+
+**A:** Система автоматически детектирует бан:
+
+1. При парсинге проверяется авторизация: `verify_authorization()`
+2. Если редирект на `passport.yandex.ru/auth` → не авторизован
+3. Статус обновляется: `account.status = 'banned'`
+4. Аккаунт пропускается в следующих запусках
+
+**Ручные действия:**
+1. Открыть Chrome с профилем: `chrome --user-data-dir="C:/profiles/test"`
+2. Проверить статус аккаунта на yandex.ru
+3. Если бан → Создать новый аккаунт
+4. Если временная блокировка → Установить `cooldown_until` в БД
+
+### Q: Как ускорить парсинг?
+
+**A:** Несколько способов:
+
+1. **Увеличить количество аккаунтов**
+   - 10 аккаунтов = 10× скорость
+   - Каждый аккаунт работает независимо
+
+2. **Уменьшить таймауты**
+   ```python
+   API_MAX_WAIT_SECONDS = 3.0  # Вместо 5.0
+   PHRASE_MAX_ATTEMPTS = 2     # Вместо 3
+   ```
+
+3. **Увеличить TABS_COUNT**
+   ```python
+   TABS_COUNT = 15  # Вместо 10 (экспериментально)
+   ```
+   ⚠️ Может привести к перегрузке браузера
+
+4. **Использовать headless режим**
+   ```python
+   headless=True  # Экономит ~10-20% ресурсов
+   ```
+
+5. **Оптимизировать распределение фраз**
+   - Короткие фразы отдельно (парсятся быстрее)
+   - Длинные фразы отдельно
+
+### Q: Как парсер обходит детекцию автоматизации?
+
+**A:** Используется несколько техник:
+
+1. **Persistent context с реальным профилем**
+   - Playwright использует настоящий Chrome профиль
+   - Сохраняются fingerprint, canvas, webgl
+
+2. **Отключение automation флагов**
+   ```python
+   args=[
+       "--disable-blink-features=AutomationControlled",
+       "--disable-features=IsolateOrigins,site-per-process",
+   ]
+   ```
+
+3. **Locale и viewport**
+   ```python
+   locale="ru-RU",
+   viewport=None,  # Использует реальный viewport
+   ```
+
+4. **Прокси**
+   - Разные IP для разных аккаунтов
+   - Ротация прокси при необходимости
+
+5. **Естественные задержки**
+   - DELAY_BETWEEN_TABS, DELAY_BETWEEN_QUERIES
+   - Имитация человеческого поведения
+
+---
+
+## 15. Roadmap улучшений
+
+### Краткосрочные улучшения (1-2 недели)
+
+- [ ] **Оптимизация retry логики**
+  - Убрать reload перед retry (экономия ~1-2 секунды)
+  - Уменьшить API_MAX_WAIT_SECONDS до 3.0
+
+- [ ] **Batch region парсинг**
+  - Парсить несколько регионов за один запуск браузера
+  - Менять region через CDP без reload
+
+- [ ] **Улучшенная обработка капчи**
+  - Интеграция с RuCaptcha/2Captcha
+  - Автоматическое решение простых капч
+
+### Среднесрочные улучшения (1-2 месяца)
+
+- [ ] **Кэширование частот**
+  - Хранить результаты фраза+регион в БД
+  - Не парсить повторно если данные свежие (<7 дней)
+
+- [ ] **Режимы QWS и BWS**
+  - Добавить парсинг в кавычках ("phrase")
+  - Добавить парсинг с восклицательным знаком (!phrase)
+
+- [ ] **Продвинутая ротация аккаунтов**
+  - Автоматический выбор наименее загруженного аккаунта
+  - Балансировка нагрузки между аккаунтами
+
+- [ ] **Мониторинг и алерты**
+  - Dashboard с метриками (фраз/мин, успешность, ошибки)
+  - Email/Telegram уведомления о завершении/ошибках
+
+### Долгосрочные улучшения (3-6 месяцев)
+
+- [ ] **Распределённая архитектура**
+  - Разделение на master и worker узлы
+  - Парсинг на нескольких машинах одновременно
+
+- [ ] **ML оптимизация**
+  - Предсказание времени парсинга фразы
+  - Интеллектуальное распределение фраз по вкладкам
+
+- [ ] **API сервер**
+  - REST API для запуска парсинга
+  - WebSocket для реального времени прогресса
+
+---
+
+## Заключение
+
+KeySet представляет собой мощную и гибкую систему парсинга Яндекс.Wordstat с уникальной архитектурой:
+
+**Ключевые преимущества:**
+- ✅ **Массовый парсинг** - 10 параллельных вкладок × N аккаунтов
+- ✅ **Тысячи регионов** - поддержка 4414 геолокаций через CDP патч
+- ✅ **Надёжность** - retry логика, обработка ошибок, сохранение куков
+- ✅ **Производительность** - до 526 фраз/мин с 5 аккаунтами
+- ✅ **Гибкость** - программный API + UI интерфейс
+
+Система готова к масштабированию и может обрабатывать миллионы комбинаций фраз×регионов с правильной конфигурацией аккаунтов и прокси.

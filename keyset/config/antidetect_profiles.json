@@ -1,0 +1,41 @@
+{
+  "windows_chrome": {
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "timezone": "Europe/Moscow",
+    "languages": ["ru-RU", "ru", "en-US", "en"],
+    "screen": {"width": 1920, "height": 1080, "scale": 1.0},
+    "platform": "Win32",
+    "webgl_vendor": "Google Inc.",
+    "webgl_renderer": "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0 drv_31.0.15.4176)",
+    "canvas": true,
+    "webgl": true,
+    "audio": true,
+    "geo": {"lat": 55.7558, "lon": 37.6173, "accuracy": 100}
+  },
+  "macos_safari": {
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+    "timezone": "Europe/Moscow", 
+    "languages": ["ru-RU", "ru", "en-US", "en"],
+    "screen": {"width": 1440, "height": 900, "scale": 2.0},
+    "platform": "MacIntel",
+    "webgl_vendor": "Apple Inc.",
+    "webgl_renderer": "Apple GPU",
+    "canvas": true,
+    "webgl": true,
+    "audio": true,
+    "geo": {"lat": 55.7558, "lon": 37.6173, "accuracy": 100}
+  },
+  "android_mobile": {
+    "user_agent": "Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    "timezone": "Europe/Moscow",
+    "languages": ["ru-RU", "ru", "en-US", "en"],
+    "screen": {"width": 360, "height": 780, "scale": 3.0},
+    "platform": "Linux armv8l",
+    "webgl_vendor": "Qualcomm",
+    "webgl_renderer": "Adreno 730",
+    "canvas": true,
+    "webgl": true,
+    "audio": true,
+    "geo": {"lat": 55.7558, "lon": 37.6173, "accuracy": 100}
+  }
+}

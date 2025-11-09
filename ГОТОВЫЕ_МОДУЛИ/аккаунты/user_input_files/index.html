@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyset v2.0 - Вкладка Аккаунты</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- TOP BAR -->
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <h1><i class="fas fa-key"></i> Аккаунты</h1>
+            </div>
+            <div class="top-bar-right">
+                <button class="btn btn-primary" id="addAccountBtn">
+                    <i class="fas fa-plus"></i> Добавить
+                </button>
+                <button class="btn btn-secondary" id="editAccountBtn">
+                    <i class="fas fa-edit"></i> Изменить
+                </button>
+                <button class="btn btn-secondary" id="deleteAccountBtn">
+                    <i class="fas fa-trash"></i> Удалить
+                </button>
+                <button class="btn btn-info" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i> Обновить
+                </button>
+                <button class="btn btn-success" id="launchBtn">
+                    <i class="fas fa-play"></i> Запустить
+                </button>
+                <button class="btn btn-warning" id="proxyManagerBtn">
+                    <i class="fas fa-cogs"></i> Менеджер прокси
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Accounts Table (70%) -->
+            <div class="table-section">
+                <div class="search-filter-bar">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Поиск по email..." id="searchInput">
+                    </div>
+                    <div class="filter-box">
+                        <select id="statusFilter">
+                            <option value="">Все статусы</option>
+                            <option value="active">✅ Активен</option>
+                            <option value="needs_login">⚠️ Требует входа</option>
+                            <option value="error">❌ Ошибка</option>
+                            <option value="working">🔄 В работе</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Быстрые фильтры -->
+                <div class="quick-filters" style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-small btn-secondary" onclick="filterByStatus('active')">Только активные</button>
+                    <button class="btn btn-small btn-secondary" onclick="filterByStatus('needs_login')">Требуют входа</button>
+                    <button class="btn btn-small btn-secondary" onclick="filterByStatus('error')">С ошибками</button>
+                    <button class="btn btn-small btn-secondary" onclick="filterByProxy()">С прокси</button>
+                    <button class="btn btn-small btn-secondary" onclick="clearAllFilters()">Очистить</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="accounts-table">
+                        <thead>
+                            <tr>
+                                <th width="50">
+                                    <input type="checkbox" id="selectAll">
+                                </th>
+                                <th>Аккаунт</th>
+                                <th>Статус</th>
+                                <th>Прокси</th>
+                                <th>Отпечаток</th>
+                                <th>Последний запуск</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountsTableBody">
+                            <!-- Данные будут загружены JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 3 блока в одну строку -->
+                <div class="info-blocks-row">
+                    <!-- Блок 1: Управление прокси -->
+                    <div class="info-block proxy-block">
+                        <div class="block-header">
+                            <h3><i class="fas fa-globe"></i> Управление прокси</h3>
+                            <div class="proxy-summary">
+                                <span class="proxy-count active">23 активных</span>
+                                <span class="proxy-count dead">5 мёртвых</span>
+                            </div>
+                        </div>
+                        <div class="proxy-list">
+                            <div class="proxy-item">
+                                <span class="proxy-ip">185.176.26.202:80</span>
+                                <span class="proxy-status working">✅ 312ms</span>
+                                <span class="proxy-country">RU</span>
+                            </div>
+                            <div class="proxy-item">
+                                <span class="proxy-ip">45.131.208.99:8000</span>
+                                <span class="proxy-status working">✅ 480ms</span>
+                                <span class="proxy-country">RU</span>
+                            </div>
+                            <div class="proxy-item">
+                                <span class="proxy-ip">89.116.250.12:8080</span>
+                                <span class="proxy-status error">❌ timeout</span>
+                                <span class="proxy-country">KZ</span>
+                            </div>
+                        </div>
+                        <div class="block-actions">
+                            <button class="btn btn-info btn-small" id="importProxyBlockBtn">
+                                <i class="fas fa-download"></i> Импорт
+                            </button>
+                            <button class="btn btn-warning btn-small" id="testAllProxiesBtn">
+                                <i class="fas fa-vial"></i> Тест всех
+                            </button>
+                            <button class="btn btn-secondary btn-small" id="clearDeadProxiesBtn">
+                                <i class="fas fa-trash"></i> Очистить
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Блок 2: Быстрые действия -->
+                    <div class="info-block actions-block">
+                        <div class="block-header">
+                            <h3><i class="fas fa-bolt"></i> Быстрые действия</h3>
+                        </div>
+                        <div class="actions-list">
+                            <button class="action-btn" id="refreshAllStatusesBtn">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>Обновить все статусы</span>
+                            </button>
+                            <button class="action-btn" id="massLaunchBtn">
+                                <i class="fas fa-play-circle"></i>
+                                <span>Массовый запуск (5 браузеров)</span>
+                            </button>
+                            <button class="action-btn" id="checkAuthBtn">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Проверить авторизацию</span>
+                            </button>
+                            <button class="action-btn" id="exportAccountsBtn">
+                                <i class="fas fa-download"></i>
+                                <span>Экспорт списка аккаунтов</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Блок 3: История запусков -->
+                    <div class="info-block history-block">
+                        <div class="block-header">
+                            <h3><i class="fas fa-history"></i> История запусков</h3>
+                        </div>
+                        <div class="history-list">
+                            <div class="history-item">
+                                <div class="history-account">
+                                    <i class="fas fa-clock"></i>
+                                    <span class="account-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="542031272065142d353a30312c7a2621">[email&#160;protected]</a></span>
+                                </div>
+                                <div class="history-details">
+                                    <span class="launch-time">Запущен: 2025-10-31 00:05:00</span>
+                                    <span class="launch-status working">✅ Работает | Порт: 9222</span>
+                                </div>
+                            </div>
+                            <div class="history-item">
+                                <div class="history-account">
+                                    <i class="fas fa-clock"></i>
+                                    <span class="account-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5125342225631128303f3534297f2324">[email&#160;protected]</a></span>
+                                </div>
+                                <div class="history-details">
+                                    <span class="launch-time">Запущен: 2025-10-30 23:45:12</span>
+                                    <span class="launch-status error">❌ Закрыт</span>
+                                </div>
+                            </div>
+                            <div class="history-item">
+                                <div class="history-account">
+                                    <i class="fas fa-clock"></i>
+                                    <span class="account-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="334043525e6c43415c475650475c41734a525d57564b1d4146">[email&#160;protected]</a></span>
+                                </div>
+                                <div class="history-details">
+                                    <span class="launch-time">Запущен: 2025-10-30 22:30:45</span>
+                                    <span class="launch-status working">✅ Работает | Порт: 9223</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="block-actions">
+                            <button class="btn btn-info btn-small" id="showAllHistoryBtn">
+                                <i class="fas fa-list"></i> Показать всё
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Sidebar (30%) -->
+            <div class="sidebar" id="settingsSidebar">
+                <div class="sidebar-header">
+                    <h3>Настройки аккаунта</h3>
+                    <button class="sidebar-close" id="sidebarClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="account-info" id="accountInfo" style="display: none;">
+                    <div class="account-email">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="selectedAccountEmail"></span>
+                    </div>
+                </div>
+
+                <div class="tabs-container">
+                    <div class="tabs-nav">
+                        <button class="tab-btn active" data-tab="basic">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Основное</span>
+                        </button>
+                        <button class="tab-btn" data-tab="network">
+                            <i class="fas fa-globe"></i>
+                            <span>Сеть</span>
+                        </button>
+                        <button class="tab-btn" data-tab="fingerprint">
+                            <i class="fas fa-mask"></i>
+                            <span>Fingerprint</span>
+                        </button>
+                        <button class="tab-btn" data-tab="captcha">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Капча</span>
+                        </button>
+                        <button class="tab-btn" data-tab="proxy-manager">
+                            <i class="fas fa-cogs"></i>
+                            <span>Менеджер прокси</span>
+                        </button>
+                    </div>
+
+                    <div class="tabs-content">
+                        <!-- Основное -->
+                        <div class="tab-content active" id="tab-basic">
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="accountEmail" placeholder="user@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Пароль</label>
+                                <div class="password-field">
+                                    <input type="password" id="accountPassword" placeholder="Пароль">
+                                    <button type="button" class="password-toggle">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Секретный вопрос</label>
+                                <input type="text" id="secretQuestion" placeholder="Ответ на секретный вопрос">
+                            </div>
+                            <div class="form-group">
+                                <label>Профиль Chrome</label>
+                                <input type="text" id="chromeProfile" placeholder="Путь к профилю">
+                            </div>
+                            <div class="info-section">
+                                <div class="info-item">
+                                    <span class="info-label">Статус авторизации:</span>
+                                    <span class="info-value" id="authStatus">Неавторизован</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Последний вход:</span>
+                                    <span class="info-value" id="lastLogin">Никогда</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Размер профиля:</span>
+                                    <span class="info-value" id="profileSize">0 МБ</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Сеть -->
+                        <div class="tab-content" id="tab-network">
+                            <div class="form-group">
+                                <label>Адрес прокси</label>
+                                <input type="text" id="proxyAddress" placeholder="192.168.1.101:8080">
+                            </div>
+                            <div class="form-group">
+                                <label>Логин (опционально)</label>
+                                <input type="text" id="proxyUsername" placeholder="user3">
+                            </div>
+                            <div class="form-group">
+                                <label>Пароль (опционально)</label>
+                                <input type="password" id="proxyPassword" placeholder="••••••••">
+                            </div>
+                            <div class="form-group">
+                                <label>Тип протокола</label>
+                                <select id="proxyType">
+                                    <option value="http">HTTP</option>
+                                    <option value="https">HTTPS</option>
+                                    <option value="socks5">SOCKS5</option>
+                                </select>
+                            </div>
+
+                            <div class="proxy-test-section">
+                                <button class="btn btn-info" id="testProxyBtn" style="margin-top: 15px;">
+                                    <i class="fas fa-flask"></i> Тест прокси
+                                </button>
+                            </div>
+
+                            <div class="proxy-status-info" id="proxyStatusInfo" style="display: none;">
+                                <div class="proxy-status-item">
+                                    <span class="status-label">Статус:</span>
+                                    <span class="status-value" id="proxyStatus">🔵 Прямое подключение</span>
+                                </div>
+                                <div class="proxy-status-item">
+                                    <span class="status-label">Скорость:</span>
+                                    <span class="status-value" id="proxySpeed">--</span>
+                                </div>
+                                <div class="proxy-status-item">
+                                    <span class="status-label">IP:</span>
+                                    <span class="status-value" id="proxyIP">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fingerprint -->
+                        <div class="tab-content" id="tab-fingerprint">
+                            <div class="form-group">
+                                <label>Предустановка</label>
+                                <select id="fingerprintPreset">
+                                    <option value="russia_standard">🇷🇺 Россия (стандарт)</option>
+                                    <option value="kazakhstan_standard">🇰🇿 Казахстан (стандарт)</option>
+                                    <option value="no_spoofing">🌐 Без подмены</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>User-Agent</label>
+                                <input type="text" id="userAgent" placeholder="Автоматически">
+                            </div>
+                            <div class="form-group">
+                                <label>Часовой пояс</label>
+                                <select id="timezone">
+                                    <option value="Europe/Moscow">Europe/Moscow</option>
+                                    <option value="Asia/Almaty">Asia/Almaty</option>
+                                    <option value="UTC">UTC</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Язык</label>
+                                <select id="language">
+                                    <option value="ru-RU">Русский</option>
+                                    <option value="kk-KZ">Казахский</option>
+                                    <option value="en-US">English</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Разрешение экрана</label>
+                                <select id="screenResolution">
+                                    <option value="1920x1080">1920x1080</option>
+                                    <option value="1366x768">1366x768</option>
+                                    <option value="1536x864">1536x864</option>
+                                    <option value="2560x1440">2560x1440</option>
+                                </select>
+                            </div>
+                            <div class="advanced-options">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="canvasSpoofing">
+                                    <span class="checkmark"></span>
+                                    Canvas спуфинг
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="webglSpoofing">
+                                    <span class="checkmark"></span>
+                                    WebGL спуфинг
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="audioSpoofing">
+                                    <span class="checkmark"></span>
+                                    AudioContext спуфинг
+                                </label>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-info btn-small" id="generateFingerprintBtn">
+                                    <i class="fas fa-sync-alt"></i> Сгенерировать
+                                </button>
+                                <button class="btn btn-success btn-small" id="checkFingerprintBtn">
+                                    <i class="fas fa-chart-bar"></i> Проверить
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Капча -->
+                        <div class="tab-content" id="tab-captcha">
+                            <div class="form-group">
+                                <label>Сервис</label>
+                                <select id="captchaService">
+                                    <option value="none">Отключено</option>
+                                    <option value="rucaptcha">RuCaptcha</option>
+                                    <option value="2captcha">2Captcha</option>
+                                    <option value="anticaptcha">AntiCaptcha</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>API Ключ</label>
+                                <div class="password-field">
+                                    <input type="password" id="captchaApiKey" placeholder="API ключ">
+                                    <button type="button" class="password-toggle">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="captcha-info">
+                                <div class="info-item">
+                                    <span class="info-label">Баланс:</span>
+                                    <span class="info-value" id="captchaBalance">$0.00</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Статус:</span>
+                                    <span class="info-value" id="captchaStatus">Не подключен</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="autoSolveCaptcha">
+                                    <span class="checkmark"></span>
+                                    Автоматически решать капчу
+                                </label>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-info btn-small" id="checkBalanceBtn">
+                                    <i class="fas fa-flask"></i> Проверить баланс
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Менеджер прокси -->
+                        <div class="tab-content" id="tab-proxy-manager">
+                            <div class="proxy-manager-container">
+                                
+                                <!-- Секция 1: Парсинг прокси -->
+                                <div class="proxy-section">
+                                    <h4><i class="fas fa-download"></i> Парсинг прокси</h4>
+                                    <div class="proxy-sources">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="source-fineproxy" checked>
+                                            <span class="checkmark"></span>
+                                            fineproxy.org
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="source-proxyelite">
+                                            <span class="checkmark"></span>
+                                            proxyelite.info
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="source-htmlweb">
+                                            <span class="checkmark"></span>
+                                            htmlweb.ru
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="source-advanced">
+                                            <span class="checkmark"></span>
+                                            advanced.name
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" id="source-market">
+                                            <span class="checkmark"></span>
+                                            proxy.market
+                                        </label>
+                                    </div>
+                                    <div class="proxy-parse-options">
+                                        <div class="form-group">
+                                            <label>Протокол</label>
+                                            <select id="parseProtocol">
+                                                <option value="http">HTTP</option>
+                                                <option value="socks5">SOCKS5</option>
+                                                <option value="any">Любой</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Страна</label>
+                                            <select id="parseCountry">
+                                                <option value="ru">Россия</option>
+                                                <option value="kz">Казахстан</option>
+                                                <option value="any">Любая</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary" id="startParsingBtn">
+                                        <i class="fas fa-play"></i> Начать парсинг
+                                    </button>
+                                </div>
+
+                                <!-- Секция 2: Список прокси -->
+                                <div class="proxy-section">
+                                    <h4><i class="fas fa-list"></i> Список прокси</h4>
+                                    <div class="proxy-list-container">
+                                        <div class="proxy-list-header">
+                                            <span class="proxy-list-count">Найдено: 0</span>
+                                            <button class="btn btn-success btn-small" id="testAllProxiesBtn">
+                                                <i class="fas fa-check"></i> Тест всех
+                                            </button>
+                                            <button class="btn btn-danger btn-small" id="clearProxiesBtn">
+                                                <i class="fas fa-trash"></i> Очистить
+                                            </button>
+                                        </div>
+                                        <div class="proxy-table-container">
+                                            <table class="proxy-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th><input type="checkbox" id="selectAllProxies"></th>
+                                                        <th>IP:Port</th>
+                                                        <th>Ping</th>
+                                                        <th>Страна</th>
+                                                        <th>Статус</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="proxyListBody">
+                                                    <!-- Прокси будут добавлены здесь -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Секция 3: Тестирование -->
+                                <div class="proxy-section">
+                                    <h4><i class="fas fa-flask"></i> Тестирование</h4>
+                                    <div class="test-options">
+                                        <div class="form-group">
+                                            <label>Тестовый сайт</label>
+                                            <select id="testSite">
+                                                <option value="wordstat">wordstat.yandex.ru</option>
+                                                <option value="google">google.com</option>
+                                                <option value="checkip">checkip.amazonaws.com</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="test-results" id="testResults">
+                                        <div class="test-summary">
+                                            <span class="test-stat working">✅ Работают: 0</span>
+                                            <span class="test-stat dead">❌ Мёртвые: 0</span>
+                                            <span class="test-stat slow">⏰ Медленные: 0</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Секция 4: Применение -->
+                                <div class="proxy-section">
+                                    <h4><i class="fas fa-cog"></i> Применение</h4>
+                                    <div class="apply-options">
+                                        <label class="radio-label">
+                                            <input type="radio" name="applyMode" value="single" checked>
+                                            <span class="radio-mark"></span>
+                                            Использовать выбранный прокси
+                                        </label>
+                                        <label class="radio-label">
+                                            <input type="radio" name="applyMode" value="rotation">
+                                            <span class="radio-mark"></span>
+                                            Авто-ротация прокси
+                                        </label>
+                                    </div>
+                                    <div class="apply-controls">
+                                        <button class="btn btn-success" id="applyProxyBtn">
+                                            <i class="fas fa-check-circle"></i> Применить к аккаунту
+                                        </button>
+                                        <button class="btn btn-info" id="previewProxyBtn">
+                                            <i class="fas fa-eye"></i> Предпросмотр
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Large Launch Button -->
+                <div class="sidebar-footer">
+                    <button class="btn btn-success btn-large" id="saveAccountBtn">
+                        <i class="fas fa-save"></i>
+                        <span>СОХРАНИТЬ</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Modal for Import Proxy -->
+    <div id="importProxyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Импорт прокси</h3>
+                <button class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Источник</label>
+                    <select id="proxySource">
+                        <option value="fineproxy">fineproxy.org</option>
+                        <option value="proxyelite">proxyelite.info</option>
+                        <option value="htmlweb">htmlweb.ru</option>
+                        <option value="advanced">advanced.name</option>
+                        <option value="custom">Свой URL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Тип прокси</label>
+                    <select id="proxyProtocol">
+                        <option value="http">HTTP</option>
+                        <option value="socks5">SOCKS5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Фильтр по стране</label>
+                    <select id="countryFilter">
+                        <option value="ru">Россия</option>
+                        <option value="kz">Казахстан</option>
+                        <option value="any">Любая</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Или вставьте список прокси:</label>
+                    <textarea id="proxyListInput" placeholder="IP:Port&#10;IP:Port:LOGIN:PASSWORD" rows="5"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelImportBtn">Отмена</button>
+                <button class="btn btn-primary" id="startImportBtn">Начать парсинг</button>
+            </div>
+        </div>
+    </div>
+
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="script.js"></script>
+    <script src="enhanced-search.js"></script>
+</body>
+</html>

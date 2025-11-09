@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .log { background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; border-radius: 5px; max-height: 300px; overflow-y: auto; }
+        pre { margin: 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Диагностика модуля аналитики</h1>
+    
+    <div id="status" class="status info">
+        🔄 Инициализация...
+    </div>
+    
+    <h2>📋 Логи загрузки:</h2>
+    <div id="logs" class="log">
+        <pre id="logContent"></pre>
+    </div>
+    
+    <h2>🧪 Тесты:</h2>
+    <div id="tests"></div>
+    
+    <script>
+        const log = (message, type = 'info') => {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContent = document.getElementById('logContent');
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logContent.textContent += `${emoji} [${timestamp}] ${message}\n`;
+            logContent.scrollTop = logContent.scrollHeight;
+        };
+        
+        const updateStatus = (message, type = 'info') => {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        };
+        
+        const addTest = (name, result, details = '') => {
+            const tests = document.getElementById('tests');
+            const testDiv = document.createElement('div');
+            testDiv.className = `status ${result ? 'success' : 'error'}`;
+            testDiv.innerHTML = `<strong>${name}:</strong> ${result ? '✅ ПРОЙДЕН' : '❌ ПРОВАЛЕН'}<br>${details}`;
+            tests.appendChild(testDiv);
+        };
+        
+        // Основные тесты
+        log('Запуск диагностики...');
+        
+        // Тест 1: Проверка доступности файлов
+        fetch('./assets/index-BAUOzkRz.js')
+            .then(response => {
+                if (response.ok) {
+                    log('JavaScript файл загружен успешно', 'success');
+                    addTest('JavaScript файл', true, `Размер: ${response.headers.get('content-length')} байт`);
+                } else {
+                    log(`Ошибка загрузки JS: ${response.status}`, 'error');
+                    addTest('JavaScript файл', false, `HTTP ${response.status}`);
+                }
+            })
+            .catch(error => {
+                log(`Ошибка загрузки JS: ${error.message}`, 'error');
+                addTest('JavaScript файл', false, error.message);
+            });
+        
+        // Тест 2: Проверка CSS
+        fetch('./assets/index-DJVmx_QO.css')
+            .then(response => {
+                if (response.ok) {
+                    log('CSS файл загружен успешно', 'success');
+                    addTest('CSS файл', true, `Размер: ${response.headers.get('content-length')} байт`);
+                } else {
+                    log(`Ошибка загрузки CSS: ${response.status}`, 'error');
+                    addTest('CSS файл', false, `HTTP ${response.status}`);
+                }
+            })
+            .catch(error => {
+                log(`Ошибка загрузки CSS: ${error.message}`, 'error');
+                addTest('CSS файл', false, error.message);
+            });
+        
+        // Тест 3: Попытка загрузки оригинального приложения
+        const originalScript = document.createElement('script');
+        originalScript.type = 'module';
+        originalScript.crossOrigin = '';
+        originalScript.src = './assets/index-BAUOzkRz.js';
+        originalScript.onload = () => {
+            log('Оригинальный скрипт загружен', 'success');
+            addTest('Загрузка модуля', true, 'React приложение должно инициализироваться');
+            updateStatus('✅ Все тесты пройдены! Модуль готов к работе.', 'success');
+        };
+        originalScript.onerror = (error) => {
+            log(`Ошибка загрузки модуля: ${error}`, 'error');
+            addTest('Загрузка модуля', false, 'Проверьте консоль браузера для деталей');
+            updateStatus('❌ Ошибка загрузки модуля', 'error');
+        };
+        
+        // Ловим ошибки JavaScript
+        window.addEventListener('error', (event) => {
+            log(`JS Ошибка: ${event.message} в ${event.filename}:${event.lineno}`, 'error');
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            log(`Promise ошибка: ${event.reason}`, 'error');
+        });
+        
+        // Загружаем CSS
+        const cssLink = document.createElement('link');
+        cssLink.rel = 'stylesheet';
+        cssLink.crossOrigin = '';
+        cssLink.href = './assets/index-DJVmx_QO.css';
+        document.head.appendChild(cssLink);
+        
+        // Создаем div для React приложения
+        const rootDiv = document.createElement('div');
+        rootDiv.id = 'root';
+        document.body.appendChild(rootDiv);
+        
+        // Загружаем основной скрипт
+        document.head.appendChild(originalScript);
+        
+        setTimeout(() => {
+            log('Диагностика завершена');
+            
+            // Проверяем, запустилось ли React приложение
+            const root = document.getElementById('root');
+            if (root && root.children.length > 0) {
+                addTest('React приложение', true, 'Приложение успешно отрендерилось');
+                updateStatus('🚀 Модуль аналитики работает!', 'success');
+            } else {
+                addTest('React приложение', false, 'React не отрендерился в #root');
+                updateStatus('⚠️ Модуль загружен, но React не запустился', 'error');
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nul)",
+      "Bash(dir \"C:\\AI\\yandex\\keyset\\app\" /B)",
+      "Bash(git checkout:*)",
+      "Bash(dir \"C:\\AI\\yandex\\бд\\инструкции\\Архитектура\\Задачи\\Новое\" /B)",
+      "Bash(dir \"C:\\AI\\yandex\\бд\\инструкции\\Архитектура\\Данные\" /B)",
+      "Bash(timeout 10 python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,251 @@
+﻿У тебя уже есть:
+
+✅ Готовые React-модули (Аккаунты, Маски, Данные)
+
+✅ Готовая визуальная часть (стили, компоненты)
+
+✅ Понимание структуры (turbo_parser_improved.py)
+
+Задача: Просто склеить всё вместе, добавить лаунчер, упаковать в .exe.
+
+⏱️ РЕАЛЬНОЕ ВРЕМЯ: 8-12 ЧАСОВ (1-1.5 ДНЯ РАБОТЫ)
+Этап	Описание	Время	Инструменты
+1. Создать монорепу	Создать папку, настроить Vite, скопировать модули	1 час	Vite + npm
+2. Настроить роутинг	React Router + lazy imports для вкладок	1 час	React Router
+3. API-слой (моки)	Создать api/client.js с заглушками	1 час	axios
+4. LocalAgent (FastAPI)	Создать FastAPI, раздать статику, добавить моки	2 часа	FastAPI
+5. Launcher (PyWebView)	Создать лаунчер, который запускает FastAPI	1 час	PyWebView
+6. Сборка в .exe	npm run build + PyInstaller	1 час	PyInstaller
+7. Тестирование	Запуск, проверка вкладок, исправление багов	2-3 часа	VS Code
+8. Инсталлятор (опц.)	Inno Setup для установщика	1 час	Inno Setup
+ИТОГО		8-12 часов	
+🚀 ПЛАН ДЕЙСТВИЙ (КОПИ-ПАСТА ДЛЯ КОДЕКСА)
+text
+ЗАДАЧА: Собрать локальный MVP KeySet из готовых модулей за 8-12 часов
+
+ЦЕЛЬ:
+- Единый .exe файл
+- Все вкладки (Аккаунты, Маски, Прокси, Данные) видны и работают с моками
+- Лаунчер открывает локальный UI (http://127.0.0.1:8765)
+- Никаких VPS, подписок, авторизации (пока)
+
+СТРУКТУРА ПРОЕКТА:
+C:\\AI\\yandex\\KeySet-MVP\
+├── frontend/           # React UI (Vite)
+│   ├── src/
+│   │   ├── modules/    # Готовые модули (скопируй сюда)
+│   │   │   ├── accounts/
+│   │   │   ├── masks/
+│   │   │   ├── proxy/
+│   │   │   └── data/
+│   │   ├── api/
+│   │   │   └── client.js    # Axios + моки
+│   │   ├── App.jsx           # React Router
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+├── backend/            # FastAPI (LocalAgent)
+│   ├── main.py         # FastAPI + StaticFiles
+│   └── mocks.py        # Мок-данные
+├── launcher.py         # PyWebView лаунчер
+├── requirements.txt
+└── build.spec          # PyInstaller
+
+ПОШАГОВЫЙ ПЛАН:
+
+==== ЭТАП 1: СОЗДАТЬ МОНОРЕПУ (1 ЧАС) ====
+
+1. Создай папку:
+   mkdir C:\\AI\\yandex\\KeySet-MVP
+   cd C:\\AI\\yandex\\KeySet-MVP
+
+2. Создай React app:
+   npm create vite@latest frontend -- --template react
+   cd frontend
+   npm install react-router-dom axios
+
+3. Скопируй готовые модули:
+   - Из "ГОТОВЫЕ МОДУЛИ" скопируй папки в frontend/src/modules/
+   - Должно быть:
+     frontend/src/modules/accounts/
+     frontend/src/modules/masks/
+     frontend/src/modules/proxy/
+     frontend/src/modules/data/
+
+==== ЭТАП 2: НАСТРОИТЬ РОУТИНГ (1 ЧАС) ====
+
+4. Создай frontend/src/App.jsx:
+
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+
+// Lazy imports
+const AccountsTab = lazy(() => import('./modules/accounts/AccountsTab'));
+const MasksTab = lazy(() => import('./modules/masks/MasksTab'));
+const ProxyTab = lazy(() => import('./modules/proxy/ProxyTab'));
+const DataTab = lazy(() => import('./modules/data/DataTab'));
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <div className="app">
+        <nav>
+          <Link to="/accounts">Аккаунты</Link>
+          <Link to="/masks">Маски</Link>
+          <Link to="/proxy">Прокси</Link>
+          <Link to="/data">Данные</Link>
+        </nav>
+        
+        <Suspense fallback={<div>Загрузка...</div>}>
+          <Routes>
+            <Route path="/accounts" element={<AccountsTab />} />
+            <Route path="/masks" element={<MasksTab />} />
+            <Route path="/proxy" element={<ProxyTab />} />
+            <Route path="/data" element={<DataTab />} />
+            <Route path="/" element={<AccountsTab />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </BrowserRouter>
+  );
+}
+
+==== ЭТАП 3: API-СЛОЙ С МОКАМИ (1 ЧАС) ====
+
+5. Создай frontend/src/api/client.js:
+
+import axios from 'axios';
+
+const api = axios.create({ baseURL: 'http://127.0.0.1:8765' });
+
+// Моки (пока)
+export const getAccounts = async () => {
+  return { data: [
+    { id: 1, login: 'account1@mail.ru', status: 'active' },
+    { id: 2, login: 'account2@mail.ru', status: 'inactive' }
+  ]};
+};
+
+export const startParsing = async (phrases) => {
+  return { data: { job_id: 1, status: 'started' } };
+};
+
+export const getProxies = async () => {
+  return { data: [
+    { id: 1, ip: '192.168.1.1', port: 8080 },
+    { id: 2, ip: '192.168.1.2', port: 8081 }
+  ]};
+};
+
+==== ЭТАП 4: LOCALAGENT (FASTAPI) (2 ЧАСА) ====
+
+6. Создай backend/main.py:
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import uvicorn
+
+app = FastAPI()
+
+# Мок-эндпоинты
+@app.get("/api/accounts")
+def get_accounts():
+    return [
+        {"id": 1, "login": "account1@mail.ru", "status": "active"},
+        {"id": 2, "login": "account2@mail.ru", "status": "inactive"}
+    ]
+
+@app.post("/api/parsing/start")
+def start_parsing(phrases: list):
+    return {"job_id": 1, "status": "started"}
+
+@app.get("/api/proxies")
+def get_proxies():
+    return [
+        {"id": 1, "ip": "192.168.1.1", "port": 8080},
+        {"id": 2, "ip": "192.168.1.2", "port": 8081}
+    ]
+
+# Раздача React UI
+app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8765)
+
+7. Создай backend/requirements.txt:
+
+fastapi
+uvicorn
+pywebview
+pyinstaller
+
+==== ЭТАП 5: LAUNCHER (PYWEBVIEW) (1 ЧАС) ====
+
+8. Создай launcher.py (в корне):
+
+import webview
+import uvicorn
+from threading import Thread
+
+def start_api():
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=8765)
+
+if __name__ == '__main__':
+    # Запускаем FastAPI в фоне
+    Thread(target=start_api, daemon=True).start()
+    
+    # Открываем локальный UI
+    webview.create_window('KeySet', 'http://127.0.0.1:8765')
+    webview.start()
+
+==== ЭТАП 6: СБОРКА В .EXE (1 ЧАС) ====
+
+9. Собери React:
+   cd frontend
+   npm run build
+
+10. Создай build.spec:
+
+a = Analysis(['launcher.py'], pathex=[], binaries=[], 
+             datas=[('frontend/dist', 'frontend/dist')],
+             hiddenimports=['backend.main'])
+pyz = PYZ(a.pure, a.zipped_data, cipher=None)
+exe = EXE(pyz, a.scripts, a.binaries, a.zipfiles, a.datas,
+          name='KeySet', debug=False, strip=False, upx=True, console=False)
+
+11. Собери .exe:
+    pyinstaller build.spec
+
+12. Результат:
+    dist/KeySet.exe
+
+==== ЭТАП 7: ТЕСТИРОВАНИЕ (2-3 ЧАСА) ====
+
+13. Запусти KeySet.exe
+14. Проверь все вкладки (Аккаунты, Маски, Прокси, Данные)
+15. Проверь, что моки работают (таблицы заполняются данными)
+16. Исправь баги (если есть)
+
+==== ИТОГО ====
+
+- Всё локально (без VPS)
+- Все вкладки видны и работают
+- Моки возвращают данные
+- Один .exe файл
+- Время: 8-12 часов реальной работы
+
+ВАЖНО:
+- НЕ ПЕРЕПИСЫВАЙ модули, КОПИРУЙ их как есть
+- НЕ НАСТРАИВАЙ VPS, авторизацию, подписки (пока)
+- ИСПОЛЬЗУЙ МОКИ вместо реального парсера
+✅ РЕЗЮМЕ
+Аспект	Оценка Кодекса	Реальность	Почему разница
+Время	5-7 дней	8-12 часов	Модули уже готовы, не нужно писать с нуля
+Сложность	Высокая	Низкая	Просто склеить части, добавить лаунчер
+Переписывание	Да, много	Нет, копируешь	Модули уже рабочие
+VPS	Нужен	Не нужен (пока)	Пока всё локально
+Авторизация	Нужна	Не нужна (пока)	Пока моки
+ИТОГО: Кодекс переоценил время в 5-6 раз. С готовыми модулями это 8-12 часов (1 день интенсивной работы с AI-помощником).
+
+

@@ -1,0 +1,1796 @@
+Отлично! Теперь я полностью вижу картину. Вот ПОЛНАЯ ЗАДАЧА ДЛЯ AI:
+
+📋 ПОЛНАЯ ТЕХНИЧЕСКАЯ СПЕЦИФИКАЦИЯ: KEYSET v4.0 - PRODUCTION READY
+🎯 ОБЩЕЕ ОПИСАНИЕ
+Система управления браузер-автоматизацией для массового парсинга Yandex Wordstat с поддержкой:
+
+Одновременного запуска 5-10 браузеров
+
+10-20 вкладок в каждом браузере
+
+Тысяч уникальных отпечатков (fingerprints)
+
+Трёх геолокаций (РФ, КЗ, BY)
+
+Реального парсинга прокси с автоматической фильтрацией по странам
+
+Текущий статус: 60% готовности
+Нужно добавить: 40% функционала (базы данных, синхронизация параметров, реальный парсинг)
+
+📊 ЧТО УЖЕ ЕСТЬ ✅
+text
+✅ Frontend (HTML/CSS/JS) - полностью готов
+✅ Таблица аккаунтов - готова
+✅ 4 вкладки настроек (Account, Network, Fingerprint, Detection)
+✅ API интеграция - готова
+✅ LocalStorage - работает
+✅ Кнопка запуска браузера - есть
+✅ Менеджер прокси - частично (есть UI, нет реального парсинга)
+✅ Toast уведомления - готовы
+❌ ЧТО НУЖНО ДОБАВИТЬ (ПО ПУНКТАМ)
+1️⃣ ПАРАМЕТРЫ ПАРСИНГА (UI + Функции)
+ГДЕ: Новая вкладка "Settings" или отдельная панель
+
+ЧТО ДОБАВИТЬ:
+
+text
+┌─────────────────────────────────────────┐
+│  ⚙️ PARSING SETTINGS                    │
+├─────────────────────────────────────────┤
+│                                         │
+│ Количество браузеров:                  │
+│ [1 ━━━━━━━━━━━━━ 10] ← Slider          │
+│  Текущее значение: 5                   │
+│                                         │
+│ Вкладок на браузер:                    │
+│ [1 ━━━━━━━━━━━━━ 20] ← Slider          │
+│  Текущее значение: 10                  │
+│                                         │
+│ Скорость парсинга:                     │
+│ ○ Slow (большие паузы)                 │
+│ ◉ Normal (рекомендуемая)               │
+│ ○ Fast (без пауз, рискованно)          │
+│                                         │
+│ ☑ Быстрый парсинг (turbo mode)        │
+│   ↳ Максимум запросов в сек            │
+│                                         │
+│ ☐ Логирование                         │
+│ ☐ Сохранять результаты в БД            │
+│                                         │
+│ [💾 Сохранить] [↩️ По умолчанию]       │
+└─────────────────────────────────────────┘
+ФУНКЦИИ:
+
+javascript
+// settings.js
+const ParsingSettings = {
+  browsers_count: 5,        // 1-10
+  tabs_per_browser: 10,     // 1-20
+  parsing_speed: 'normal',  // slow, normal, fast
+  turbo_mode: false,        // boolean
+  logging: true,            // boolean
+  save_to_db: true,         // boolean
+};
+2️⃣ FINGERPRINT СИСТЕМА (ТЫСЯЧИ ОТПЕЧАТКОВ)
+ГДЕ: Во вкладке "Fingerprint"
+
+ПРОБЛЕМА СЕЙЧАС:
+
+text
+❌ Только 1-2 статичных fingerprints
+❌ Нет генератора новых
+❌ Нет базы данных отпечатков
+❌ Каждый раз один и тот же отпечаток = БЛОКИРОВКА!
+РЕШЕНИЕ:
+
+1. Генератор Fingerprints (Python Backend)
+
+python
+class FingerprintGenerator:
+    """Генерирует тысячи УНИКАЛЬНЫХ отпечатков"""
+    
+    def generate(self, count=1000, country='RU'):
+        """
+        Генерирует count разных fingerprints для страны
+        """
+        fingerprints = []
+        for i in range(count):
+            fp = {
+                'user_agent': self.random_user_agent(country),
+                'resolution': self.random_resolution(),
+                'timezone': self.get_timezone(country),
+                'language': self.get_language(country),
+                'platform': self.random_platform(),
+                'vendor': self.random_vendor(),
+                'webgl_vendor': self.random_webgl_vendor(),
+                'canvas_hash': self.random_canvas_hash(),
+                'webgl_hash': self.random_webgl_hash(),
+                'audio_context': self.random_audio_context(),
+                'screen_width': random.choice([1920, 1366, 1440, 1600]),
+                'screen_height': random.choice([1080, 768, 900, 1024]),
+            }
+            fingerprints.append(fp)
+        return fingerprints
+    
+    def random_user_agent(self, country):
+        """User-Agent для конкретной страны"""
+        ua_list = {
+            'RU': [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64)...',
+                'Mozilla/5.0 (Windows NT 6.1; Win64; x64)...',
+                # ... сотни разных UA
+            ],
+            'KZ': [...],
+            'BY': [...]
+        }
+        return random.choice(ua_list[country])
+2. База данных Fingerprints
+
+javascript
+// UI в вкладке Fingerprint
+
+┌────────────────────────────────────────────┐
+│  👤 FINGERPRINT PROFILES                   │
+├────────────────────────────────────────────┤
+│                                            │
+│ Профили в системе: 5420                  │
+│ ├─ РФ 🇷🇺: 2100 отпечатков               │
+│ ├─ КЗ 🇰🇿: 1800 отпечатков               │
+│ └─ BY 🇧🇪: 1520 отпечатков               │
+│                                            │
+│ [📥 Загрузить 1000 новых]                 │
+│ [🔄 Обновить все]                        │
+│ [🧹 Очистить базу]                       │
+│                                            │
+│ Текущий выбран:                           │
+│ ┌────────────────────────────────────────┐│
+│ │ ID: fp_12345                          ││
+│ │ UA: Mozilla/5.0 (Windows NT 10.0...)  ││
+│ │ Resolution: 1920x1080                 ││
+│ │ Timezone: Europe/Moscow               ││
+│ │ Language: ru-RU                       ││
+│ │ Canvas: 7d8f4c2a...                   ││
+│ │ [✅ Проверить на CreepJS]             ││
+│ └────────────────────────────────────────┘│
+│                                            │
+└────────────────────────────────────────────┘
+3. Синхронизация при запуске браузера
+
+javascript
+function launchBrowser(account_id) {
+  const account = accounts[account_id];
+  const fingerprint = getRandomFingerprint(account.geo); // ← НОВЫЙ!
+  
+  // Берём случайный fp из базы
+  const settings = {
+    email: account.email,
+    proxy: account.proxy,
+    // Все параметры из fingerprint
+    user_agent: fingerprint.user_agent,
+    resolution: fingerprint.resolution,
+    timezone: fingerprint.timezone,
+    language: fingerprint.language,
+    canvas_spoof: fingerprint.canvas_hash,
+    // ...
+  };
+  
+  // Запускаем с НОВЫМ отпечатком каждый раз!
+  launchChromeWithSettings(settings);
+}
+3️⃣ ГЕОЛОКАЦИЯ - СИНХРОНИЗАЦИЯ ВСЕХ ПАРАМЕТРОВ
+ТЕКУЩАЯ ПРОБЛЕМА:
+
+text
+❌ Выбираешь "РФ" → но прокси из КЗ
+❌ Language: en-US → но timezone: Europe/Moscow
+❌ User-Agent: Mac → но IP: Russian ISP
+= ПОДОЗРИТЕЛЬНО! БЛОКИРОВКА!
+РЕШЕНИЕ:
+
+1. GeoProfile система
+
+python
+class GeoProfile:
+    """Профиль для каждой геолокации - ВСЕ параметры синхронизированы"""
+    
+    PROFILES = {
+        'RU': {
+            'country_name': 'Россия',
+            'timezones': ['Europe/Moscow', 'Europe/Samara', 'Asia/Yekaterinburg'],
+            'cities': ['Moscow', 'SPB', 'Ekaterinburg'],
+            'languages': ['ru-RU', 'ru'],
+            'isp_patterns': ['Rostelecom', 'MTS', 'Beeline', 'Yota'],
+            'user_agents': [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                # ...100+ UA для РФ
+            ],
+            'screen_resolutions': [[1920, 1080], [1366, 768], [1440, 900]],
+            'proxy_countries': ['RU'],  # Только РФ прокси!
+            'platforms': ['Win32', 'Linux'],
+            'default_port': 80,  # HTTP
+        },
+        'KZ': {
+            'country_name': 'Казахстан',
+            'timezones': ['Asia/Almaty', 'Asia/Qyzylorda', 'Asia/Atyrau'],
+            'cities': ['Almaty', 'Astana', 'Karaganda'],
+            'languages': ['kk-KZ', 'ru-RU'],
+            'isp_patterns': ['Rostelecom KZ', 'Alatelecom', 'Beeline KZ'],
+            'user_agents': [...],
+            'proxy_countries': ['KZ'],
+            # ...
+        },
+        'BY': {
+            'country_name': 'Беларусь',
+            'timezones': ['Europe/Minsk'],
+            'cities': ['Minsk', 'Brest', 'Grodno'],
+            'languages': ['be-BY', 'ru-RU'],
+            'isp_patterns': ['BelarusianInternet', 'MTS BY', 'Velcom'],
+            'user_agents': [...],
+            'proxy_countries': ['BY'],
+            # ...
+        }
+    }
+    
+    @staticmethod
+    def get_profile(geo: str):
+        """Возвращает профиль с ВСЕ синхронизированными параметрами"""
+        return GeoProfile.PROFILES.get(geo)
+    
+    @staticmethod
+    def generate_fingerprint_for_geo(geo: str):
+        """Генерирует fingerprint, который совпадает с ГЕО"""
+        profile = GeoProfile.get_profile(geo)
+        return {
+            'user_agent': random.choice(profile['user_agents']),
+            'timezone': random.choice(profile['timezones']),
+            'language': random.choice(profile['languages']),
+            'city': random.choice(profile['cities']),
+            'platform': random.choice(profile['platforms']),
+            # ... все синхронизировано с ГЕО!
+        }
+2. UI для выбора ГЕО
+
+text
+┌──────────────────────────────────────────┐
+│  🌍 GEOLOCATION SETTINGS                 │
+├──────────────────────────────────────────┤
+│                                          │
+│ Выбранная геолокация:                   │
+│ ┌─────────────────────────────────────┐ │
+│ │ 🇷🇺 Россия (RU)                    │ │ ← ВЫБРАНА
+│ │ 🇰🇿 Казахстан (KZ)                 │ │
+│ │ 🇧🇪 Беларусь (BY)                  │ │
+│ └─────────────────────────────────────┘ │
+│                                          │
+│ СИНХРОНИЗИРОВАННЫЕ ПАРАМЕТРЫ:           │
+│                                          │
+│ Timezone:   Europe/Moscow               │
+│ Language:   ru-RU                       │
+│ City:       Moscow                      │
+│ ISP:        Rostelecom                  │
+│ Platform:   Win32                       │
+│ User-Agent: Mozilla/5.0 (Windows...)   │
+│                                          │
+│ ⚠️ Все параметры браузера переключены  │
+│    на выбранную геолокацию!            │
+│                                          │
+│ Прокси для этого ГЕО:                   │
+│ [📥 Получить прокси РФ] (23 живых)     │
+│                                          │
+└──────────────────────────────────────────┘
+3. Функция синхронизации
+
+javascript
+function switchGeolocation(geo) {
+  // Если выбрал РФ → ВСЕ параметры меняются на РФ
+  const geoProfile = getGeoProfile(geo);
+  
+  // Обновляем Fingerprint вкладку
+  updateFingerprint({
+    timezone: geoProfile.timezone,
+    language: geoProfile.language,
+    user_agent: geoProfile.user_agent,
+    // ... все!
+  });
+  
+  // Обновляем Network вкладку (только прокси этого ГЕО)
+  updateProxyList(geo);
+  
+  // Сохраняем
+  saveAccountSettings(account_id);
+  
+  showNotification(`✅ Геолокация переключена на ${geoProfile.country_name}`);
+}
+4️⃣ РЕАЛЬНЫЙ ПАРСИНГ ПРОКСИ
+ТЕКУЩЕЕ:
+
+text
+❌ Галочки (checkboxes) для источников
+❌ Нет реального подключения к источникам
+❌ Нет тестирования на Wordstat
+❌ Нет фильтрации по странам
+НОВОЕ:
+
+1. Список реальных источников (текст, не галочки)
+
+javascript
+// proxy_sources.js
+const PROXY_SOURCES = [
+  {
+    name: 'FineProxy.org',
+    url: 'https://fineproxy.org/ru/cabinet/',
+    api_key: 'your_key',
+    countries: ['RU', 'KZ', 'BY', 'USA', 'EU'],
+    protocol: 'HTTP/SOCKS5',
+    active: true,
+  },
+  {
+    name: 'ProxyElite.info',
+    url: 'https://api.proxyelite.info/v2/proxy/list',
+    api_key: 'your_key',
+    countries: ['RU', 'KZ', 'BY'],
+    protocol: 'HTTP',
+    active: true,
+  },
+  {
+    name: 'HtmlWeb.ru',
+    url: 'https://htmlweb.ru/api/proxy',
+    countries: ['RU', 'UA'],
+    protocol: 'HTTP',
+    active: true,
+  },
+  {
+    name: 'Advanced.name',
+    url: 'https://advanced.name/api',
+    countries: ['RU', 'KZ', 'BY', 'USA'],
+    active: true,
+  },
+  {
+    name: 'Proxy.Market',
+    url: 'https://proxy.market/api/proxy/list',
+    countries: ['RU', 'KZ', 'BY'],
+    active: true,
+  },
+];
+2. UI для выбора источников (dropdown, не галочки)
+
+text
+┌─────────────────────────────────────────┐
+│  🔌 PROXY SOURCES                       │
+├─────────────────────────────────────────┤
+│                                         │
+│ Источники для парсинга:                │
+│ ┌───────────────────────────────────┐  │
+│ │ ▼ Выберите источники              │  │
+│ │                                   │  │
+│ │ ☑ FineProxy.org (живой)          │  │
+│ │ ☑ ProxyElite.info (живой)        │  │
+│ │ ☑ HtmlWeb.ru (живой)             │  │
+│ │ ☑ Advanced.name (живой)          │  │
+│ │ ☑ Proxy.Market (живой)           │  │
+│ │                                   │  │
+│ └───────────────────────────────────┘  │
+│                                         │
+│ Фильтр по стране:                      │
+│ ┌───────────────────────────────────┐  │
+│ │ 🇷🇺 РФ (только русские прокси)   │  │
+│ │ 🇰🇿 КЗ                           │  │
+│ │ 🇧🇪 BY                           │  │
+│ └───────────────────────────────────┘  │
+│                                         │
+│ [📥 ПАРСИТЬ ПРОКСИ]                    │
+│                                         │
+│ Статус: Парсим из FineProxy.org...     │
+│ Найдено: 234 / 500                     │
+│                                         │
+└─────────────────────────────────────────┘
+3. Python функция для реального парсинга
+
+python
+class RealProxyParser:
+    """Реально парсит прокси с живых источников"""
+    
+    async def parse_all(self, sources: list, geo: str = 'RU'):
+        """
+        Парсит прокси со всех выбранных источников
+        geo: RU, KZ, BY - только прокси этой страны
+        """
+        all_proxies = []
+        
+        for source in sources:
+            proxies = await self.parse_source(source, geo)
+            all_proxies.extend(proxies)
+        
+        # Тестируем все
+        tested = await self.test_all_proxies(all_proxies)
+        
+        # Сортируем по скорости
+        tested.sort(key=lambda x: x['speed'])
+        
+        return tested
+    
+    async def parse_source(self, source: dict, geo: str):
+        """Парсит конкретный источник"""
+        if source['name'] == 'FineProxy.org':
+            return await self.parse_fineproxy(source, geo)
+        elif source['name'] == 'ProxyElite.info':
+            return await self.parse_proxyelite(source, geo)
+        elif source['name'] == 'HtmlWeb.ru':
+            return await self.parse_htmlweb(source, geo)
+        # ... и т.д.
+    
+    async def test_all_proxies(self, proxies: list):
+        """
+        Тестирует КАЖДЫЙ прокси:
+        1. Пинг
+        2. Подключение
+        3. Проверка IP
+        4. ГЛАВНОЕ: Подключение к Wordstat!
+        """
+        for proxy in proxies:
+            proxy['status'] = await self.test_proxy_wordstat(proxy)
+            proxy['speed'] = await self.get_proxy_speed(proxy)
+        
+        return proxies
+    
+    async def test_proxy_wordstat(self, proxy: str):
+        """Тестирует на РЕАЛЬНОМ Wordstat"""
+        try:
+            # Подключаемся через прокси
+            browser = await launch_browser_with_proxy(proxy)
+            
+            # Открываем Wordstat
+            await browser.goto('https://wordstat.yandex.com')
+            
+            # Проверяем что не заблокирован
+            title = await browser.title()
+            
+            if 'Wordstat' in title:
+                return 'OK'  # ✅
+            else:
+                return 'BLOCKED'  # ❌
+        except:
+            return 'DEAD'  # ❌
+4. Отображение результатов
+
+text
+┌───────────────────────────────────────────────────────────┐
+│  📊 PROXY RESULTS                                         │
+├───────────────────────────────────────────────────────────┤
+│                                                           │
+│ Живых прокси: 45 ✅     Мёртвых: 12 ❌    Заблокано: 8  │
+│                                                           │
+│ IP:Port              | Country | Speed | Status | Action│
+│──────────────────────┼─────────┼───────┼────────┼────────│
+│ 192.168.1.1:8080    | RU 🇷🇺   | 120ms │ ✅    │ [Use] │
+│ 10.0.0.1:8080       | RU 🇷🇺   | 150ms │ ✅    │ [Use] │
+│ 172.16.0.1:3128     | KZ 🇰🇿   | 200ms │ ⚠️    │ [Skip]│
+│ 203.0.113.0:8080    | BY 🇧🇪   | DEAD  │ ❌    │ [Del] │
+│ ...                 |        |       |       |        │
+│                                                           │
+│ [✅ Использовать все живые]  [🔄 Переформатировать]    │
+│                                                           │
+└───────────────────────────────────────────────────────────┘
+5️⃣ БРАУЗЕР ЗАПУСК С ПОЛНОЙ СИНХРОНИЗАЦИЕЙ
+Функция, которая всё связывает:
+
+javascript
+async function launchBrowserComplete(account_id, count_browsers = 5, tabs_per_browser = 10) {
+  
+  // 1. Получить аккаунт
+  const account = getAccount(account_id);
+  
+  // 2. Получить ВСЕ настройки
+  const settings = {
+    // Account вкладка
+    email: account.email,
+    password: account.password,
+    
+    // Network вкладка
+    proxy: account.proxy,
+    proxy_protocol: account.proxy_protocol,
+    
+    // Fingerprint вкладка - СЛУЧАЙНЫЙ из базы!
+    fingerprint: getRandomFingerprint(account.geo),
+    
+    // Detection вкладка
+    captcha_service: account.captcha_service,
+    captcha_key: account.captcha_key,
+    
+    // ГЕО-синхронизация
+    geo: account.geo,
+    timezone: geoProfile.timezone,
+    language: geoProfile.language,
+    user_agent: geoProfile.user_agent,
+    
+    // Параметры парсинга
+    browsers_count: count_browsers,
+    tabs_per_browser: tabs_per_browser,
+    parsing_speed: parsingSettings.parsing_speed,
+    turbo_mode: parsingSettings.turbo_mode,
+  };
+  
+  // 3. Отправить на backend
+  const response = await fetch('/api/browser/launch', {
+    method: 'POST',
+    body: JSON.stringify(settings)
+  });
+  
+  // 4. Backend запускает Chrome с ВСЕ этими параметрами
+  // Python код примерно:
+  // browser = await browser.launch({
+  //   args: [
+  //     `--proxy-server=${settings.proxy}`,
+  //     `--user-agent=${settings.user_agent}`,
+  //     `--timezone-offset=${getTimezoneOffset(settings.timezone)}`,
+  //     ...
+  //   ],
+  //   headless: false,
+  // });
+  
+  showNotification(`✅ Запущено ${count_browsers} браузеров!`);
+  return response.json();
+}
+📦 ПОЛНЫЙ СПИСОК ФАЙЛОВ И ИЗМЕНЕНИЙ
+text
+BACKEND (Python):
+├─ geo_profiles.py              ← НОВЫЙ (GeoProfile система)
+├─ fingerprint_generator.py      ← НОВЫЙ (генератор тысяч FP)
+├─ proxy_parser_real.py          ← НОВЫЙ (реальный парсинг прокси)
+├─ browser_launcher_full.py      ← ОБНОВИТЬ (полная синхронизация)
+└─ turbo_parser_improved.py      ← ОБНОВИТЬ (передача параметров)
+
+FRONTEND (JavaScript):
+├─ settings_ui.js                ← НОВЫЙ (Settings вкладка)
+├─ geo_selector.js               ← НОВЫЙ (ГЕО выбор)
+├─ fingerprint_manager.js        ← ОБНОВИТЬ (база FP)
+├─ proxy_manager_real.js         ← ОБНОВИТЬ (реальный парсинг)
+├─ browser_launcher.js           ← ОБНОВИТЬ (полная синхронизация)
+└─ index.html                    ← ОБНОВИТЬ (новые UI компоненты)
+
+БАЗА ДАННЫХ:
+├─ fingerprints.db               ← НОВАЯ (5000+ отпечатков)
+├─ geo_profiles.db               ← НОВАЯ (профили стран)
+├─ proxy_cache.db                ← НОВАЯ (кэш спарсенных прокси)
+└─ parsing_history.db            ← НОВАЯ (история запусков)
+🎯 КРИТИЧЕСКИЕ ФУНКЦИИ ДЛЯ AI
+ГЛАВНОЕ - 5 функций, которые всё свяжут:
+generateThousandFingerprints(geo, count=1000)
+
+Создаёт 1000 РАЗНЫХ отпечатков для страны
+
+Сохраняет в БД
+
+Нужно: случайные User-Agents, разрешения, canvas хэши
+
+syncGeoToAllSettings(geo_code)
+
+Выбрал РФ → меняются: timezone, language, user_agent, proxy_filter
+
+Всё синхронизировано, ничего не конфликтует
+
+parseProxiesFromRealSources(sources, geo)
+
+Реально подключается к fineproxy.org, proxyelite.info и т.д.
+
+Парсит прокси для выбранной страны
+
+Тестирует на Wordstat
+
+Возвращает только живые
+
+selectRandomFingerprintForBrowser(geo)
+
+Каждый раз выбирает НОВЫЙ отпечаток из базы
+
+Браузер запускается с разными FP → не блокируется
+
+launchBrowserWithAllSettings(account_config)
+
+Передаёт ВСЕ параметры: прокси, geo, fp, ua, timezone, captcha
+
+Браузер запускается идеально синхронизированным
+
+✅ ФИНАЛЬНЫЙ ЧЕКЛИСТ
+text
+ДО ТОГО КАК БУДЕТ 100%:
+
+❌ Генератор 1000 fingerprints (по странам)
+❌ База данных для хранения FP
+❌ GeoProfile система (все параметры синхронизированы)
+❌ Выбор ГЕО → меняет ВСЁ (timezone, lang, ua, proxy)
+❌ Реальный парсинг прокси с 5 источников
+❌ Фильтр прокси по странам (РФ/КЗ/BY)
+❌ Тест прокси на Wordstat
+❌ Слайдеры для браузеров/вкладок (UI)
+❌ Settings вкладка (скорость, turbo mode, логирование)
+❌ Полная передача параметров при launch браузера
+❌ Случайный FP при каждом запуске браузера
+Готово! Вот ПОЛНАЯ ЗАДАЧА ДЛЯ AI с детальным анализом что есть и что нужно добавить! 🚀
+
+
+Отлично, делаю полный фронт на React + TypeScript под твой бэкенд (Python) с Zustand, TanStack Query/Table, react-select, react-toastify и Tailwind. Ниже — готовые файлы. Кладёшь их в src/ (кроме package.json и tailwind.config.ts). Все запросы — к твоим эндпоинтам (названия соответствуют твоим модулям: geo_profiles.py, fingerprint_generator.py, proxy_manager_adapters.py, consistency_validator.py, browser_launcher_full.py).
+
+⚠️ Примечание: для Tailwind нужны ещё postcss.config.cjs и src/index.css c @tailwind base; @tailwind components; @tailwind utilities;. Их легко добавить при инициализации Tailwind, но ниже даю только то, что ты запросил.
+
+package.json
+{
+  "name": "keyset-react-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.56.2",
+    "@tanstack/react-table": "^8.20.5",
+    "classnames": "^2.5.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-select": "^5.8.0",
+    "react-toastify": "^10.0.5",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.4",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
+
+tailwind.config.ts
+import type { Config } from 'tailwindcss'
+
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{ts,tsx}"
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+} satisfies Config
+
+src/store.ts
+import { create } from 'zustand'
+
+export type GeoCode = 'RU' | 'KZ' | 'BY'
+export type SpeedProfile = 'slow' | 'normal' | 'fast'
+
+export interface ParsingSettings {
+  browsers_count: number
+  tabs_per_browser: number
+  parsing_speed: SpeedProfile
+  turbo_mode: boolean
+  logging: boolean
+  save_to_db: boolean
+}
+
+export type RightTab = 'main' | 'net' | 'fp' | 'settings'
+
+export interface Account {
+  id: string
+  email: string
+  profilePath: string
+  authorized: boolean
+  cookieSize?: string
+  status: 'idle' | 'running' | 'error' | 'warn' | 'ok' | 'testing' | 'launching'
+  geo: GeoCode
+  // network
+  proxy?: string            // "ip:port"
+  proxyUser?: string
+  proxyPass?: string
+  proxyCountry?: GeoCode
+  // fingerprint
+  ua?: string
+  tz?: string
+  lang?: string
+  screen?: string
+  webgl?: string
+  spoof: { canvas: boolean; webgl: boolean; audio: boolean; tcpip: boolean }
+  // captcha (опционально, если нужно — можно расширить)
+  captchaService?: '2captcha' | 'rucaptcha' | 'anticaptcha' | 'off'
+  captchaKey?: string
+  // rotation
+  proxyRotation?: { enabled: boolean; minutes: number }
+}
+
+interface UIStore {
+  selectedAccountId: string | null
+  rightTab: RightTab
+  filter: string
+
+  // Draft для глобальных настроек (SettingsTab управляет им в Zustand, сохраняет на бэк)
+  settingsDraft: ParsingSettings | null
+
+  setSelectedAccountId: (id: string | null) => void
+  setRightTab: (t: RightTab) => void
+  setFilter: (s: string) => void
+
+  setSettingsDraft: (patch: Partial<ParsingSettings>) => void
+  resetSettingsDraft: (val?: ParsingSettings | null) => void
+}
+
+export const useUIStore = create<UIStore>((set) => ({
+  selectedAccountId: null,
+  rightTab: 'main',
+  filter: '',
+
+  settingsDraft: null,
+
+  setSelectedAccountId: (id) => set({ selectedAccountId: id }),
+  setRightTab: (t) => set({ rightTab: t }),
+  setFilter: (s) => set({ filter: s }),
+
+  setSettingsDraft: (patch) =>
+    set((st) => ({ settingsDraft: { ...(st.settingsDraft || defaultSettings()), ...patch } })),
+  resetSettingsDraft: (val = null) => set({ settingsDraft: val }),
+}))
+
+export const defaultSettings = (): ParsingSettings => ({
+  browsers_count: 5,
+  tabs_per_browser: 10,
+  parsing_speed: 'normal',
+  turbo_mode: false,
+  logging: true,
+  save_to_db: true,
+})
+
+src/hooks/useApi.ts
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Account, GeoCode, ParsingSettings } from '../store'
+import { defaultSettings } from '../store'
+
+const json = (r: Response) => {
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+const api = <T>(url: string, init?: RequestInit) => fetch(url, init).then(json) as Promise<T>
+
+export interface FingerprintStats {
+  total: number
+  RU: number
+  KZ: number
+  BY: number
+}
+
+export interface ProxySource {
+  id: string
+  name: string
+  active: boolean
+  countries: GeoCode[]
+  protocol: string
+}
+
+export interface ProxyEntry {
+  id: string
+  host: string
+  port: number
+  scheme: 'http' | 'https' | 'socks5'
+  country: GeoCode
+  ping?: number
+  status?: 'OK' | 'BLOCKED' | 'DEAD'
+  sourceId?: string
+}
+
+export const qk = {
+  accounts: ['accounts'] as const,
+  settings: ['parsing_settings'] as const,
+  fpStats: (geo?: GeoCode) => ['fp_stats', geo] as const,
+  proxySources: ['proxy_sources'] as const,
+  proxyJob: (jobId: string) => ['proxy_job', jobId] as const,
+  browserStatus: (id: string) => ['browser_status', id] as const,
+}
+
+export const useAccountsQuery = () =>
+  useQuery<Account[]>({
+    queryKey: qk.accounts,
+    queryFn: () => api<Account[]>('/api/accounts'),
+    staleTime: 10_000,
+  })
+
+export const useUpdateAccountMutation = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Account> }) =>
+      api<Account>(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.accounts }),
+  })
+}
+
+export const useParsingSettingsQuery = () =>
+  useQuery<ParsingSettings>({
+    queryKey: qk.settings,
+    queryFn: () => api<ParsingSettings>('/api/settings/parsing').catch(() => defaultSettings()),
+    staleTime: 0,
+  })
+
+export const useUpdateParsingSettingsMutation = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (val: ParsingSettings) =>
+      api<ParsingSettings>('/api/settings/parsing', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(val),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.settings }),
+  })
+}
+
+export const useFingerprintStatsQuery = () =>
+  useQuery<FingerprintStats>({
+    queryKey: qk.fpStats(),
+    queryFn: () => api<FingerprintStats>('/api/fp/stats'),
+    staleTime: 5_000,
+  })
+
+export const useGenerateFPMutation = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ geo, count }: { geo: GeoCode; count: number }) =>
+      api<{ ok: boolean; added: number }>(`/api/fp/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ geo, count }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.fpStats() }),
+  })
+}
+
+export const useSwitchGeoMutation = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ account_id, geo }: { account_id: string; geo: GeoCode }) =>
+      api<{ ok: boolean }>(`/api/geo/switch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id, geo }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.accounts }),
+  })
+}
+
+export const useProxySourcesQuery = () =>
+  useQuery<ProxySource[]>({
+    queryKey: qk.proxySources,
+    queryFn: () => api<ProxySource[]>('/api/proxy/sources'),
+    staleTime: 30_000,
+  })
+
+export const useParseProxiesMutation = () => {
+  return useMutation({
+    mutationFn: ({ sources, geo }: { sources: string[]; geo: GeoCode }) =>
+      api<{ job_id: string }>(`/api/proxy/parse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sources, geo }),
+      }),
+  })
+}
+export const useProxyJobQuery = (jobId?: string) =>
+  useQuery<{ done: boolean; items: ProxyEntry[] }>({
+    queryKey: qk.proxyJob(jobId || 'none'),
+    queryFn: () => api<{ done: boolean; items: ProxyEntry[] }>(`/api/proxy/job/${jobId}`),
+    enabled: !!jobId,
+    refetchInterval: jobId ? 1000 : false,
+  })
+
+export const useLaunchBrowserMutation = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ account_id }: { account_id: string }) =>
+      api<{ ok: boolean }>(`/api/browser/launch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id }),
+      }),
+    onSuccess: () => qc.invalidateQueries(),
+  })
+}
+
+export const useBrowserStatusQuery = (account_id?: string) =>
+  useQuery<{ status: Account['status'] }>({
+    queryKey: qk.browserStatus(account_id || 'none'),
+    queryFn: () => api<{ status: Account['status'] }>(`/api/browser/status?account_id=${account_id}`),
+    enabled: !!account_id,
+    refetchInterval: account_id ? 2000 : false,
+  })
+
+export const useConsistencyAlignMutation = () =>
+  useMutation({
+    mutationFn: ({ account_id }: { account_id: string }) =>
+      api<{ ok: boolean }>(`/api/consistency/align`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_id }),
+      }),
+  })
+
+src/components/AccountsTable.tsx
+import React, { useMemo } from 'react'
+import { useUIStore } from '../store'
+import { useAccountsQuery } from '../hooks/useApi'
+import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+import type { Account } from '../store'
+import clsx from 'classnames'
+
+const col = createColumnHelper<Account>()
+
+export default function AccountsTable() {
+  const { data } = useAccountsQuery()
+  const selectedId = useUIStore(s => s.selectedAccountId)
+  const setSelected = useUIStore(s => s.setSelectedAccountId)
+  const filter = useUIStore(s => s.filter)
+
+  const rows = useMemo(() => {
+    const list = data || []
+    if (!filter) return list
+    const q = filter.toLowerCase()
+    return list.filter(a => a.email.toLowerCase().includes(q))
+  }, [data, filter])
+
+  const columns = useMemo(() => [
+    col.display({
+      id: 'sel',
+      header: '',
+      cell: ({ row }) => (
+        <input
+          type="radio"
+          checked={selectedId === row.original.id}
+          onChange={() => setSelected(row.original.id)}
+        />
+      ),
+      size: 36
+    }),
+    col.accessor('email', {
+      header: 'Аккаунт',
+      cell: ({ row }) => (
+        <div className="leading-tight">
+          <div className="font-medium">{row.original.email}</div>
+          <div className="text-xs text-slate-500">{row.original.profilePath}</div>
+        </div>
+      ),
+    }),
+    col.accessor('geo', {
+      header: 'GEO',
+      cell: ({ getValue }) => <span className="text-slate-700">{getValue()}</span>,
+    }),
+    col.accessor('proxy', {
+      header: 'Прокси',
+      cell: ({ getValue }) => <span className="truncate block max-w-[180px]">{getValue() || '—'}</span>,
+    }),
+    col.accessor('cookieSize', {
+      header: 'Куки',
+      cell: ({ getValue }) => <span className="text-slate-600">{getValue() || '—'}</span>,
+    }),
+    col.accessor('status', {
+      header: 'Статус',
+      cell: ({ getValue }) => {
+        const v = getValue()
+        const color = v === 'running' || v === 'ok' ? 'text-emerald-700' :
+          v === 'warn' ? 'text-amber-700' :
+            v === 'error' ? 'text-rose-700' :
+              'text-slate-600'
+        return <span className={clsx('text-sm', color)}>{v}</span>
+      }
+    }),
+  ], [selectedId, setSelected])
+
+  const table = useReactTable({
+    data: rows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
+  return (
+    <div className="rounded-2xl border bg-white shadow-sm">
+      <div className="flex items-center justify-between p-3 border-b">
+        <div className="font-medium">Аккаунты</div>
+        <div className="text-xs text-slate-500">{rows.length} шт.</div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-slate-500">
+            {table.getHeaderGroups().map(hg => (
+              <tr key={hg.id}>
+                {hg.headers.map(h => (
+                  <th key={h.id} className="px-3 py-2">{flexRender(h.column.columnDef.header, h.getContext())}</th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map(r => (
+              <tr key={r.id} className={clsx("border-t hover:bg-slate-50", selectedId === r.original.id && "bg-slate-50")}>
+                {r.getVisibleCells().map(c => (
+                  <td key={c.id} className="px-3 py-2">{flexRender(c.column.columnDef.cell, c.getContext())}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+src/components/GeoSelector.tsx
+import React from 'react'
+import { useSwitchGeoMutation } from '../hooks/useApi'
+import { useUIStore } from '../store'
+import { useAccountsQuery } from '../hooks/useApi'
+import type { GeoCode } from '../store'
+import { toast } from 'react-toastify'
+
+const GEO: { code: GeoCode; label: string }[] = [
+  { code: 'RU', label: 'Россия' },
+  { code: 'KZ', label: 'Казахстан' },
+  { code: 'BY', label: 'Беларусь' },
+]
+
+export default function GeoSelector() {
+  const selId = useUIStore(s => s.selectedAccountId)
+  const { data: accounts } = useAccountsQuery()
+  const account = accounts?.find(a => a.id === selId)
+  const switchGeo = useSwitchGeoMutation()
+
+  const onChange = (g: GeoCode) => {
+    if (!account) return
+    switchGeo.mutate({ account_id: account.id, geo: g }, {
+      onSuccess: () => toast.success(`GEO переключен на ${g}`),
+      onError: () => toast.error('Не удалось переключить GEO')
+    })
+  }
+
+  return (
+    <div>
+      <div className="text-xs text-slate-500 mb-2">Геолокация</div>
+      <div className="flex gap-2">
+        {GEO.map(g => (
+          <label key={g.code} className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              checked={account?.geo === g.code}
+              onChange={() => onChange(g.code)}
+            />
+            <span>{g.label} ({g.code})</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+src/components/SettingsTab.tsx
+import React, { useEffect } from 'react'
+import { useParsingSettingsQuery, useUpdateParsingSettingsMutation } from '../hooks/useApi'
+import { useUIStore, defaultSettings } from '../store'
+import { toast } from 'react-toastify'
+
+export default function SettingsTab() {
+  const { data: settings, isLoading } = useParsingSettingsQuery()
+  const saveMutation = useUpdateParsingSettingsMutation()
+  const draft = useUIStore(s => s.settingsDraft)
+  const setDraft = useUIStore(s => s.setSettingsDraft)
+  const reset = useUIStore(s => s.resetSettingsDraft)
+
+  useEffect(() => {
+    if (!draft && settings) reset(settings)
+    if (!draft && !isLoading && !settings) reset(defaultSettings())
+  }, [draft, settings, isLoading, reset])
+
+  if (!draft) return <div className="text-sm text-slate-500">Загрузка настроек…</div>
+
+  const save = () => {
+    saveMutation.mutate(draft, {
+      onSuccess: () => {
+        toast.success('Настройки сохранены')
+      },
+      onError: () => toast.error('Ошибка сохранения настроек')
+    })
+  }
+
+  const toDefault = () => {
+    reset(defaultSettings())
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <div className="text-xs text-slate-500 mb-1">Количество браузеров</div>
+        <input type="range" min={1} max={10} value={draft.browsers_count}
+               onChange={e => setDraft({ browsers_count: Number(e.target.value) })} />
+        <div className="text-sm mt-1">Текущее значение: <b>{draft.browsers_count}</b></div>
+      </div>
+
+      <div>
+        <div className="text-xs text-slate-500 mb-1">Вкладок на браузер</div>
+        <input type="range" min={1} max={20} value={draft.tabs_per_browser}
+               onChange={e => setDraft({ tabs_per_browser: Number(e.target.value) })} />
+        <div className="text-sm mt-1">Текущее значение: <b>{draft.tabs_per_browser}</b></div>
+      </div>
+
+      <div className="col-span-2">
+        <div className="text-xs text-slate-500 mb-1">Скорость парсинга</div>
+        <div className="flex gap-4 text-sm">
+          {(['slow','normal','fast'] as const).map(v => (
+            <label key={v} className="inline-flex items-center gap-2">
+              <input type="radio" checked={draft.parsing_speed === v}
+                     onChange={() => setDraft({ parsing_speed: v })}/>
+              <span className="capitalize">{v}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="col-span-2 flex items-center gap-6">
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={draft.turbo_mode} onChange={e => setDraft({ turbo_mode: e.currentTarget.checked })}/>
+          Быстрый парсинг (Turbo)
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={draft.logging} onChange={e => setDraft({ logging: e.currentTarget.checked })}/>
+          Логирование
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={draft.save_to_db} onChange={e => setDraft({ save_to_db: e.currentTarget.checked })}/>
+          Сохранять результаты в БД
+        </label>
+      </div>
+
+      <div className="col-span-2 flex items-center justify-end gap-2">
+        <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={toDefault}>По умолчанию</button>
+        <button className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800" onClick={save}>Сохранить</button>
+      </div>
+    </div>
+  )
+}
+
+src/components/FingerprintManager.tsx
+import React from 'react'
+import { useFingerprintStatsQuery, useGenerateFPMutation } from '../hooks/useApi'
+import { useUIStore } from '../store'
+import { useAccountsQuery } from '../hooks/useApi'
+import type { GeoCode } from '../store'
+import { toast } from 'react-toastify'
+
+export default function FingerprintManager() {
+  const { data: stats } = useFingerprintStatsQuery()
+  const gen = useGenerateFPMutation()
+  const selId = useUIStore(s => s.selectedAccountId)
+  const { data: accounts } = useAccountsQuery()
+  const acc = accounts?.find(a => a.id === selId)
+
+  const load = (geo: GeoCode) => {
+    gen.mutate({ geo, count: 1000 }, {
+      onSuccess: (r) => toast.success(`Добавлено ${r.added} FP для ${geo}`),
+      onError: () => toast.error('Ошибка генерации FP')
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Всего" value={stats?.total ?? 0}/>
+        <Stat label="RU" value={stats?.RU ?? 0}/>
+        <Stat label="KZ" value={stats?.KZ ?? 0}/>
+        <Stat label="BY" value={stats?.BY ?? 0}/>
+      </div>
+
+      <div className="flex gap-2">
+        <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={() => load('RU')}>Загрузить 1000 (RU)</button>
+        <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={() => load('KZ')}>Загрузить 1000 (KZ)</button>
+        <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={() => load('BY')}>Загрузить 1000 (BY)</button>
+      </div>
+
+      <div className="rounded-xl border p-3">
+        <div className="text-sm font-medium mb-2">Текущий аккаунт</div>
+        {acc ? (
+          <div className="text-sm text-slate-700">
+            <div>Email: <b>{acc.email}</b></div>
+            <div>GEO: <b>{acc.geo}</b></div>
+            <div>UA: <span className="font-mono">{acc.ua || 'auto'}</span></div>
+            <div>Screen: {acc.screen || 'auto'}, TZ: {acc.tz || 'auto'}, Lang: {acc.lang || 'auto'}</div>
+            <div>WebGL: {acc.webgl || 'auto'}</div>
+            <div>Spoof: Canvas {acc.spoof.canvas ? '✓' : '—'}, WebGL {acc.spoof.webgl ? '✓' : '—'}, Audio {acc.spoof.audio ? '✓' : '—'}</div>
+          </div>
+        ) : (
+          <div className="text-sm text-slate-500">Выбери аккаунт слева.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border p-3 text-center">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xl font-semibold">{value}</div>
+    </div>
+  )
+}
+
+src/components/ProxyManagerAdvanced.tsx
+import React, { useMemo, useState } from 'react'
+import Select from 'react-select'
+import { useParseProxiesMutation, useProxyJobQuery, useProxySourcesQuery } from '../hooks/useApi'
+import type { GeoCode, } from '../store'
+import type { ProxyEntry } from '../hooks/useApi'
+import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+
+const GEO_OPTS: { value: GeoCode; label: string }[] = [
+  { value: 'RU', label: 'Россия (RU)' },
+  { value: 'KZ', label: 'Казахстан (KZ)' },
+  { value: 'BY', label: 'Беларусь (BY)' },
+]
+
+export default function ProxyManagerAdvanced() {
+  const { data: sources } = useProxySourcesQuery()
+  const [geo, setGeo] = useState<GeoCode>('RU')
+  const [selSources, setSelSources] = useState<{ value: string; label: string }[]>([])
+  const parse = useParseProxiesMutation()
+  const [jobId, setJobId] = useState<string | undefined>()
+  const { data: job } = useProxyJobQuery(jobId)
+
+  const opts = (sources || []).filter(s => s.active).map(s => ({ value: s.id, label: `${s.name} ${s.active ? '✓' : '×'}` }))
+
+  const start = () => {
+    const ids = selSources.map(s => s.value)
+    if (!ids.length) return
+    parse.mutate({ sources: ids, geo }, {
+      onSuccess: r => setJobId(r.job_id)
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-slate-500 mb-1">Источники</div>
+          <Select
+            isMulti
+            options={opts}
+            value={selSources}
+            onChange={(v) => setSelSources(v as any)}
+            placeholder="Выберите источники"
+          />
+        </div>
+        <div>
+          <div className="text-xs text-slate-500 mb-1">Страна</div>
+          <Select
+            options={GEO_OPTS}
+            value={GEO_OPTS.find(o => o.value === geo)}
+            onChange={(v) => setGeo(v?.value as GeoCode)}
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button className="px-4 py-2 rounded-xl border hover:bg-slate-50" onClick={start}>Парсить прокси</button>
+        {jobId && <div className="text-sm text-slate-600">Job: {jobId} {job?.done ? '✓' : '…'}</div>}
+      </div>
+
+      <ProxyTable items={job?.items || []}/>
+    </div>
+  )
+}
+
+function ProxyTable({ items }: { items: ProxyEntry[] }) {
+  const col = createColumnHelper<ProxyEntry>()
+  const columns = useMemo(() => [
+    col.accessor('host', { header: 'Хост', cell: i => <span className="font-mono text-xs">{i.getValue()}</span> }),
+    col.accessor('port', { header: 'PORT' }),
+    col.accessor('scheme', { header: 'Схема', cell: i => <span className="uppercase">{i.getValue()}</span> }),
+    col.accessor('country', { header: 'Страна' }),
+    col.accessor('ping', { header: 'PING', cell: i => i.getValue() ? `${i.getValue()} ms` : '—' }),
+    col.accessor('status', { header: 'Статус' }),
+    col.accessor('sourceId', { header: 'Источник' }),
+  ], [])
+  const table = useReactTable({ data: items, columns, getCoreRowModel: getCoreRowModel() })
+
+  return (
+    <div className="rounded-xl border overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-left text-slate-500">
+        {table.getHeaderGroups().map(hg => (
+          <tr key={hg.id}>
+            {hg.headers.map(h => (
+              <th key={h.id} className="px-3 py-2">{flexRender(h.column.columnDef.header, h.getContext())}</th>
+            ))}
+          </tr>
+        ))}
+        </thead>
+        <tbody>
+        {table.getRowModel().rows.map(r => (
+          <tr key={r.id} className="border-t hover:bg-slate-50">
+            {r.getVisibleCells().map(c => (
+              <td key={c.id} className="px-3 py-2">{flexRender(c.column.columnDef.cell, c.getContext())}</td>
+            ))}
+          </tr>
+        ))}
+        {items.length === 0 && (
+          <tr><td className="px-3 py-3 text-sm text-slate-500" colSpan={7}>Здесь появятся результаты парсинга</td></tr>
+        )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+src/components/ConsistencyChecker.tsx
+import React, { useMemo } from 'react'
+import { useAccountsQuery, useConsistencyAlignMutation } from '../hooks/useApi'
+import { useUIStore } from '../store'
+import type { Account, GeoCode } from '../store'
+import { toast } from 'react-toastify'
+
+const GEO_TZ: Record<GeoCode, string[]> = {
+  RU: ['Europe/Moscow', 'Europe/Samara', 'Asia/Yekaterinburg', 'Asia/Novosibirsk', 'Asia/Vladivostok'],
+  KZ: ['Asia/Almaty', 'Asia/Atyrau', 'Asia/Qyzylorda'],
+  BY: ['Europe/Minsk'],
+}
+const GEO_LANG: Record<GeoCode, string[]> = {
+  RU: ['ru-RU', 'ru'],
+  KZ: ['kk-KZ', 'ru-RU', 'ru'],
+  BY: ['be-BY', 'ru-RU', 'ru'],
+}
+
+function localValidate(a?: Account) {
+  const issues: string[] = []
+  if (!a) return issues
+  if (a.proxyCountry && a.proxyCountry !== a.geo) issues.push(`Прокси GEO (${a.proxyCountry}) ≠ выбранный GEO (${a.geo})`)
+  if (a.tz && !GEO_TZ[a.geo].includes(a.tz)) issues.push(`Таймзона ${a.tz} не соответствует GEO ${a.geo}`)
+  if (a.lang && !GEO_LANG[a.geo].includes(a.lang)) issues.push(`Язык ${a.lang} не соответствует GEO ${a.geo}`)
+  return issues
+}
+
+export default function ConsistencyChecker() {
+  const selId = useUIStore(s => s.selectedAccountId)
+  const { data: accounts } = useAccountsQuery()
+  const acc = accounts?.find(a => a.id === selId)
+  const align = useConsistencyAlignMutation()
+
+  const issues = useMemo(() => localValidate(acc), [acc])
+
+  const fix = () => {
+    if (!acc) return
+    align.mutate({ account_id: acc.id }, {
+      onSuccess: () => toast.success('Параметры подогнаны к GEO'),
+      onError: () => toast.error('Не удалось подогнать параметры')
+    })
+  }
+
+  return (
+    <div className="rounded-xl border p-3 mt-4">
+      <div className="text-sm font-medium mb-2">Проверка консистентности</div>
+      {issues.length === 0
+        ? <div className="text-sm text-emerald-700">✓ Всё выглядит согласованным</div>
+        : (
+          <div className="space-y-2">
+            <ul className="list-disc pl-5 text-sm text-amber-700">
+              {issues.map((it, i) => <li key={i}>{it}</li>)}
+            </ul>
+            <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={fix}>Подогнать к ГЕО</button>
+          </div>
+        )
+      }
+    </div>
+  )
+}
+
+src/components/BrowserLauncher.tsx
+import React from 'react'
+import { useAccountsQuery, useBrowserStatusQuery, useLaunchBrowserMutation } from '../hooks/useApi'
+import { useUIStore } from '../store'
+import { toast } from 'react-toastify'
+
+export default function BrowserLauncher() {
+  const selId = useUIStore(s => s.selectedAccountId)
+  const { data: accounts } = useAccountsQuery()
+  const acc = accounts?.find(a => a.id === selId)
+  const launch = useLaunchBrowserMutation()
+  const { data: st } = useBrowserStatusQuery(acc?.id)
+
+  const doLaunch = () => {
+    if (!acc) return
+    launch.mutate({ account_id: acc.id }, {
+      onSuccess: () => toast.success('Браузер запущен'),
+      onError: () => toast.error('Ошибка запуска браузера')
+    })
+  }
+
+  const launchAll = () => {
+    (accounts || []).forEach(a => {
+      launch.mutate({ account_id: a.id })
+    })
+    toast.info('Массовый запуск отправлен')
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2 border-t pt-3 mt-3">
+      {acc && <div className="text-xs text-slate-500 mr-auto">Статус: {st?.status || acc.status}</div>}
+      <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={launchAll}>Запуск всех</button>
+      <button className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800" onClick={doLaunch}>Запустить браузер</button>
+    </div>
+  )
+}
+
+src/components/ProxyManagerAdvanced.tsx — уже выше (не дублирую).
+src/components/FingerprintManager.tsx — уже выше (не дублирую).
+src/components/SettingsTab.tsx — уже выше (не дублирую).
+src/components/GeoSelector.tsx — уже выше (не дублирую).
+src/App.tsx
+import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import AccountsTable from './components/AccountsTable'
+import SettingsTab from './components/SettingsTab'
+import GeoSelector from './components/GeoSelector'
+import FingerprintManager from './components/FingerprintManager'
+import ProxyManagerAdvanced from './components/ProxyManagerAdvanced'
+import ConsistencyChecker from './components/ConsistencyChecker'
+import BrowserLauncher from './components/BrowserLauncher'
+import { useUIStore } from './store'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+
+const qc = new QueryClient()
+
+export default function App() {
+  return (
+    <QueryClientProvider client={qc}>
+      <div className="min-h-screen w-full bg-slate-50 text-slate-900">
+        <TopBar/>
+        <MainSplit/>
+      </div>
+      <ToastContainer position="bottom-right" />
+    </QueryClientProvider>
+  )
+}
+
+function TopBar() {
+  const filter = useUIStore(s => s.filter)
+  const setFilter = useUIStore(s => s.setFilter)
+  return (
+    <div className="sticky top-0 z-30 border-b bg-white">
+      <div className="mx-auto max-w-[1300px] px-4">
+        <div className="flex items-center gap-6 py-3">
+          <div className="text-xl font-semibold">KeySet — Аккаунты</div>
+          <div className="ml-auto">
+            <input
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="Поиск по email"
+              className="pl-3 pr-3 py-2 rounded-lg border bg-white text-sm w-[260px] outline-none focus:ring-2 focus:ring-slate-300"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MainSplit() {
+  const rightTab = useUIStore(s => s.rightTab)
+  const setRightTab = useUIStore(s => s.setRightTab)
+
+  return (
+    <div className="mx-auto max-w-[1300px] px-4 py-4 grid grid-cols-12 gap-4">
+      <div className="col-span-8">
+        <AccountsTable />
+      </div>
+
+      <div className="col-span-4">
+        <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <div className="font-medium">Сайдбар настроек</div>
+            <div className="text-xs text-slate-500">Выберите аккаунт слева</div>
+          </div>
+
+          {/* Tabs */}
+          <div className="px-3 pt-3">
+            <div className="inline-flex rounded-xl border bg-slate-50 p-1 text-sm">
+              <Tab label="📋 Основное" id="main" active={rightTab==='main'} onClick={() => setRightTab('main')} />
+              <Tab label="🌐 Сеть" id="net" active={rightTab==='net'} onClick={() => setRightTab('net')} />
+              <Tab label="🎭 Fingerprint" id="fp" active={rightTab==='fp'} onClick={() => setRightTab('fp')} />
+              <Tab label="⚙️ Settings" id="settings" active={rightTab==='settings'} onClick={() => setRightTab('settings')} />
+            </div>
+          </div>
+
+          {/* Panels */}
+          <div className="p-4">
+            {rightTab === 'main' && <PanelMain />}
+            {rightTab === 'net' && <ProxyManagerAdvanced />}
+            {rightTab === 'fp' && <FingerprintManager />}
+            {rightTab === 'settings' && <SettingsTab />}
+            <ConsistencyChecker />
+            <BrowserLauncher />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Tab({ label, active, onClick }: { label: string; id: string; active: boolean; onClick: ()=>void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg ${active ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+    >
+      {label}
+    </button>
+  )
+}
+
+function PanelMain() {
+  return (
+    <div className="space-y-4">
+      <GeoSelector />
+      <div className="text-xs text-slate-500">
+        Здесь можно добавить поля авторизации / пароль / путь профиля при необходимости.
+      </div>
+    </div>
+  )
+}
+
+Всё.
+
+Готовая фронтенд‑структура по твоему ТЗ, строго на React + TS, с Zustand (UI‑состояние/драфт настроек), TanStack Query (API), TanStack Table (таблицы), react-select (источники прокси), react-toastify (нотификации), и Tailwind (стили).
+
+Вызовы API привязаны к эндпоинтам, соответствующим твоим бэкенд‑модулям (названия и флоу доступны для быстрой привязки).
+
+Добавлены ConsistencyChecker и кнопка “Подогнать к ГЕО”, чтобы убирать конфликты GEO↔прокси↔FP.
+
+SettingsTab управляет глобальными параметрами парсинга (бразуера/вкладки/скорость/турбо/логирование/сохранение).
+
+⚠️ ЧТО НУЖНО ДОБАВИТЬ (5%):
+ДОБАВЛЕНИЕ 1: src/index.css (забыли!)
+css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ДОБАВЛЕНИЕ 2: Постоянный рефреш статуса браузера
+BrowserLauncher должен обновлять статус в реал-тайме:
+
+typescript
+// src/components/BrowserLauncher.tsx (улучшенный)
+import React, { useEffect } from 'react'
+import { useAccountsQuery, useBrowserStatusQuery, useLaunchBrowserMutation } from '../hooks/useApi'
+import { useUIStore } from '../store'
+import { toast } from 'react-toastify'
+
+export default function BrowserLauncher() {
+  const selId = useUIStore(s => s.selectedAccountId)
+  const { data: accounts } = useAccountsQuery()
+  const acc = accounts?.find(a => a.id === selId)
+  const launch = useLaunchBrowserMutation()
+  const { data: st } = useBrowserStatusQuery(acc?.id)
+
+  const doLaunch = () => {
+    if (!acc) return
+    launch.mutate({ account_id: acc.id }, {
+      onSuccess: () => toast.success('Браузер запущен'),
+      onError: () => toast.error('Ошибка запуска браузера')
+    })
+  }
+
+  const launchAll = () => {
+    (accounts || []).forEach(a => {
+      launch.mutate({ account_id: a.id })
+    })
+    toast.info('Массовый запуск отправлен')
+  }
+
+  // ✅ ДОБАВЛЕНО: цвет статуса
+  const statusColor = {
+    'running': 'text-blue-600',
+    'ok': 'text-green-600',
+    'error': 'text-red-600',
+    'warn': 'text-amber-600',
+    'idle': 'text-gray-600',
+  }[st?.status || acc?.status || 'idle'] || 'text-gray-600'
+
+  return (
+    <div className="flex items-center justify-end gap-2 border-t pt-3 mt-3">
+      {acc && (
+        <div className={`text-xs font-medium ${statusColor}`}>
+          Статус: {st?.status || acc.status}
+        </div>
+      )}
+      <button className="px-3 py-2 rounded-xl border hover:bg-slate-50" onClick={launchAll}>
+        Запуск всех
+      </button>
+      <button 
+        className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50" 
+        onClick={doLaunch}
+        disabled={!acc}
+      >
+        Запустить браузер
+      </button>
+    </div>
+  )
+}
+ДОБАВЛЕНИЕ 3: Обработка ошибок API
+В src/hooks/useApi.ts добавить обработчик:
+
+typescript
+// src/hooks/useApi.ts (добавить в конце)
+
+export const useErrorHandler = () => {
+  return (error: any) => {
+    if (error?.response?.status === 401) {
+      toast.error('Не авторизован')
+      return
+    }
+    if (error?.response?.status === 404) {
+      toast.error('Ресурс не найден')
+      return
+    }
+    if (error?.response?.status === 500) {
+      toast.error('Ошибка сервера')
+      return
+    }
+    toast.error(error?.message || 'Неизвестная ошибка')
+  }
+}
+ДОБАВЛЕНИЕ 4: Индикатор загрузки в FingerprintManager
+typescript
+// src/components/FingerprintManager.tsx (добавить)
+import React from 'react'
+import { useFingerprintStatsQuery, useGenerateFPMutation } from '../hooks/useApi'
+import { useUIStore } from '../store'
+import { useAccountsQuery } from '../hooks/useApi'
+import type { GeoCode } from '../store'
+import { toast } from 'react-toastify'
+
+export default function FingerprintManager() {
+  const { data: stats, isLoading: statsLoading } = useFingerprintStatsQuery()
+  const gen = useGenerateFPMutation()
+  const selId = useUIStore(s => s.selectedAccountId)
+  const { data: accounts } = useAccountsQuery()
+  const acc = accounts?.find(a => a.id === selId)
+
+  const load = (geo: GeoCode) => {
+    gen.mutate({ geo, count: 1000 }, {
+      onSuccess: (r) => toast.success(`Добавлено ${r.added} FP для ${geo}`),
+      onError: () => toast.error('Ошибка генерации FP')
+    })
+  }
+
+  // ✅ ДОБАВЛЕНО: loadingState
+  const isGenerating = gen.isPending
+
+  return (
+    <div className="space-y-4">
+      {statsLoading ? (
+        <div className="text-sm text-slate-500">Загрузка статистики…</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="Всего" value={stats?.total ?? 0}/>
+          <Stat label="RU" value={stats?.RU ?? 0}/>
+          <Stat label="KZ" value={stats?.KZ ?? 0}/>
+          <Stat label="BY" value={stats?.BY ?? 0}/>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button 
+          className="px-3 py-2 rounded-xl border hover:bg-slate-50 disabled:opacity-50" 
+          onClick={() => load('RU')}
+          disabled={isGenerating}
+        >
+          {isGenerating ? 'Загружаю…' : 'Загрузить 1000 (RU)'}
+        </button>
+        <button 
+          className="px-3 py-2 rounded-xl border hover:bg-slate-50 disabled:opacity-50" 
+          onClick={() => load('KZ')}
+          disabled={isGenerating}
+        >
+          Загрузить 1000 (KZ)
+        </button>
+        <button 
+          className="px-3 py-2 rounded-xl border hover:bg-slate-50 disabled:opacity-50" 
+          onClick={() => load('BY')}
+          disabled={isGenerating}
+        >
+          Загрузить 1000 (BY)
+        </button>
+      </div>
+
+      <div className="rounded-xl border p-3">
+        <div className="text-sm font-medium mb-2">Текущий аккаунт</div>
+        {acc ? (
+          <div className="text-sm text-slate-700 space-y-1">
+            <div>Email: <b>{acc.email}</b></div>
+            <div>GEO: <b>{acc.geo}</b></div>
+            <div className="font-mono text-xs text-slate-600">UA: {acc.ua || 'auto'}</div>
+            <div className="text-xs text-slate-600">Screen: {acc.screen || 'auto'}, TZ: {acc.tz || 'auto'}, Lang: {acc.lang || 'auto'}</div>
+            <div className="text-xs text-slate-600">WebGL: {acc.webgl || 'auto'}</div>
+            <div className="text-xs text-slate-600">
+              Spoof: Canvas {acc.spoof.canvas ? '✓' : '—'}, WebGL {acc.spoof.webgl ? '✓' : '—'}, Audio {acc.spoof.audio ? '✓' : '—'}, TCP/IP {acc.spoof.tcpip ? '✓' : '—'}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-slate-500">Выбери аккаунт слева.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border p-3 text-center">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xl font-semibold">{value}</div>
+    </div>
+  )
+}
+ДОБАВЛЕНИЕ 5: Валидация при запуске браузера
+typescript
+// src/components/BrowserLauncher.tsx (добавить валидацию)
+const doLaunch = () => {
+  if (!acc) {
+    toast.warning('Выбери аккаунт')
+    return
+  }
+  if (!acc.proxy) {
+    toast.warning('Нужно установить прокси')
+    return
+  }
+  if (!acc.authorized) {
+    toast.warning('Аккаунт не авторизован')
+    return
+  }
+  launch.mutate({ account_id: acc.id }, {
+    onSuccess: () => toast.success('Браузер запущен'),
+    onError: () => toast.error('Ошибка запуска браузера')
+  })
+}
+📋 ИТОГОВЫЙ ЧЕКЛИСТ
+Пункт	Статус
+Все компоненты React	✅ Готовы
+Zustand store	✅ Готов
+TanStack Query + Table	✅ Готовы
+API integration	✅ Готов
+Tailwind CSS	✅ Готов
+src/index.css	⚠️ Нужен
+Обработка ошибок	⚠️ Можно улучшить
+Loading states	⚠️ Есть но не везде
+Валидация	⚠️ Есть но не везде
+🚀 ФИНАЛЬНЫЙ ВЕРДИКТ
+ХВАТИТ ДЛЯ АГЕНТА! ✅
+
+Файл 95% готов к отправке агенту. Всё что нужно:
+
+✅ Добавь src/index.css (3 строки @tailwind)
+
+✅ Копируй все файлы в src/
+
+✅ Запусти npm install
+
+✅ Запусти npm run dev
+
+Возможные мелкие улучшения (опционально):
+
+Добавить loading spinners в более местах
+
+Добавить более умные валидации
+
+Добавить экспорт/импорт аккаунтов
+
+Но даже БЕЗ этого фронтенд готов к работе с бэкенд-парсингом! 🎉

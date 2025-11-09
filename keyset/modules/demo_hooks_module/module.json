@@ -1,0 +1,11 @@
+{
+  "id": "demo_hooks_module",
+  "title": "Demo Hooks",
+  "icon": "🎯",
+  "description": "Demo module with lifecycle hooks (init/unload)",
+  "version": "1.0.0",
+  "entry": "modules.demo_hooks_module.widget:create",
+  "order": 998,
+  "dependencies": [],
+  "enabled": false
+}

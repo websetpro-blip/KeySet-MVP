@@ -1,0 +1,1183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>KeysetMainWindow</class>
+ <widget class="QMainWindow" name="KeysetMainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1400</width>
+    <height>900</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Keyset v2.0 - Вкладка Аккаунты</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>icon.ico</normaloff>icon.ico</iconset>
+   </property>
+  
+  <widget class="QWidget" name="centralWidget">
+   <property name="layout">
+    <layout class="QVBoxLayout" name="mainLayout">
+     <property name="spacing">
+      <number>4</number>
+     </property>
+     <property name="margin">
+      <number>0</number>
+     </property>
+     
+     <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+     <item>
+      <widget class="QFrame" name="topBarFrame">
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QFrame#topBarFrame { background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; padding: 8px; }</string>
+       </property>
+       <property name="layout">
+        <layout class="QHBoxLayout" name="topBarLayout">
+         <item>
+          <widget class="QLabel" name="titleLabel">
+           <property name="text">
+            <string>🔑 Аккаунты</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QLabel { font-size: 24px; font-weight: bold; color: #333; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QFrame" name="newFunctionsFrame">
+           <property name="frameShape">
+            <enum>QFrame::NoFrame</enum>
+           </property>
+           <property name="layout">
+            <layout class="QHBoxLayout" name="newFunctionsLayout">
+             <item>
+              <widget class="QPushButton" name="btnBrowserLauncher">
+               <property name="text">
+                <string>🚀 Запуск браузера</string>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton { background-color: #ffc107; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; color: #212529; } QPushButton:hover { background-color: #e0a800; }</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnConsistencyChecker">
+               <property name="text">
+                <string>🔍 Проверка консистентности</string>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton { background-color: #17a2b8; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; color: white; } QPushButton:hover { background-color: #138496; }</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+          </widget>
+         </item>
+         <item>
+          <spacer name="topBarSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+      </widget>
+     </item>
+     
+     <!-- ПАНЕЛЬ КНОПОК -->
+     <item>
+      <widget class="QFrame" name="toolbarFrame">
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QFrame#toolbarFrame { background-color: white; border-bottom: 1px solid #e0e0e0; padding: 12px 20px; }</string>
+       </property>
+       <property name="layout">
+        <layout class="QHBoxLayout" name="toolbarLayout">
+         <property name="spacing">
+          <number>8</number>
+         </property>
+         <item>
+          <widget class="QPushButton" name="btnAdd">
+           <property name="text">
+            <string>➕ Добавить</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #007bff; border: none; padding: 8px 16px; border-radius: 4px; color: white; font-weight: bold; } QPushButton:hover { background-color: #0056b3; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnEdit">
+           <property name="text">
+            <string>✏️ Изменить</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 8px 16px; border-radius: 4px; color: white; } QPushButton:hover { background-color: #545b62; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnDelete">
+           <property name="text">
+            <string>🗑️ Удалить</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 8px 16px; border-radius: 4px; color: white; } QPushButton:hover { background-color: #545b62; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnRefresh">
+           <property name="text">
+            <string>🔄 Обновить</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #17a2b8; border: none; padding: 8px 16px; border-radius: 4px; color: white; } QPushButton:hover { background-color: #138496; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnLaunch">
+           <property name="text">
+            <string>▶️ Запустить</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #28a745; border: none; padding: 8px 16px; border-radius: 4px; color: white; font-weight: bold; } QPushButton:hover { background-color: #218838; }</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnProxyManager">
+           <property name="text">
+            <string>⚙️ Менеджер прокси</string>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QPushButton { background-color: #ffc107; border: none; padding: 8px 16px; border-radius: 4px; color: #212529; font-weight: bold; } QPushButton:hover { background-color: #e0a800; }</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+      </widget>
+     </item>
+     
+     <!-- ОСНОВНОЙ КОНТЕНТ -->
+     <item>
+      <widget class="QWidget" name="mainContentWidget">
+       <property name="layout">
+        <layout class="QHBoxLayout" name="mainContentLayout">
+         <property name="spacing">
+          <number>8</number>
+         </property>
+         <property name="margin">
+          <number>0</number>
+         </property>
+         
+         <!-- ЛЕВАЯ ЧАСТЬ (70%) -->
+         <item>
+          <widget class="QWidget" name="leftContentWidget">
+           <property name="layout">
+            <layout class="QVBoxLayout" name="leftContentLayout">
+             <property name="spacing">
+              <number>8</number>
+             </property>
+             
+             <!-- ПОИСК И ФИЛЬТРЫ -->
+             <item>
+              <widget class="QFrame" name="searchFilterFrame">
+               <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QFrame#searchFilterFrame { background-color: white; padding: 8px; }</string>
+               </property>
+               <property name="layout">
+                <layout class="QHBoxLayout" name="searchFilterLayout">
+                 <item>
+                  <widget class="QLineEdit" name="searchInput">
+                   <property name="placeholderText">
+                    <string>🔍 Поиск по email...</string>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>300</width>
+                     <height>36</height>
+                    </size>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="statusFilter">
+                   <property name="minimumSize">
+                    <size>
+                     <width>150</width>
+                     <height>36</height>
+                    </size>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>Все статусы</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>✅ Активен</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>⚠️ Требует входа</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>❌ Ошибка</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>🔄 В работе</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+              </widget>
+             </item>
+             
+             <!-- БЫСТРЫЕ ФИЛЬТРЫ -->
+             <item>
+              <widget class="QFrame" name="quickFiltersFrame">
+               <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QFrame#quickFiltersFrame { background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; padding: 8px 20px; }</string>
+               </property>
+               <property name="layout">
+                <layout class="QHBoxLayout" name="quickFiltersLayout">
+                 <property name="spacing">
+                  <number>8</number>
+                 </property>
+                 <item>
+                  <widget class="QPushButton" name="btnActiveOnly">
+                   <property name="text">
+                    <string>Только активные</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #545b62; }</string>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnNeedsLogin">
+                   <property name="text">
+                    <string>Требуют входа</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #545b62; }</string>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnWithErrors">
+                   <property name="text">
+                    <string>С ошибками</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #545b62; }</string>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnWithProxy">
+                   <property name="text">
+                    <string>С прокси</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #545b62; }</string>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnClearFilters">
+                   <property name="text">
+                    <string>Очистить</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 6px 12px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #545b62; }</string>
+                  </widget>
+                 </item>
+                </layout>
+              </widget>
+             </item>
+             
+             <!-- ТАБЛИЦА АККАУНТОВ -->
+             <item>
+              <widget class="QTableWidget" name="accountsTable">
+               <property name="alternatingRowColors">
+                <bool>true</bool>
+               </property>
+               <property name="selectionMode">
+                <enum>QAbstractItemView::SingleSelection</enum>
+               </property>
+               <property name="selectionBehavior">
+                <enum>QAbstractItemView::SelectRows</enum>
+               </property>
+               <property name="showGrid">
+                <bool>false</bool>
+               </property>
+               <property name="gridStyle">
+                <enum>Qt::NoPen</enum>
+               </property>
+               <column>
+                <property name="text">
+                 <string></string>
+                </property>
+                <property name="minimumWidth">
+                 <number>40</number>
+                </property>
+               </column>
+               <column>
+                <property name="text">
+                 <string>Аккаунт</string>
+                </property>
+                <property name="minimumWidth">
+                 <number>250</number>
+                </property>
+               </column>
+               <column>
+                <property name="text">
+                 <string>Статус</string>
+                </property>
+                <property name="minimumWidth">
+                 <number>120</number>
+                </property>
+               </column>
+               <column>
+                <property name="text">
+                 <string>Прокси</string>
+                </property>
+                <property name="minimumWidth">
+                 <number>150</number>
+                </property>
+               </column>
+               <column>
+                <property name="text">
+                 <string>Отпечаток</string>
+                </property>
+                <property name="minimumWidth">
+                 <number>150</number>
+                </property>
+               </column>
+               <column>
+                <property name="text">
+                 <string>Последний запуск</string>
+                </property>
+                <property name="minimumWidth">
+                 <number>160</number>
+                </property>
+               </column>
+               <column>
+                <property name="text">
+                 <string>Действия</string>
+                </property>
+                <property name="minimumWidth">
+                 <number>150</number>
+                </property>
+               </column>
+              </widget>
+             </item>
+             
+             <!-- 3 БЛОКА В ОДНУ СТРОКУ -->
+             <item>
+              <widget class="QWidget" name="infoBlocksWidget">
+               <property name="layout">
+                <layout class="QHBoxLayout" name="infoBlocksLayout">
+                 <property name="spacing">
+                  <number>12</number>
+                 </property>
+                 
+                 <!-- Блок 1: Управление прокси -->
+                 <item>
+                  <widget class="QGroupBox" name="proxyManagementBox">
+                   <property name="title">
+                    <string>🌐 Управление прокси</string>
+                   </property>
+                   <property name="layout">
+                    <layout class="QVBoxLayout" name="proxyManagementLayout">
+                     <item>
+                      <widget class="QLabel" name="proxySummary">
+                       <property name="text">
+                        <string>23 активных | 5 мёртвых</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QListWidget" name="proxyList">
+                       <property name="maximumHeight">
+                        <number>100</number>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QHBoxLayout" name="proxyButtonsLayout">
+                       <item>
+                        <widget class="QPushButton" name="btnImportProxy">
+                         <property name="text">
+                          <string>📥 Импорт</string>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">QPushButton { background-color: #17a2b8; border: none; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #138496; }</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="btnTestAllProxies">
+                         <property name="text">
+                          <string>🧪 Тест всех</string>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">QPushButton { background-color: #ffc107; border: none; padding: 4px 8px; border-radius: 4px; color: #212529; font-size: 12px; } QPushButton:hover { background-color: #e0a800; }</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="btnClearDeadProxies">
+                         <property name="text">
+                          <string>🗑️ Очистить</string>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true">QPushButton { background-color: #6c757d; border: none; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #545b62; }</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                    </layout>
+                  </widget>
+                 </item>
+                 
+                 <!-- Блок 2: Быстрые действия -->
+                 <item>
+                  <widget class="QGroupBox" name="quickActionsBox">
+                   <property name="title">
+                    <string>⚡ Быстрые действия</string>
+                   </property>
+                   <property name="layout">
+                    <layout class="QVBoxLayout" name="quickActionsLayout">
+                     <item>
+                      <widget class="QPushButton" name="btnRefreshAllStatuses">
+                       <property name="text">
+                        <string>🔄 Обновить все статусы</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: transparent; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; text-align: left; } QPushButton:hover { background-color: #f8f9fa; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnMassLaunch">
+                       <property name="text">
+                        <string>▶️ Массовый запуск (5 браузеров)</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: transparent; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; text-align: left; } QPushButton:hover { background-color: #f8f9fa; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnCheckAuth">
+                       <property name="text">
+                        <string>🛡️ Проверить авторизацию</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: transparent; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; text-align: left; } QPushButton:hover { background-color: #f8f9fa; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnExportAccounts">
+                       <property name="text">
+                        <string>📄 Экспорт списка аккаунтов</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: transparent; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; text-align: left; } QPushButton:hover { background-color: #f8f9fa; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                  </widget>
+                 </item>
+                 
+                 <!-- Блок 3: История запусков -->
+                 <item>
+                  <widget class="QGroupBox" name="launchHistoryBox">
+                   <property name="title">
+                    <string>📜 История запусков</string>
+                   </property>
+                   <property name="layout">
+                    <layout class="QVBoxLayout" name="launchHistoryLayout">
+                     <item>
+                      <widget class="QListWidget" name="launchHistoryList">
+                       <property name="maximumHeight">
+                        <number>120</number>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnShowAllHistory">
+                       <property name="text">
+                        <string>📋 Показать всё</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: #17a2b8; border: none; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; } QPushButton:hover { background-color: #138496; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                  </widget>
+                 </item>
+                </layout>
+              </widget>
+             </item>
+            </layout>
+          </widget>
+         </item>
+         
+         <!-- ПРАВАЯ ЧАСТЬ - БОКОВАЯ ПАНЕЛЬ (30%) -->
+         <item>
+          <widget class="QWidget" name="sidebarWidget">
+           <property name="minimumWidth">
+            <number>350</number>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">QWidget#sidebarWidget { background-color: white; border-left: 1px solid #e0e0e0; }</string>
+           </property>
+           <property name="layout">
+            <layout class="QVBoxLayout" name="sidebarLayout">
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             
+             <!-- ЗАГОЛОВОК БОКОВОЙ ПАНЕЛИ -->
+             <item>
+              <widget class="QFrame" name="sidebarHeaderFrame">
+               <property name="frameShape">
+                <enum>QFrame::NoFrame</enum>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QFrame#sidebarHeaderFrame { background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; padding: 12px; }</string>
+               </property>
+               <property name="layout">
+                <layout class="QHBoxLayout" name="sidebarHeaderLayout">
+                 <item>
+                  <widget class="QLabel" name="sidebarTitle">
+                   <property name="text">
+                    <string>Настройки аккаунта</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; font-size: 16px; color: #333; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnSidebarClose">
+                   <property name="text">
+                    <string>✕</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: transparent; border: none; font-size: 18px; padding: 4px; } QPushButton:hover { background-color: #e0e0e0; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+              </widget>
+             </item>
+             
+             <!-- ВКЛАДКИ -->
+             <item>
+              <widget class="QTabWidget" name="settingsTabWidget">
+               <property name="tabPosition">
+                <enum>QTabWidget::West</enum>
+               </property>
+               <property name="tabShape">
+                <enum>QTabWidget::Rounded</enum>
+               </property>
+               <property name="currentIndex">
+                <number>0</number>
+               </property>
+               
+               <!-- Вкладка: Основное -->
+               <widget class="QWidget" name="tabBasic">
+                <attribute name="title">
+                 <string>📋 Основное</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="basicLayout">
+                 <property name="spacing">
+                  <number>12</number>
+                 </property>
+                 <property name="margin">
+                  <number>16</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="emailLabel">
+                   <property name="text">
+                    <string>Email</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="accountEmailInput">
+                   <property name="placeholderText">
+                    <string>user@example.com</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="passwordLabel">
+                   <property name="text">
+                    <string>Пароль</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="accountPasswordInput">
+                   <property name="echoMode">
+                    <enum>QLineEdit::Password</enum>
+                   </property>
+                   <property name="placeholderText">
+                    <string>Пароль</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="secretQuestionLabel">
+                   <property name="text">
+                    <string>Секретный вопрос</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="secretQuestionInput">
+                   <property name="placeholderText">
+                    <string>Ответ на секретный вопрос</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="chromeProfileLabel">
+                   <property name="text">
+                    <string>Профиль Chrome</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="chromeProfileInput">
+                   <property name="placeholderText">
+                    <string>Путь к профилю</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+               
+               <!-- Вкладка: Сеть -->
+               <widget class="QWidget" name="tabNetwork">
+                <attribute name="title">
+                 <string>🌐 Сеть</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="networkLayout">
+                 <property name="spacing">
+                  <number>12</number>
+                 </property>
+                 <property name="margin">
+                  <number>16</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="proxyAddressLabel">
+                   <property name="text">
+                    <string>Адрес прокси</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="proxyAddressInput">
+                   <property name="placeholderText">
+                    <string>192.168.1.101:8080</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="proxyTypeLabel">
+                   <property name="text">
+                    <string>Тип протокола</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="proxyTypeCombo">
+                   <item>
+                    <property name="text">
+                     <string>HTTP</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>HTTPS</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>SOCKS5</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="btnTestProxy">
+                   <property name="text">
+                    <string>🧪 Тест прокси</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QPushButton { background-color: #17a2b8; border: none; padding: 8px 16px; border-radius: 4px; color: white; } QPushButton:hover { background-color: #138496; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+               
+               <!-- Вкладка: Fingerprint -->
+               <widget class="QWidget" name="tabFingerprint">
+                <attribute name="title">
+                 <string>🎭 Fingerprint</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="fingerprintLayout">
+                 <property name="spacing">
+                  <number>12</number>
+                 </property>
+                 <property name="margin">
+                  <number>16</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="presetLabel">
+                   <property name="text">
+                    <string>Предустановка</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="fingerprintPresetCombo">
+                   <item>
+                    <property name="text">
+                     <string>🇷🇺 Россия (стандарт)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>🇰🇿 Казахстан (стандарт)</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>🌐 Без подмены</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="timezoneLabel">
+                   <property name="text">
+                    <string>Часовой пояс</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="timezoneCombo">
+                   <item>
+                    <property name="text">
+                     <string>Europe/Moscow</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Asia/Almaty</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>UTC</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="canvasSpoofingCheck">
+                   <property name="text">
+                    <string>Canvas спуфинг</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="webglSpoofingCheck">
+                   <property name="text">
+                    <string>WebGL спуфинг</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="audioSpoofingCheck">
+                   <property name="text">
+                    <string>AudioContext спуфинг</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+               
+               <!-- Вкладка: Капча -->
+               <widget class="QWidget" name="tabCaptcha">
+                <attribute name="title">
+                 <string>🛡️ Капча</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="captchaLayout">
+                 <property name="spacing">
+                  <number>12</number>
+                 </property>
+                 <property name="margin">
+                  <number>16</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="captchaServiceLabel">
+                   <property name="text">
+                    <string>Сервис</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="captchaServiceCombo">
+                   <item>
+                    <property name="text">
+                     <string>Отключено</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>RuCaptcha</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>2Captcha</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>AntiCaptcha</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="captchaApiKeyLabel">
+                   <property name="text">
+                    <string>API Ключ</string>
+                   </property>
+                   <property name="styleSheet">
+                    <string notr="true">QLabel { font-weight: bold; }</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="captchaApiKeyInput">
+                   <property name="echoMode">
+                    <enum>QLineEdit::Password</enum>
+                   </property>
+                   <property name="placeholderText">
+                    <string>API ключ</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+               
+               <!-- Вкладка: Менеджер прокси -->
+               <widget class="QWidget" name="tabProxyManager">
+                <attribute name="title">
+                 <string>⚙️ Менеджер прокси</string>
+                </attribute>
+                <layout class="QVBoxLayout" name="proxyManagerLayout">
+                 <property name="spacing">
+                  <number>12</number>
+                 </property>
+                 <property name="margin">
+                  <number>16</number>
+                 </property>
+                 
+                 <!-- Секция парсинга -->
+                 <item>
+                  <widget class="QGroupBox" name="proxyParsingBox">
+                   <property name="title">
+                    <string>📥 Парсинг прокси</string>
+                   </property>
+                   <property name="layout">
+                    <layout class="QVBoxLayout" name="proxyParsingLayout">
+                     <item>
+                      <widget class="QCheckBox" name="fineproxyCheck">
+                       <property name="text">
+                        <string>fineproxy.org</string>
+                       </property>
+                       <property name="checked">
+                        <bool>true</bool>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QCheckBox" name="proxyeliteCheck">
+                       <property name="text">
+                        <string>proxyelite.info</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QCheckBox" name="htmlwebCheck">
+                       <property name="text">
+                        <string>htmlweb.ru</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnStartParsing">
+                       <property name="text">
+                        <string>▶️ Начать парсинг</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: #007bff; border: none; padding: 8px 16px; border-radius: 4px; color: white; } QPushButton:hover { background-color: #0056b3; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                  </widget>
+                 </item>
+                 
+                 <!-- Секция списка прокси -->
+                 <item>
+                  <widget class="QGroupBox" name="proxyListBox">
+                   <property name="title">
+                    <string>📋 Список прокси</string>
+                   </property>
+                   <property name="layout">
+                    <layout class="QVBoxLayout" name="proxyListBoxLayout">
+                     <item>
+                      <widget class="QLabel" name="proxyCountLabel">
+                       <property name="text">
+                        <string>Найдено: 0</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QPushButton" name="btnApplyProxy">
+                       <property name="text">
+                        <string>✅ Применить к аккаунту</string>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">QPushButton { background-color: #28a745; border: none; padding: 8px 16px; border-radius: 4px; color: white; } QPushButton:hover { background-color: #218838; }</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </widget>
+             </item>
+             
+             <!-- КНОПКА СОХРАНИТЬ -->
+             <item>
+              <widget class="QPushButton" name="btnSaveAccount">
+               <property name="text">
+                <string>💾 СОХРАНИТЬ</string>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">QPushButton { background-color: #28a745; border: none; padding: 16px; border-radius: 4px; color: white; font-weight: bold; font-size: 16px; } QPushButton:hover { background-color: #218838; }</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+          </widget>
+         </item>
+        </layout>
+      </widget>
+     </item>
+    </layout>
+  </widget>
+  
+  <!-- Menu Bar -->
+  <widget class="QMenuBar" name="menuBar">
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>Файл</string>
+    </property>
+    <addaction name="actionNew"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Правка</string>
+    </property>
+    <addaction name="actionEdit"/>
+    <addaction name="actionDelete"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Справка</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  
+  <!-- Status Bar -->
+  <widget class="QStatusBar" name="statusBar">
+   <property name="styleSheet">
+    <string notr="true">QStatusBar { background-color: #f9fafb; border-top: 1px solid #e5e7eb; }</string>
+   </property>
+  </widget>
+  
+  <!-- Actions -->
+  <action name="actionNew">
+   <property name="shortcut">
+    <string>Ctrl+N</string>
+   </property>
+   <property name="text">
+    <string>Новый аккаунт</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+   <property name="text">
+    <string>Выход</string>
+   </property>
+  </action>
+  <action name="actionEdit">
+   <property name="shortcut">
+    <string>Ctrl+E</string>
+   </property>
+   <property name="text">
+    <string>Изменить</string>
+   </property>
+  </action>
+  <action name="actionDelete">
+   <property name="shortcut">
+    <string>Delete</string>
+   </property>
+   <property name="text">
+    <string>Удалить</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>О программе</string>
+   </property>
+  </action>
+  
+  <!-- Connections -->
+  <connections>
+   <connection>
+    <sender>btnAdd</sender>
+    <signal>clicked()</signal>
+    <receiver>KeysetMainWindow</receiver>
+    <slot>onAddClicked()</slot>
+   </connection>
+   <connection>
+    <sender>btnEdit</sender>
+    <signal>clicked()</signal>
+    <receiver>KeysetMainWindow</receiver>
+    <slot>onEditClicked()</slot>
+   </connection>
+   <connection>
+    <sender>btnDelete</sender>
+    <signal>clicked()</signal>
+    <receiver>KeysetMainWindow</receiver>
+    <slot>onDeleteClicked()</slot>
+   </connection>
+   <connection>
+    <sender>btnRefresh</sender>
+    <signal>clicked()</signal>
+    <receiver>KeysetMainWindow</receiver>
+    <slot>onRefreshClicked()</slot>
+   </connection>
+   <connection>
+    <sender>btnLaunch</sender>
+    <signal>clicked()</signal>
+    <receiver>KeysetMainWindow</receiver>
+    <slot>onLaunchClicked()</slot>
+   </connection>
+   <connection>
+    <sender>searchInput</sender>
+    <signal>textChanged(const QString&)</signal>
+    <receiver>KeysetMainWindow</receiver>
+    <slot>onSearchTextChanged(const QString&)</slot>
+   </connection>
+  </connections>
+ </widget>
+ <tabstops>
+  <tabstop>btnAdd</tabstop>
+  <tabstop>btnEdit</tabstop>
+  <tabstop>btnDelete</tabstop>
+  <tabstop>btnRefresh</tabstop>
+  <tabstop>btnLaunch</tabstop>
+  <tabstop>searchInput</tabstop>
+  <tabstop>accountsTable</tabstop>
+  <tabstop>btnBrowserLauncher</tabstop>
+  <tabstop>btnConsistencyChecker</tabstop>
+  <tabstop>btnProxyManager</tabstop>
+  <tabstop>btnSidebarClose</tabstop>
+  <tabstop>btnSaveAccount</tabstop>
+ </tabstops>
+ <resources/>
+</ui>

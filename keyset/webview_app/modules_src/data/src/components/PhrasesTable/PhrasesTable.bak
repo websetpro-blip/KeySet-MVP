@@ -1,0 +1,606 @@
+import React from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+  SortingState,
+} from '@tanstack/react-table';
+import { ArrowUp, ArrowDown, CheckCircle2, Pin, Lock } from 'lucide-react';
+import { Checkbox } from '../ui/Checkbox';
+import { useStore } from '../../store/useStore';
+import type { Phrase } from '../../types';
+import { cn } from '../../lib/utils';
+
+const columnHelper = createColumnHelper<Phrase>();
+
+// Компонент контекстного меню
+const ContextMenu: React.FC<{
+  x: number;
+  y: number;
+  phrase: Phrase;
+  onClose: () => void;
+  onShowHistory?: (phraseId: string) => void;
+}> = ({ x, y, phrase, onClose, onShowHistory }) => {
+  const { 
+    groups, 
+    editPhrase, 
+    markRowColor, 
+    toggleRowLock, 
+    deletePhrases, 
+    movePhrasesToGroup,
+    addStopword,
+    addLog 
+  } = useStore();
+  
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(phrase.text);
+    addLog('info', `Скопировано в буфер: "${phrase.text}"`);
+    onClose();
+  };
+
+  const handleEdit = () => {
+    const newText = prompt('Редактировать фразу:', phrase.text);
+    if (newText && newText.trim()) {
+      editPhrase(phrase.id, newText.trim());
+    }
+    onClose();
+  };
+
+  const handleDelete = () => {
+    if (confirm(`Удалить фразу "${phrase.text}"?`)) {
+      deletePhrases([phrase.id]);
+    }
+    onClose();
+  };
+
+  const handleColor = (color: string) => {
+    markRowColor(phrase.id, color);
+    onClose();
+  };
+
+  const handleMove = (groupId: string) => {
+    movePhrasesToGroup([phrase.id], groupId);
+    onClose();
+  };
+
+  const handleAddToStopwords = () => {
+    const words = phrase.text.split(' ');
+    words.forEach(word => {
+      addStopword({
+        id: Date.now().toString() + Math.random(),
+        text: word,
+        matchType: 'partial',
+        useMorphology: false,
+        category: 'ИНФОРМАЦИОННЫЕ',
+      });
+    });
+    addLog('success', `Добавлено в стоп-слова: ${words.length} слов`);
+    onClose();
+  };
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed bg-white border border-gray-300 rounded shadow-lg py-1 z-50 min-w-[200px]"
+      style={{ left: x, top: y }}
+    >
+      <button
+        onClick={handleCopy}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+      >
+        Копировать
+      </button>
+      <button
+        onClick={handleEdit}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+      >
+        Редактировать
+      </button>
+      <div className="border-t my-1"></div>
+      
+      {/* Переместить в группу */}
+      <div className="relative group/move">
+        <button className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+          Переместить в группу →
+        </button>
+        <div className="hidden group-hover/move:block absolute left-full top-0 bg-white border border-gray-300 rounded shadow-lg py-1 min-w-[150px] ml-1">
+          {groups.length === 0 ? (
+            <div className="px-4 py-2 text-sm text-gray-500">Нет групп</div>
+          ) : (
+            groups.map(g => (
+              <button
+                key={g.id}
+                onClick={() => handleMove(g.id)}
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+              >
+                {g.name}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Цвет */}
+      <div className="relative group/color">
+        <button className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+          Цвет →
+        </button>
+        <div className="hidden group-hover/color:block absolute left-full top-0 bg-white border border-gray-300 rounded shadow-lg py-1 min-w-[120px] ml-1">
+          <button onClick={() => handleColor('red')} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+            🔴 Красный
+          </button>
+          <button onClick={() => handleColor('yellow')} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+            🟡 Желтый
+          </button>
+          <button onClick={() => handleColor('green')} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+            🟢 Зеленый
+          </button>
+          <button onClick={() => handleColor('blue')} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+            🔵 Синий
+          </button>
+          <button onClick={() => handleColor('')} className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
+            ⚪ Сбросить
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t my-1"></div>
+      <button
+        onClick={() => {
+          toggleRowLock(phrase.id);
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+      >
+        {phrase.locked ? 'Разблокировать' : 'Заблокировать'}
+      </button>
+      <button
+        onClick={() => {
+          useStore.getState().updatePhrase(phrase.id, { pinned: !phrase.pinned });
+          addLog('info', phrase.pinned ? 'Фраза откреплена' : 'Фраза закреплена');
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+      >
+        {phrase.pinned ? 'Открепить' : 'Закрепить сверху'}
+      </button>
+      <button
+        onClick={handleAddToStopwords}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+      >
+        Добавить в стоп-слова
+      </button>
+      {onShowHistory && (
+        <button
+          onClick={() => {
+            onShowHistory(phrase.id);
+            onClose();
+          }}
+          className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+        >
+          📜 История изменений
+        </button>
+      )}
+      <div className="border-t my-1"></div>
+      <button
+        onClick={handleDelete}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm text-red-600"
+      >
+        Удалить
+      </button>
+    </div>
+  );
+};
+
+export const PhrasesTable: React.FC<{ onShowHistory?: (phraseId: string) => void }> = ({ onShowHistory }) => {
+  const { 
+    phrases, 
+    selectedPhraseIds, 
+    selectedGroupId,
+    filters,
+    columnVisibility,
+    selectPhrase, 
+    selectAll, 
+    deselectAll,
+    updatePhrase 
+  } = useStore();
+  
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editValue, setEditValue] = React.useState('');
+  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; phrase: Phrase } | null>(null);
+  
+  // Применение фильтров
+  const filteredPhrases = React.useMemo(() => {
+    let result = phrases;
+
+    // Фильтр по группе
+    if (selectedGroupId) {
+      result = result.filter(p => p.groupId === selectedGroupId);
+    }
+
+    // Числовые фильтры
+    if (filters.wsMin !== undefined) {
+      result = result.filter(p => p.ws >= filters.wsMin!);
+    }
+    if (filters.wsMax !== undefined) {
+      result = result.filter(p => p.ws <= filters.wsMax!);
+    }
+    if (filters.qwsMin !== undefined) {
+      result = result.filter(p => p.qws >= filters.qwsMin!);
+    }
+    if (filters.qwsMax !== undefined) {
+      result = result.filter(p => p.qws <= filters.qwsMax!);
+    }
+    if (filters.bwsMin !== undefined) {
+      result = result.filter(p => p.bws >= filters.bwsMin!);
+    }
+    if (filters.bwsMax !== undefined) {
+      result = result.filter(p => p.bws <= filters.bwsMax!);
+    }
+    if (filters.lengthMin !== undefined) {
+      result = result.filter(p => p.text.length >= filters.lengthMin!);
+    }
+    if (filters.lengthMax !== undefined) {
+      result = result.filter(p => p.text.length <= filters.lengthMax!);
+    }
+    if (filters.wordCountMin !== undefined) {
+      result = result.filter(p => p.text.split(/\s+/).length >= filters.wordCountMin!);
+    }
+    if (filters.wordCountMax !== undefined) {
+      result = result.filter(p => p.text.split(/\s+/).length <= filters.wordCountMax!);
+    }
+
+    // Текстовые фильтры
+    if (filters.contains) {
+      result = result.filter(p => p.text.toLowerCase().includes(filters.contains!.toLowerCase()));
+    }
+    if (filters.notContains) {
+      result = result.filter(p => !p.text.toLowerCase().includes(filters.notContains!.toLowerCase()));
+    }
+    if (filters.startsWith) {
+      result = result.filter(p => p.text.toLowerCase().startsWith(filters.startsWith!.toLowerCase()));
+    }
+    if (filters.endsWith) {
+      result = result.filter(p => p.text.toLowerCase().endsWith(filters.endsWith!.toLowerCase()));
+    }
+
+    // Быстрые фильтры
+    if (filters.showOnlyHighFreq) {
+      result = result.filter(p => p.ws > 1000);
+    }
+    if (filters.showOnlyLowFreq) {
+      result = result.filter(p => p.ws < 100 && p.ws > 0);
+    }
+    if (filters.showOnlyZeroFreq) {
+      result = result.filter(p => p.ws === 0);
+    }
+    if (filters.showOnlyWithStopwords) {
+      result = result.filter(p => p.hasStopword === true);
+    }
+    if (filters.showOnlySelected) {
+      result = result.filter(p => selectedPhraseIds.has(p.id));
+    }
+
+    // Сортировка: закрепленные фразы сверху
+    result.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return 0;
+    });
+
+    return result;
+  }, [phrases, selectedGroupId, filters, selectedPhraseIds]);
+  
+  // Определение колонок с учетом видимости
+  const columns = React.useMemo(() => {
+    const cols: any[] = [
+      // Чекбокс (всегда видим)
+      columnHelper.display({
+        id: 'select',
+        size: 60,
+        header: ({ table }) => {
+          const allSelected = filteredPhrases.length > 0 && 
+            filteredPhrases.every(p => selectedPhraseIds.has(p.id));
+          const someSelected = filteredPhrases.some(p => selectedPhraseIds.has(p.id));
+          
+          return (
+            <Checkbox
+              checked={allSelected}
+              indeterminate={!allSelected && someSelected}
+              onChange={() => {
+                if (allSelected) {
+                  deselectAll();
+                } else {
+                  selectAll();
+                }
+              }}
+            />
+          );
+        },
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1">
+            {row.original.pinned && (
+              <Pin className="w-3 h-3 text-blue-500 fill-blue-500" />
+            )}
+            {row.original.locked && (
+              <Lock className="w-3 h-3 text-gray-500" />
+            )}
+            <Checkbox
+              checked={selectedPhraseIds.has(row.original.id)}
+              onChange={() => selectPhrase(row.original.id)}
+            />
+          </div>
+        ),
+      }),
+      
+      // Номер (всегда видим)
+      columnHelper.display({
+        id: 'index',
+        size: 50,
+        header: '№',
+        cell: ({ row }) => (
+          <span className="text-gray-500">{row.index + 1}</span>
+        ),
+      }),
+    ];
+
+    // Фраза
+    if (columnVisibility.phrase !== false) {
+      cols.push(
+        columnHelper.accessor('text', {
+          header: 'Фраза',
+          size: 400,
+          cell: ({ row }) => {
+            const isEditing = editingId === row.original.id;
+            
+            if (isEditing) {
+              return (
+                <input
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={() => {
+                    if (editValue.trim()) {
+                      updatePhrase(row.original.id, { text: editValue.trim() });
+                    }
+                    setEditingId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (editValue.trim()) {
+                        updatePhrase(row.original.id, { text: editValue.trim() });
+                      }
+                      setEditingId(null);
+                    } else if (e.key === 'Escape') {
+                      setEditingId(null);
+                    }
+                  }}
+                  autoFocus
+                  className="w-full px-2 py-1 text-sm border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              );
+            }
+            
+            return (
+              <span
+                onDoubleClick={() => {
+                  setEditingId(row.original.id);
+                  setEditValue(row.original.text);
+                }}
+                className="cursor-text"
+              >
+                {row.original.text}
+              </span>
+            );
+          },
+        })
+      );
+    }
+
+    // ws
+    if (columnVisibility.ws !== false) {
+      cols.push(
+        columnHelper.accessor('ws', {
+          header: 'ws',
+          size: 80,
+          cell: ({ getValue }) => (
+            <span className="text-gray-600 font-medium">
+              {getValue() > 0 ? getValue().toLocaleString('ru-RU') : '-'}
+            </span>
+          ),
+        })
+      );
+    }
+
+    // qws
+    if (columnVisibility.qws !== false) {
+      cols.push(
+        columnHelper.accessor('qws', {
+          header: 'qws',
+          size: 80,
+          cell: ({ getValue }) => (
+            <span className="text-gray-600 font-medium">
+              {getValue() > 0 ? getValue().toLocaleString('ru-RU') : '-'}
+            </span>
+          ),
+        })
+      );
+    }
+
+    // bws
+    if (columnVisibility.bws !== false) {
+      cols.push(
+        columnHelper.accessor('bws', {
+          header: 'bws',
+          size: 80,
+          cell: ({ getValue }) => (
+            <span className="text-gray-600 font-medium">
+              {getValue() > 0 ? getValue().toLocaleString('ru-RU') : '-'}
+            </span>
+          ),
+        })
+      );
+    }
+
+    // Статус
+    if (columnVisibility.status !== false) {
+      cols.push(
+        columnHelper.accessor('status', {
+          header: 'Статус',
+          size: 80,
+          cell: ({ getValue }) => {
+            const status = getValue();
+            return (
+              <div className="flex items-center justify-center">
+                {(status === 'done' || status === 'success') && (
+                  <CheckCircle2 className="w-4 h-4 text-success-500" />
+                )}
+                {status === 'pending' && (
+                  <div className="w-2 h-2 rounded-full bg-gray-300" />
+                )}
+                {status === 'error' && (
+                  <div className="w-2 h-2 rounded-full bg-error-500" />
+                )}
+              </div>
+            );
+          },
+        })
+      );
+    }
+
+    return cols;
+  }, [filteredPhrases, selectedPhraseIds, editingId, editValue, columnVisibility, selectPhrase, selectAll, deselectAll, updatePhrase]);
+  
+  const table = useReactTable({
+    data: filteredPhrases,
+    columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const handleContextMenu = (e: React.MouseEvent, phrase: Phrase) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, phrase });
+  };
+  
+  if (filteredPhrases.length === 0) {
+    return (
+      <div className="flex-1 bg-white flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p className="text-base mb-2">Нет фраз для отображения</p>
+          <p className="text-sm">
+            {selectedGroupId 
+              ? 'В выбранной группе нет фраз' 
+              : Object.keys(filters).length > 0
+              ? 'Не найдено фраз по заданным фильтрам'
+              : 'Добавьте фразы через кнопку "Добавить" или импортируйте файл'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex-1 bg-white overflow-auto">
+      <table className="w-full border-collapse">
+        <thead className="sticky top-0 bg-gray-100 z-10">
+          {table.getHeaderGroups().map(headerGroup => (
+            <tr key={headerGroup.id} className="border-b-2 border-gray-300">
+              {headerGroup.headers.map(header => (
+                <th
+                  key={header.id}
+                  style={{ width: header.getSize() }}
+                  className={cn(
+                    'h-10 px-3 text-left text-sm font-medium text-gray-700',
+                    header.column.getCanSort() && 'cursor-pointer select-none hover:bg-gray-200'
+                  )}
+                  onClick={header.column.getToggleSortingHandler()}
+                >
+                  <div className="flex items-center gap-2">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    
+                    {header.column.getIsSorted() && (
+                      <span className="text-blue-500">
+                        {header.column.getIsSorted() === 'asc' ? (
+                          <ArrowUp className="w-4 h-4" />
+                        ) : (
+                          <ArrowDown className="w-4 h-4" />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        
+        <tbody>
+          {table.getRowModel().rows.map((row, index) => {
+            const isSelected = selectedPhraseIds.has(row.original.id);
+            const isEven = index % 2 === 0;
+            const phrase = row.original;
+            const bgColor = phrase.color ? `bg-${phrase.color}-100` : '';
+            const isPinned = phrase.pinned;
+            
+            return (
+              <tr
+                key={row.id}
+                onContextMenu={(e) => handleContextMenu(e, phrase)}
+                className={cn(
+                  'h-9 border-b border-gray-200 transition-colors',
+                  bgColor,
+                  isPinned && !bgColor && 'bg-blue-50 border-blue-200',
+                  isSelected && !bgColor && !isPinned && 'bg-blue-100 border-blue-200',
+                  !isSelected && !bgColor && !isPinned && isEven && 'bg-white',
+                  !isSelected && !bgColor && !isPinned && !isEven && 'bg-gray-50',
+                  !isSelected && !bgColor && !isPinned && 'hover:bg-blue-50',
+                  phrase.locked && 'opacity-60'
+                )}
+              >
+                {row.getVisibleCells().map(cell => (
+                  <td
+                    key={cell.id}
+                    className="px-3 text-sm text-gray-600"
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Контекстное меню */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          phrase={contextMenu.phrase}
+          onClose={() => setContextMenu(null)}
+          onShowHistory={onShowHistory}
+        />
+      )}
+    </div>
+  );
+};

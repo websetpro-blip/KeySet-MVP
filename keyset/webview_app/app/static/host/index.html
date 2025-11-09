@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KeySet Desktop</title>
+    <link rel="stylesheet" href="host.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-logo">KS</span>
+          <span class="brand-name">KeySet</span>
+        </div>
+        <nav class="tabs" aria-label="KeySet sections">
+          <button type="button" data-module="accounts" class="tab active">
+            Аккаунты
+          </button>
+          <button type="button" data-module="parsing" class="tab">
+            Парсинг&nbsp;/&nbsp;Данные
+          </button>
+          <button type="button" data-module="masks" class="tab">
+            Маски
+          </button>
+          <button type="button" data-module="analytics" class="tab">
+            Аналитика
+          </button>
+        </nav>
+      </header>
+
+      <main class="module-root" role="main">
+        <iframe
+          id="module-frame"
+          class="module-frame"
+          src="../accounts/index.html"
+          title="KeySet module"
+        ></iframe>
+      </main>
+    </div>
+
+    <script src="host.js"></script>
+  </body>
+</html>

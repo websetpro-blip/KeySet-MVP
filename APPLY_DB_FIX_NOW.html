@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Apply DB Fix</title>
+</head>
+<body>
+    <h1>Database Fix Executor</h1>
+    <pre id="output">Loading...</pre>
+    <script>
+    async function fixDatabase() {
+        const out = document.getElementById('output');
+        const API = 'https://conversion-america-performs-clearing.trycloudflare.com';
+        const TOKEN = '440fe2cbccc940ad840ce22e0d0b26af';
+        
+        try {
+            out.textContent = 'Reading backend/db.py...\n';
+            const readRes = await fetch(`${API}/dev/read_file?path=backend/db.py&token=${TOKEN}`);
+            const data = await readRes.json();
+            let content = data.content;
+            out.textContent += `Read ${content.length} bytes\n\n`;
+            
+            out.textContent += 'Applying fixes...\n';
+            content = content.replace(
+                'region = Column(Integer, default=225, index=True)',
+                'region = Column(Integer, nullable=True, index=True)'
+            );
+            content = content.replace(
+                'region = Column(Integer, default=225)',
+                'region = Column(Integer, nullable=True)'
+            );
+            out.textContent += 'Replacements applied\n\n';
+            
+            out.textContent += 'Saving modified file...\n';
+            const encoded = encodeURIComponent(content);
+            const saveUrl = `${API}/dev/save_file_get?path=backend/db.py&content=${encoded}&token=${TOKEN}`;
+            const saveRes = await fetch(saveUrl);
+            const result = await saveRes.json();
+            
+            if (result.status === 'saved') {
+                out.textContent += '\n=== SUCCESS! ===\n';
+                out.textContent += 'Database schema fixed!\n';
+                out.textContent += 'Region columns are now nullable.\n\n';
+                out.textContent += 'NEXT STEP: Restart backend service:\n';
+                out.textContent += '.\\scripts\\start_comet_bridge.ps1';
+            } else {
+                out.textContent += `ERROR: ${JSON.stringify(result)}`;
+            }
+        } catch (e) {
+            out.textContent += `\nERROR: ${e.message}\n${e.stack}`;
+        }
+    }
+    fixDatabase();
+    </script>
+</body>
+</html>

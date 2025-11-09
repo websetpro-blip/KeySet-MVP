@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Fix DB Region</title>
+</head>
+<body>
+    <h1>Fix Database Region</h1>
+    <button onclick="fixDB()">Fix Now</button>
+    <pre id="output"></pre>
+    <script>
+async function fixDB() {
+    const output = document.getElementById('output');
+    output.textContent = 'Reading db.py...';
+    
+    try {
+        const resp = await fetch('/dev/read_file?path=backend/db.py&token=440fe2cbccc940ad840ce22e0d0b26af');
+        const data = await resp.json();
+        let content = data.content;
+        
+        output.textContent += '\nOriginal size: ' + content.length;
+        
+        // Replace
+        const before1 = 'region = Column(Integer, default=225)';
+        const after1 = 'region = Column(Integer, nullable=True)';
+        const before2 = 'region = Column(Integer, default=225, index=True)';
+        const after2 = 'region = Column(Integer, nullable=True, index=True)';
+        
+        content = content.replaceAll(before1, after1);
+        content = content.replaceAll(before2, after2);
+        
+        output.textContent += '\nModified size: ' + content.length;
+        
+        // Save
+        output.textContent += '\nSaving...';
+        const formData = new FormData();
+        formData.append('path', 'backend/db.py');
+        formData.append('content', content);
+        formData.append('token', '440fe2cbccc940ad840ce22e0d0b26af');
+        
+        const saveResp = await fetch('/dev/save_file', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await saveResp.json();
+        output.textContent += '\n\nResult: ' + JSON.stringify(result, null, 2);
+    } catch (e) {
+        output.textContent += '\nError: ' + e.message;
+    }
+}
+    </script>
+</body>
+</html>
