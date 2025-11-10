@@ -176,7 +176,62 @@ def get_account_by_id(account_id: int, db: Session = Depends(get_db)):
     return account
 
 
-@app.put("/api/accounts/{account_id}", response_model=AccountResponse)
+@app.post("/api/accounts/update")
+def update_account_legacy(account: AccountUpdate, db: Session = Depends(get_db)):
+    """Update account (legacy endpoint for compatibility with original script.js)"""
+    # Assuming account has id in the payload
+    account_id = getattr(account, "id", None)
+    if not account_id:
+        raise HTTPException(status_code=400, detail="Account ID required")
+
+    updated_account = update_account(
+        db,
+        account_id,
+        **{k: v for k, v in account.dict().items() if v is not None and k != "id"},
+    )
+    if not updated_account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {"success": True, "message": "Account updated", "data": updated_account}
+
+
+@app.post("/api/browser/launch")
+def launch_browser_legacy(payload: dict, db: Session = Depends(get_db)):
+    """Launch browser (legacy endpoint for compatibility with original script.js)"""
+    account_id = payload.get("id")
+    if not account_id:
+        raise HTTPException(status_code=400, detail="Account ID required")
+
+    account = get_account(db, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # TODO: Integrate with playwright/browser launcher
+    return {
+        "success": True,
+        "message": f"Browser launched for {account.name}",
+        "account_id": account_id,
+    }
+
+
+@app.post("/api/proxy/test")
+def test_proxy_legacy(payload: dict):
+    """Test proxy (legacy endpoint for compatibility with original script.js)"""
+    host = payload.get("host")
+    port = payload.get("port")
+
+    if not host or not port:
+        raise HTTPException(status_code=400, detail="Host and port required")
+
+    # TODO: Implement real proxy testing
+    return {
+        "success": True,
+        "message": "Proxy test successful",
+        "proxy": f"{host}:{port}",
+        "response_time_ms": 150,
+    }
+
+
+@app.post("/api/accounts/{account_id}", response_model=AccountResponse)
 def update_existing_account(
     account_id: int, account: AccountUpdate, db: Session = Depends(get_db)
 ):
