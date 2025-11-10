@@ -74,6 +74,7 @@ const initialState: Omit<AppState, 'history'> = {
   isDataLoaded: false,
   isDataLoading: false,
   dataError: null,
+  phrasesCursor: null,
 };
 
 // История для undo/redo
@@ -122,8 +123,20 @@ const extractNumericId = (id: string | number | undefined | null): number | null
   return Number.isNaN(value) ? null : value;
 };
 
+const pickNumber = (...values: Array<number | null | undefined>): number => {
+  for (const value of values) {
+    if (typeof value === 'number' && !Number.isNaN(value)) {
+      return value;
+    }
+  }
+  return 0;
+};
+
 const mapPhraseFromDto = (row: FrequencyRowDto): Phrase => {
   const timestamp = row.updatedAt ? Date.parse(row.updatedAt) : Date.now();
+  const wsValue = pickNumber(row.ws, row.freq);
+  const wsQuotesValue = pickNumber(row.wsQuotes, row.freqQuotes, row.qws);
+  const wsExactValue = pickNumber(row.wsExact, row.freqExact, row.bws);
 
   const statusMap: Record<string, Phrase['status']> = {
     ok: 'success',
@@ -138,11 +151,11 @@ const mapPhraseFromDto = (row: FrequencyRowDto): Phrase => {
 
   return {
     id: `freq-${row.id}`,
-    text: row.phrase,
-    ws: row.ws ?? 0,
-    qws: row.qws ?? 0,
-    bws: row.bws ?? 0,
-    status: statusMap[row.status] ?? 'done',
+    text: row.phrase ?? '',
+    ws: wsValue,
+    qws: wsQuotesValue,
+    bws: wsExactValue,
+    status: statusMap[(row.status || '').toLowerCase()] ?? 'done',
     groupId: row.group ?? null,
     createdAt: timestamp,
     dateAdded: timestamp,
@@ -1135,13 +1148,18 @@ export const useStore = create<KeySetStoreV5>()(
         set({ isDataLoading: true, dataError: null });
 
         try {
-          const [phraseRows, groupRows] = await Promise.all([
+          const [phraseResponse, groupRows] = await Promise.all([
             fetchPhrases({ limit: 1000 }),
             fetchGroups(),
           ]);
 
+          const phraseItems = Array.isArray(phraseResponse?.items)
+            ? phraseResponse.items
+            : [];
+          const nextCursor = phraseResponse?.nextCursor ?? null;
+
           set(() => ({
-            phrases: phraseRows.map(mapPhraseFromDto),
+            phrases: phraseItems.map(mapPhraseFromDto),
             groups: groupRows.map(mapGroupFromDto),
             selectedPhraseIds: new Set(),
             activeGroupIds: new Set(),
@@ -1151,12 +1169,14 @@ export const useStore = create<KeySetStoreV5>()(
             isDataLoading: false,
             isDataLoaded: true,
             dataError: null,
+            phrasesCursor: nextCursor,
           }));
         } catch (error) {
           set({
             isDataLoading: false,
             isDataLoaded: false,
             dataError: (error as Error).message || 'Не удалось загрузить данные',
+            phrasesCursor: null,
           });
         }
       },

@@ -3,13 +3,24 @@ const BASE_URL = '/api/data';
 export interface FrequencyRowDto {
   id: number;
   phrase: string;
-  ws: number;
-  qws: number;
-  bws: number;
-  region: number;
-  status: string;
-  group: string | null;
+  ws?: number | null;
+  wsQuotes?: number | null;
+  wsExact?: number | null;
+  freq?: number | null;
+  freqQuotes?: number | null;
+  freqExact?: number | null;
+  qws?: number | null;
+  bws?: number | null;
+  region?: number | null;
+  status?: string | null;
+  group?: string | null;
   updatedAt?: string | null;
+  source?: string | null;
+}
+
+export interface PhraseListResponse {
+  items: FrequencyRowDto[];
+  nextCursor: number | null;
 }
 
 export interface GroupRowDto {
@@ -47,17 +58,25 @@ export interface FetchPhraseParams {
   offset?: number;
   search?: string;
   status?: string;
+  q?: string;
+  cursor?: number;
+  sort?: string;
 }
 
-export function fetchPhrases(params: FetchPhraseParams = {}): Promise<FrequencyRowDto[]> {
+export function fetchPhrases(params: FetchPhraseParams = {}): Promise<PhraseListResponse> {
   const query = new URLSearchParams();
   if (params.limit) query.set('limit', String(params.limit));
   if (params.offset) query.set('offset', String(params.offset));
   if (params.search) query.set('search', params.search);
   if (params.status) query.set('status', params.status);
+  if (params.q) query.set('q', params.q);
+  if (params.cursor !== undefined && params.cursor !== null) {
+    query.set('cursor', String(params.cursor));
+  }
+  if (params.sort) query.set('sort', params.sort);
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
-  return request<FrequencyRowDto[]>(`/phrases${suffix}`);
+  return request<PhraseListResponse>(`/phrases${suffix}`);
 }
 
 export function fetchGroups(): Promise<GroupRowDto[]> {

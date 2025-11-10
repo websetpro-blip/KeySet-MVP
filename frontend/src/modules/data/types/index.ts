@@ -123,6 +123,7 @@ export interface AppState {
   isDataLoaded: boolean;
   isDataLoading: boolean;
   dataError: string | null;
+  phrasesCursor: number | null;
   
   // Р¤РёР»СЊС‚СЂС‹ Рё РЅР°СЃС‚СЂРѕР№РєРё
   filters: Filter;
