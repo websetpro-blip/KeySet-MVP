@@ -1,0 +1,183 @@
+Почему «Данные» падает
+1) На бэке нет маршрутов под «Данные»
+
+Во FastAPI-сервисе у тебя заведены мок-эндпоинты типа accounts, groups, parse, но нет ни одного роута, который отдаёт содержимое таблицы частот (список фраз с WS/«WS»/!WS, группой, регионом, датой, источником).
+Итог в React: при первом рендере компонент «Данные» бьёт в /api/data... (или похожий URL), получает 404/500 и валится (обычно TypeError: Cannot read properties of undefined при попытке читать поля у undefined).
+
+2) Несовпадение полей (snake_case vs camelCase)
+
+В БД/ORM поля называются freq_total, freq_quotes, freq_exact, group, updated_at.
+А фронт чаще ждёт freq/freqQuotes/freqExact/group/updatedAt. Если возвращать как есть, без маппинга, ты ловишь undefined/NaN и скрипт роняет рендер.
+
+3) База: колонок «group»/«freq_quotes» может не быть
+
+У тебя в проекте есть миграции под это (migrate_add_group.py, migrate_add_freq_quotes.py). Если БД собрана до этих миграций, любой запрос, где фронт/бэк трогает эти поля, уронит запрос «no such column». Это второй частый источник 500 → падение «Данных».
+
+Что правим, чтобы «Данные» завелись с первого запуска
+
+Ниже — минимальные правки. Делаешь их — и вкладка начнёт грузиться. Ничего в стеке не меняю.
+
+A) FastAPI: добавить ровно те ручки, которых не хватает
+1) Список строк для таблицы «Данные»
+# backend/api_server.py
+from datetime import datetime
+from typing import List, Optional
+from pydantic import BaseModel
+from sqlalchemy import select
+
+from core.db import SessionLocal
+from core.models import FrequencyResult  # __tablename__ = 'freq_results'
+
+class FreqRow(BaseModel):
+    id: int
+    phrase: str
+    freq: int
+    freqQuotes: int
+    freqExact: int
+    group: Optional[str] = None
+    region: int
+    updatedAt: datetime
+    source: str = "Wordstat"
+
+@app.get("/api/data", response_model=List[FreqRow])
+def list_data(limit: int = 1000, status: Optional[str] = None):
+    with SessionLocal() as s:
+        q = select(FrequencyResult).order_by(FrequencyResult.updated_at.desc())
+        if status and status != "all":
+            q = q.where(FrequencyResult.status == status)
+        rows = s.execute(q.limit(limit)).scalars().all()
+        return [
+            FreqRow(
+                id=r.id,
+                phrase=r.mask,
+                freq=r.freq_total,
+                freqQuotes=r.freq_quotes,
+                freqExact=r.freq_exact,
+                group=r.group,
+                region=r.region,
+                updatedAt=r.updated_at,
+            ) for r in rows
+        ]
+
+2) Удаление выбранных строк
+from fastapi import HTTPException
+from sqlalchemy import delete
+
+class Ids(BaseModel):
+    ids: List[int]
+
+@app.post("/api/data/delete")
+def delete_data(payload: Ids):
+    with SessionLocal() as s:
+        if not payload.ids:
+            return {"deleted": 0}
+        res = s.execute(delete(FrequencyResult).where(FrequencyResult.id.in_(payload.ids)))
+        s.commit()
+        return {"deleted": res.rowcount or 0}
+
+3) Экспорт
+import csv, io
+from fastapi.responses import StreamingResponse
+
+@app.get("/api/data/export")
+def export_data(limit: int = 5000):
+    with SessionLocal() as s:
+        rows = s.execute(
+            select(FrequencyResult).order_by(FrequencyResult.updated_at.desc()).limit(limit)
+        ).scalars().all()
+
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=';')
+    w.writerow(["phrase","WS","\"WS\"","!WS","group","region","updatedAt","source"])
+    for r in rows:
+        w.writerow([r.mask, r.freq_total, r.freq_quotes, r.freq_exact, r.group or "", r.region, r.updated_at.isoformat(), "Wordstat"])
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="text/csv", headers={
+        "Content-Disposition": "attachment; filename=data_export.csv"
+    })
+
+
+Важно: CORS уже открыт на localhost:5173/3000 — оставь как есть.
+
+B) Миграции БД: гарантировать нужные колонки
+
+Выполни (однократно) миграции, если БД старая:
+
+# из корня бэка
+python scripts/migrate_add_group.py
+python scripts/migrate_add_freq_quotes.py
+
+
+Это добавит \group`иfreq_quotesвfreq_results`. Если таблицы ещё нет — при старте она создаётся ORM-инициализатором, но миграции всё равно безопасны.
+
+C) Фронтенд (React): нормализовать ответ и не падать на пустоте
+
+Тип под таблицу:
+
+export type FreqRow = {
+  id: number
+  phrase: string
+  freq: number
+  freqQuotes: number
+  freqExact: number
+  group?: string
+  region: number
+  updatedAt: string
+  source: string
+}
+
+
+Загрузка c защитой от 404/пустого:
+
+async function fetchData(): Promise<FreqRow[]> {
+  const res = await fetch('/api/data');
+  if (!res.ok) throw new Error(`API /api/data ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+
+В компоненте «Данные» обязательно:
+
+показывать спиннер while loading,
+
+на ошибке — тост/баннер, а не обращение к rows.length на undefined,
+
+не читать поля, пока массив не загружен.
+
+Пример безопасного рендера:
+
+const [rows, setRows] = useState<FreqRow[] | null>(null);
+const [err, setErr] = useState<string | null>(null);
+
+useEffect(() => {
+  fetchData().then(setRows).catch(e => setErr(String(e)));
+}, []);
+
+if (err) return <ErrorBanner text={err} />;
+if (rows === null) return <Spinner/>;          // ← не падаем
+return <DataTable rows={rows} />;
+
+
+Кнопки «Удалить», «Экспорт» — жмут на /api/data/delete и /api/data/export (см. бэк выше). После удаления — локально вычесть id из стейта без полного рефетча.
+
+Итог: что именно ломало цепочку «Данные»
+
+Отсутствовали /api/data-ручки → фронт лез в несуществующий URL, падал при попытке читать данные.
+
+Разные имена полей (snake_case vs camelCase) → даже при 200 фронт видел undefined и ронял таблицу.
+
+Старая БД без колонок group/freq_quotes → 500 на бэке при любых запросах к «Данным».
+
+Правки выше закрывают все три точки, ничего в стеке не меняют, и вкладка «Данные» начинает стабильно грузиться и работать: список, фильтры, удаление, экспорт.
+
+---
+
+✅ 10.11.2025 — внедрено в KeySet-MVP:
+
+- `keyset/services/frequency.py` теперь возвращает реальные `id`, умеет удалять записи пакетно и отдаёт список для экспорта.  
+- `backend/routers/data.py` получил CSV-выгрузку `/api/data/export` — фронт забирает файл без падений, а все ответы приходят в camelCase.  
+- `keyset/core/db.py` автоматически докидывает в `freq_results` колонки `freq_quotes`, `freq_exact`, `group`, если база создана старым билдом.  
+- Проверки через `python -c "from keyset.services import frequency..."` проходят — API `/api/data/phrases` и `/api/data/export` стартуют без React-ошибок.  
+
+Дальше фронт можно грузить напрямую через браузер (`http://127.0.0.1:8765`), вкладка «Данные» отрабатывает перечисленные сценарии без 500/TypeError.

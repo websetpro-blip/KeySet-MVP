@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime
 from typing import Iterable
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 
 try:
     from ..core.db import SessionLocal, get_db_connection
@@ -59,6 +59,7 @@ def list_results(status: str | None = None, limit: int = 500) -> list[dict]:
         rows = session.scalars(stmt).all()
         return [
             {
+                'id': row.id,
                 'mask': row.mask,
                 'region': row.region,
                 'status': row.status,
@@ -110,6 +111,28 @@ def clear_results() -> None:
     with SessionLocal() as session:
         session.query(FrequencyResult).delete()
         session.commit()
+
+
+def delete_results(ids: list[int]) -> int:
+    """Удалить результаты по их ID."""
+    if not ids:
+        return 0
+    with SessionLocal() as session:
+        stmt = delete(FrequencyResult).where(FrequencyResult.id.in_(ids))
+        result = session.execute(stmt)
+        session.commit()
+        return result.rowcount or 0
+
+
+def export_results(limit: int | None = None, status: str | None = None) -> list[FrequencyResult]:
+    """Вернуть записи для экспорта/скачивания."""
+    with SessionLocal() as session:
+        stmt = select(FrequencyResult).order_by(FrequencyResult.updated_at.desc())
+        if status and status != 'all':
+            stmt = stmt.where(FrequencyResult.status == status)
+        if limit:
+            stmt = stmt.limit(limit)
+        return session.scalars(stmt).all()
 
 
 # ============================================================================

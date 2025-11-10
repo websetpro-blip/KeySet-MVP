@@ -293,6 +293,14 @@ def ensure_schema() -> None:
             '''))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_freq_status ON freq_results(status)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_freq_updated ON freq_results(updated_at)"))
+    with engine.begin() as conn:
+        freq_columns = {row[1] for row in conn.execute(text('PRAGMA table_info(freq_results)'))}
+        if 'freq_quotes' not in freq_columns:
+            conn.execute(text("ALTER TABLE freq_results ADD COLUMN freq_quotes INTEGER NOT NULL DEFAULT 0"))
+        if 'freq_exact' not in freq_columns:
+            conn.execute(text("ALTER TABLE freq_results ADD COLUMN freq_exact INTEGER NOT NULL DEFAULT 0"))
+        if 'group' not in freq_columns:
+            conn.execute(text("ALTER TABLE freq_results ADD COLUMN \"group\" TEXT NULL"))
 
     with engine.begin() as conn:
         info_rows = list(conn.execute(text('PRAGMA table_info(tasks)')))

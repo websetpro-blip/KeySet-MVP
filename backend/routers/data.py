@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import List, Optional
+import csv
+import io
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from keyset.services import frequency as frequency_service
@@ -129,3 +132,34 @@ def clear_phrases() -> dict:
 def update_phrase_group(payload: GroupUpdatePayload) -> dict:
     updated = frequency_service.update_group(payload.ids, payload.group)
     return {"updated": updated}
+
+
+@router.get("/export")
+def export_phrases(
+    *,
+    limit: int = Query(5000, ge=1, le=25000),
+    status: Optional[str] = Query(None, description="Статус записей для экспорта"),
+) -> StreamingResponse:
+    """Выгрузить фразы в CSV, чтобы UI мог скачать файл без падения."""
+    status_filter = status if status and status != "all" else None
+    rows = frequency_service.export_results(limit=limit, status=status_filter)
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow(["id", "phrase", "WS", "\"WS\"", "!WS", "group", "region", "status", "updatedAt"])
+    for row in rows:
+        writer.writerow([
+            row.id,
+            row.mask,
+            row.freq_total,
+            getattr(row, "freq_quotes", 0),
+            row.freq_exact,
+            getattr(row, "group", "") or "",
+            row.region,
+            row.status,
+            row.updated_at.isoformat() if row.updated_at else "",
+        ])
+    buffer.seek(0)
+    headers = {
+        "Content-Disposition": "attachment; filename=data_export.csv"
+    }
+    return StreamingResponse(buffer, media_type="text/csv", headers=headers)
