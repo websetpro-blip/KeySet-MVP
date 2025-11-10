@@ -121,17 +121,34 @@ async def capture_react_error(payload: Dict[str, Any]) -> Dict[str, str]:
     return {"status": "logged"}
 
 
-if FRONTEND_DIST.exists():
-    app.mount(
-        "/",
-        StaticFiles(directory=FRONTEND_DIST, html=True),
-        name="frontend",
-    )
-
-
 @app.get("/comet-ide.html")
 def comet_ide() -> FileResponse:
     file_path = FRONTEND_ROOT / "comet-ide.html"
     if not file_path.exists():
         raise FileNotFoundError("comet-ide.html not found. Please add it under frontend/.")
     return FileResponse(file_path)
+
+
+if FRONTEND_DIST.exists():
+    # Mount static assets (CSS, JS, images)
+    app.mount(
+        "/assets",
+        StaticFiles(directory=FRONTEND_DIST / "assets"),
+        name="assets",
+    )
+
+    # Catch-all route for SPA - must be AFTER all API routes
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str) -> FileResponse:
+        # Don't catch API routes
+        if full_path.startswith("api/"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Check if file exists (for static assets not in /assets)
+        file_path = FRONTEND_DIST / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+
+        # Otherwise serve index.html for SPA routing
+        return FileResponse(FRONTEND_DIST / "index.html")
