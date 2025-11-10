@@ -107,57 +107,132 @@ sequenceDiagram
 ### Постановка задачи парсинга
 
 ```python
-# файл: keyset/services/multiparser_manager.py:TBD-TBD
+# файл: keyset/services/multiparser_manager.py:375-397
+def create_task(
+    self, 
+    profile_email: str,
+    profile_path: str,
+    proxy_uri: Optional[str],
+    phrases: List[str]
+) -> ParsingTask:
+    """Создать новую задачу парсинга"""
+    task_id = f"{profile_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    task = ParsingTask(
+        task_id=task_id,
+        profile_email=profile_email,
+        profile_path=Path(profile_path),
+        proxy_uri=proxy_uri,
+        phrases=phrases
+    )
+    
+    with self._lock:
+        self.tasks[task_id] = task
+        
+    logger.info(f"Created task {task_id} for {profile_email} with {len(phrases)} phrases")
+    return task
 ```
 
 ### Сохранение результатов в БД
 
 ```python
-# файл: backend/db.py:TBD-TBD
+# файл: backend/db.py:110-138
+class FrequencyResult(Base):
+    """Frequency parsing result model"""
+
+    __tablename__ = "freq_results"
+
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Phrase and region
+    mask = Column(String(500), nullable=False, index=True)
+    region = Column(Integer, nullable=True, index=True)
+
+    # Frequencies
+    freq_total = Column(Integer, default=0)  # Broad match (WS)
+    freq_quotes = Column(Integer, default=0)  # Phrase match ("WS")
+    freq_exact = Column(Integer, default=0)  # Exact match (!WS)
+
+    # Metadata
+    group = Column(String(255))  # Group for organization
+    status = Column(String(50), default="queued")
+    attempts = Column(Integer, default=0)
+    error = Column(Text)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("mask", "region", name="uq_mask_region"),)
 ```
 
-### WebSocket обновление
+### WebSocket обновление (концепт)
 
 ```python
-# файл: backend/main.py:TBD-TBD
+# файл: backend/main.py (пример отправки сообщения)
+async def send_parsing_update(websocket: WebSocket, task_id: str, progress: int):
+    """Отправить обновление статуса парсинга через WebSocket"""
+    message = {
+        "type": "parsing_progress",
+        "task_id": task_id,
+        "progress": progress,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    await websocket.send_json(message)
 ```
 
 ### Frontend запрос данных
 
 ```typescript
-// файл: frontend/src/modules/data/api/data.ts:TBD-TBD
+// файл: frontend/src/modules/data/api/data.ts:66-80
+export function fetchPhrases(params: FetchPhraseParams = {}): Promise<PhraseListResponse> {
+  const query = new URLSearchParams();
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.offset) query.set('offset', String(params.offset));
+  if (params.search) query.set('search', params.search);
+  if (params.status) query.set('status', params.status);
+  if (params.q) query.set('q', params.q);
+  if (params.cursor !== undefined && params.cursor !== null) {
+    query.set('cursor', String(params.cursor));
+  }
+  if (params.sort) query.set('sort', params.sort);
+
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return request<PhraseListResponse>(`/phrases${suffix}`);
+}
 ```
 
 ---
 
-## Типовые ошибки
+## Типовые ошибки / Как чинить
 
 ### ❌ Ошибка: "Data not syncing between tabs"
 
-**Причина:** Нет подписки на WebSocket или state не обновляется.
+**Причина:** Нет подписки на WebSocket или Zustand store не обновляется.
 
-**Решение:**
-- Проверить подключение к WS
-- Обновлять Zustand store при получении сообщений
-- Добавить fallback на polling
+**Как чинить:**
+1. Проверьте подключение к `ws://localhost:8000/ws` и обрабатывайте события в `useEffect`.
+2. Обновляйте store через `useStore.setState` внутри `ws.onmessage`.
+3. Добавьте fallback: раз в 30 сек запрашивайте `/api/data/phrases` если WebSocket отключён.
 
 ### ❌ Ошибка: "Stale data in analytics"
 
 **Причина:** Кэширование результатов без инвалидирования.
 
-**Решение:**
-- Добавить флаг обновления
-- Очистить кэш при новых данных
-- Использовать timestamp обновления
+**Как чинить:**
+1. Добавьте timestamp последней синхронизации и проверяйте его перед отображением графиков.
+2. Сбрасывайте memoized данные в Analytics Module при новом событии WS.
+3. В backend добавьте ETag/Last-Modified заголовки для агрегированных эндпоинтов.
 
 ### ❌ Ошибка: "Missing region_id in results"
 
-**Причина:** region_id не передан до парсинга.
+**Причина:** `region_id` не передан до парсинга.
 
-**Решение:**
-- Проверить payload задачи
-- Убедиться что UI передает выбранный регион
-- Логировать region_id в worker
+**Как чинить:**
+1. На фронте делайте `ensureRegion()` и запрещайте запуск без region.
+2. В API требуйте `regions` в `CollectRequest` (валидатор уже приводил к [225]).
+3. В worker логируйте payload задачи и заверните сохранение в assert: `assert region_id is not None`.
 
 ---
 

@@ -116,57 +116,149 @@ sequenceDiagram
 ### GeoSelector виджет
 
 ```python
-# файл: keyset/app/widgets/geo_selector.py:TBD-TBD
+# файл: keyset/app/widgets/geo_selector.py:98-132
+def normalize_regions_tree(raw_root: dict) -> RegionModel:
+    """Преобразовать вложенный JSON в плоское представление с индексами."""
+
+    flat: List[RegionRow] = []
+    by_id: Dict[int, RegionRow] = {}
+    children: Dict[int, List[int]] = {}
+
+    def walk(node: dict, trail: List[str], depth: int, parent_id: Optional[int]) -> None:
+        try:
+            node_id = int(node["value"])
+        except (KeyError, TypeError, ValueError):
+            return
+        label = str(node.get("label") or "").strip()
+        if not label:
+            return
+
+        branch = trail + [label]
+        row = RegionRow(
+            id=node_id,
+            name=label,
+            path=" / ".join(branch),
+            parent_id=parent_id,
+            depth=depth,
+        )
+        flat.append(row)
+        by_id[node_id] = row
+        if parent_id is not None:
+            children.setdefault(parent_id, []).append(node_id)
+
+        for child in node.get("children") or []:
+            walk(child, branch, depth + 1, node_id)
+
+    walk(raw_root, [], 0, None)
+    return RegionModel(flat=flat, by_id=by_id, children=children)
 ```
 
 ### CDP патчинг region параметров
 
 ```python
-# файл: keyset/workers/cdp_frequency_runner.py:TBD-TBD
+# файл: keyset/workers/cdp_frequency_runner.py:125-151
+def replay_export_http(self, masks: list[str], export_url_template: str, region: int = 225) -> list[dict]:
+    """
+    Реплеим запрос экспорта для каждой маски через HTTP
+    БЕЗ браузера! В 10 раз быстрее!
+    """
+    import time
+    import random
+    
+    if not self.session:
+        raise RuntimeError("HTTP session not initialized")
+    
+    results = []
+    
+    for idx, mask in enumerate(masks, 1):
+        # Подставляем маску в URL
+        url = export_url_template.replace("{q}", quote(mask))
+        url = re.sub(r'words=[^&]*', f'words={quote(mask)}', url)
+        
+        try:
+            resp = self.session.get(url, timeout=30)
+            
+            if resp.status_code == 200 and "csv" in resp.headers.get("content-type", ""):
+                # Парсим CSV
+                freq = self._parse_csv_response(resp.text, mask)
 ```
 
 ### Загрузка regions.json
 
 ```python
-# файл: keyset/core/regions.py:TBD-TBD
+# файл: keyset/app/widgets/geo_selector.py:88-95
+def _load_raw_tree(dataset_path: Path) -> dict:
+    if dataset_path.exists():
+        try:
+            return json.loads(dataset_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    return _DEFAULT_TREE
 ```
 
-### GeoTree структура
+### GeoTree toggle logic
 
 ```python
-# файл: keyset/app/widgets/geo_tree.py:TBD-TBD
+# файл: keyset/app/widgets/geo_selector.py:148-174
+def toggle_region(
+    selection: Set[int],
+    region_id: int,
+    checked: bool,
+    model: RegionModel,
+) -> Set[int]:
+    updated = set(selection)
+
+    def drop_descendants(node_id: int) -> None:
+        for child_id in model.children.get(node_id, []):
+            updated.discard(child_id)
+            drop_descendants(child_id)
+
+    def drop_ancestors(node_id: int) -> None:
+        parent = model.by_id.get(node_id).parent_id if node_id in model.by_id else None
+        while parent is not None:
+            updated.discard(parent)
+            parent = model.by_id.get(parent).parent_id if parent in model.by_id else None
+
+    if checked:
+        updated.add(region_id)
+        drop_descendants(region_id)
+        drop_ancestors(region_id)
+    else:
+        updated.discard(region_id)
+
+    return updated
 ```
 
 ---
 
-## Типовые ошибки
+## Типовые ошибки / Как чинить
 
 ### ❌ Ошибка: "Region not found"
 
 **Причина:** Некорректный region_id передан в API.
 
-**Решение:**
-- Валидировать region_id перед отправкой
-- Проверить наличие региона в regions.json
-- Добавить fallback на дефолтный регион
+**Как чинить:**
+1. На фронтенде перед POST /start вызывайте `useGeoStore.getState().ensureRegion()` — он валидирует выбор.
+2. В backend middleware проверяйте, что `region_id` присутствует в `load_region_model(Path('data/regions_tree_full.json'))`; при отсутствии возвращайте 422.
+3. В логах `backend/routers/wordstat.py` включите поиск дубликатов и пустых путей, чтобы выявить повреждённое древо.
 
 ### ❌ Ошибка: "CDP не подставляет region"
 
 **Причина:** Перехват запросов настроен после navigate.
 
-**Решение:**
-- Включить CDP Network domain до первого запроса
-- Проверить паттерн URL для перехвата
-- Убедиться что region_id передан в параметрах
+**Как чинить:**
+1. Навешивайте `page.on("response", ...)` и `page.route` до первого `page.goto`.
+2. Добавьте `await page.wait_for_load_state("networkidle")` и убедитесь, что `region` передаётся в `export_url_template`.
+3. Проверьте, что при реплее `replay_export_http` параметр `regions=...` подставляется корректно.
 
 ### ❌ Ошибка: "Неверные результаты для региона"
 
-**Причина:** Кэширование на стороне Yandex.
+**Причина:** Кэширование на стороне Yandex или устаревшие cookies.
 
-**Решение:**
-- Добавить случайный параметр в URL
-- Использовать разные User-Agent
-- Проверить корректность lr параметра
+**Как чинить:**
+1. Перед повторным запуском выполняйте `context.clear_cookies()` и обновление профиля через `_extract_profile_cookies`.
+2. Добавляйте в URL параметр кэш-бастера: `rand=int(time.time())`.
+3. Ротуйте User-Agent в `self.session.headers` (`build_http_session`) и проверяйте, что куки свежие.
 
 ---
 

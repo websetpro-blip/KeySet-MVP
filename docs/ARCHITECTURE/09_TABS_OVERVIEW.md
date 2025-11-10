@@ -137,57 +137,135 @@ stateDiagram-v2
 ### Accounts Module
 
 ```typescript
-// файл: frontend/src/modules/accounts/index.tsx:TBD-TBD
+// файл: frontend/src/modules/accounts/index.tsx:26-41
+const loadAccounts = useCallback(async () => {
+  setIsLoading(true);
+  setError(null);
+  try {
+    const data = await fetchAccounts();
+    setAccounts(data);
+  } catch (loadError) {
+    setAccounts([]);
+    setError(
+      (loadError as Error).message ||
+        "Не удалось загрузить аккаунты. Проверьте backend."
+    );
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 ```
 
 ### Data Module
 
 ```typescript
-// файл: frontend/src/modules/data/App.tsx:TBD-TBD
+// файл: frontend/src/modules/data/App.tsx:63-84
+const { 
+  selectedPhraseIds, 
+  phrases,
+  groups,
+  clearFilters,
+  deletePhrases, 
+  selectAll, 
+  deselectAll,
+  invertSelection,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
+  addLog,
+  movePhrasesToGroup,
+  copyPhrasesToGroup,
+  updateGroupParent,
+  loadInitialData,
+  isDataLoaded,
+  isDataLoading,
+  dataError,
+} = useStore();
 ```
 
-### Masks Module
+### Masks Module (генератор)
 
 ```typescript
-// файл: frontend/src/modules/masks/App.tsx:TBD-TBD
+// файл: frontend/src/modules/masks/lib/stream-generator.ts:25-50 (упрощено)
+export async function* generateStream(
+  template: string,
+  options: GeneratorOptions
+): AsyncGenerator<GeneratedPhrase> {
+  const lines = template.split('\\n').filter(l => l.trim());
+  let counter = 0;
+  
+  for (const line of lines) {
+    // Обработка шаблона с подстановками
+    const processed = processTemplate(line, options);
+    
+    for (const variant of processed) {
+      yield {
+        id: `${Date.now()}-${counter++}`,
+        text: variant,
+        source: 'mask-generator'
+      };
+      
+      // Пауза для избежания блокировки UI
+      if (counter % 100 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+}
 ```
 
 ### Analytics Module
 
 ```typescript
-// файл: frontend/src/modules/analytics/App.tsx:TBD-TBD
+// файл: frontend/src/modules/analytics/App.tsx (концепт — модуль находится в разработке)
+// Пример структуры:
+export default function AnalyticsModule() {
+  const [stats, setStats] = useState<ParsingStats | null>(null);
+  
+  useEffect(() => {
+    fetchParsingStatistics().then(setStats);
+  }, []);
+  
+  return (
+    <div>
+      <h1>Статистика парсинга</h1>
+      {stats && <StatsChart data={stats} />}
+    </div>
+  );
+}
 ```
 
 ---
 
-## Типовые ошибки
+## Типовые ошибки / Как чинить
 
 ### ❌ Ошибка: "Table not rendering data"
 
-**Причина:** Store не загружен или пустой.
+**Причина:** Zustand store не загружен или данные ещё не готовы.
 
-**Решение:**
-- Проверить загрузку данных через useEffect
-- Добавить loading state
-- Проверить API ответ
+**Как чинить:**
+1. Убедитесь, что `loadInitialData()` вызывается в `useEffect` при монтировании Data модуля.
+2. Показывайте `Loader2` (см. `App.tsx`) пока `isDataLoading === true`.
+3. Логируйте `dataError` и отображайте его в `StatusBar`.
 
 ### ❌ Ошибка: "Filter not working"
 
-**Причина:** State не обновляется или некорректная логика фильтрации.
+**Причина:** State не обновляется или фильтр применяется к неверному полю.
 
-**Решение:**
-- Проверить обновление store
-- Убедиться что filter применяется к правильным полям
-- Добавить debounce для input фильтров
+**Как чинить:**
+1. Проверьте селекторы в `useStore` — фильтры должны обновлять `filters` внутри Zustand.
+2. Используйте `useMemo` и функции `filterAccounts`/`applyFilters` для чистых вычислений.
+3. Добавьте debounce (например, `useDebounce`) для текстовых инпутов, чтобы предотвратить лишние ререндеры.
 
 ### ❌ Ошибка: "Export produces empty file"
 
-**Причина:** Данные не подготовлены для экспорта.
+**Причина:** Экспорт запускается до загрузки данных или не выбраны строки.
 
-**Решение:**
-- Проверить формат данных перед экспортом
-- Убедиться что выбраны строки
-- Проверить права на скачивание файла
+**Как чинить:**
+1. Перед экспортом проверяйте `phrases.length` и выводите предупреждение через `addLog('warning', ...)`.
+2. Для массового экспорта используйте `MassBulkPanel` — он проверяет выделенные строки.
+3. Убедитесь, что `exportToCSV` получает чистый массив объектов (без `Set`/`Map`).
 
 ---
 

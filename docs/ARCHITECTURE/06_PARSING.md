@@ -123,57 +123,152 @@ sequenceDiagram
 ### TurboParser инициализация
 
 ```python
-# файл: keyset/workers/turbo_parser_working.py:TBD-TBD
+# файл: keyset/workers/turbo_parser_working.py:131-154
+async with async_playwright() as p:
+    # 1. ЗАПУСК CHROME
+    log("[1/6] Запуск Chrome с профилем wordstat_main...")
+    context = await p.chromium.launch_persistent_context(
+        user_data_dir="C:\\AI\\yandex\\.profiles\\wordstat_main",
+        headless=False,
+        channel="chrome",
+        args=[
+            '--start-maximized',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-site-isolation-trials'
+        ],
+        viewport=None,
+        locale='ru-RU'
+    )
+    await context.add_init_script(script=WORDSTAT_FETCH_NORMALIZER_SCRIPT)
+    for existing in context.pages:
+        await existing.add_init_script(script=WORDSTAT_FETCH_NORMALIZER_SCRIPT)
+        try:
+            await existing.evaluate(WORDSTAT_FETCH_NORMALIZER_SCRIPT)
+        except Exception:
+            pass
 ```
 
 ### CDP перехват запросов
 
 ```python
-# файл: keyset/workers/cdp_frequency_runner.py:TBD-TBD
+# файл: keyset/workers/cdp_frequency_runner.py:60-81
+async def on_response(response: Response):
+    nonlocal captured_csv_url
+    url = response.url
+    content_type = response.headers.get("content-type", "")
+    
+    # Ловим CSV от Wordstat
+    if "wordstat" in url and ("csv" in content_type or "export" in url or "download" in url):
+        print(f"[CDP] Поймал CSV URL: {url}")
+        captured_csv_url = url
+        
+        # Сохраняем тело для анализа
+        try:
+            body = await response.body()
+            self.captured_data.append({
+                "url": url,
+                "type": "csv",
+                "body": body.decode("utf-8", "ignore")
+            })
+        except Exception as e:
+            print(f"[CDP] Ошибка чтения CSV: {e}")
+
+page.on("response", on_response)
 ```
 
 ### MultiParsingWorker запуск
 
 ```python
-# файл: keyset/services/multiparser_manager.py:TBD-TBD
+# файл: keyset/services/multiparser_manager.py:399-434
+def submit_tasks(self, profiles: List[Dict], phrases: List[str]) -> List[str]:
+    """
+    Отправить задачи на выполнение
+    
+    Args:
+        profiles: Список профилей с данными
+        phrases: Список фраз для парсинга
+        
+    Returns:
+        Список task_id созданных задач
+    """
+    task_ids = []
+    futures = {}
+    
+    for profile in profiles:
+        # Создаем задачу
+        task = self.create_task(
+            profile_email=profile['email'],
+            profile_path=profile['profile_path'],
+            proxy_uri=profile.get('proxy'),
+            phrases=phrases
+        )
+        task_ids.append(task.task_id)
+        
+        # Отправляем на выполнение
+        future = self.executor.submit(self._run_parser_task, task)
+        futures[future] = task.task_id
+        
+    # Запускаем обработку результатов в отдельном потоке
+    threading.Thread(
+        target=self._process_futures,
+        args=(futures,),
+        daemon=True
+    ).start()
+    
+    return task_ids
 ```
 
 ### Алгоритм распределения фраз
 
 ```python
-# файл: keyset/workers/turbo_parser_working.py:TBD-TBD
+# файл: keyset/workers/turbo_parser_working.py:296-309
+# Распределение фраз по вкладкам
+chunks = []
+chunk_size = len(phrases) // len(working_pages)
+
+for i in range(len(working_pages)):
+    start_idx = i * chunk_size
+    if i == len(working_pages) - 1:
+        chunks.append(phrases[start_idx:])
+    else:
+        chunks.append(phrases[start_idx:start_idx + chunk_size])
+
+log("[OK] Распределение фраз по вкладкам:")
+for i, chunk in enumerate(chunks):
+    log(f"  * Вкладка {i+1}: {len(chunk)} фраз")
 ```
 
 ---
 
-## Типовые ошибки
+## Типовые ошибки / Как чинить
 
 ### ❌ Ошибка: "Chrome process crashed"
 
 **Причина:** Нехватка ресурсов или конфликт процессов.
 
-**Решение:**
-- Ограничить количество параллельных аккаунтов
-- Увеличить RAM
-- Закрыть лишние Chrome процессы
+**Как чинить:**
+1. Уменьшить `max_workers` у `MultiParserManager`, чтобы снизить конкурентную нагрузку.
+2. Завершить зомби-процессы Chrome (`taskkill /IM chrome.exe /F`) и очистить временные профили.
+3. Добавить мониторинг RAM/CPU и увеличить лимиты ВМ минимум до 6 ГБ оперативной памяти.
 
 ### ❌ Ошибка: "CDP session closed unexpectedly"
 
 **Причина:** Вкладка закрылась или зависла.
 
-**Решение:**
-- Реализовать retry логику
-- Добавить timeout на операции
-- Логировать состояние вкладок
+**Как чинить:**
+1. Обернуть `context.new_page()` и `page.goto()` в retry с экспоненциальной задержкой.
+2. Навешивать обработчики `page.on("response", ...)` до первого `page.goto` и проверять `page.is_closed()` каждые 30 секунд.
+3. Держать health-check: пересоздавать вкладку, если `page.context` потерял соединение.
 
 ### ❌ Ошибка: "No responses intercepted"
 
 **Причина:** CDP не успел подключиться к Network domain.
 
-**Решение:**
-- Включать CDP перехват до первого navigate
-- Добавить ожидание после enable
-- Проверить корректность паттернов перехвата
+**Как чинить:**
+1. Вызывать `page.route`/`page.on` до `page.goto` и ждать `wait_for_event("response")` с таймаутом 5 секунд.
+2. Убедиться, что `WORDSTAT_FETCH_NORMALIZER_SCRIPT` добавлен через `context.add_init_script` до навигации.
+3. Проверить фильтр URL: он должен включать `/wordstat/api` и `statistics/v1/data?format=csv`.
 
 ---
 

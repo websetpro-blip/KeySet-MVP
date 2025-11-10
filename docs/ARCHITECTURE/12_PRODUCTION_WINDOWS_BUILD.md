@@ -83,110 +83,194 @@ graph LR
 
 ---
 
+## Инструменты и версии
+
+- **Python** 3.11.8 (x64)
+- **Node.js** ≥ 18.18
+- **pnpm** 9.x (или npm ≥ 9)
+- **PyInstaller** 6.10
+- **Inno Setup** 6.3.3
+- **Playwright** 1.47 (chromium установлен через `npx playwright install chromium --with-deps`)
+
+---
+
 ## Процесс сборки
 
 ### 1. Frontend build (Vite)
 
 ```bash
 cd frontend
-npm run build
-# Создаёт frontend/dist/ с минифицированными файлами
+pnpm install
+pnpm run build
+# Создаёт frontend/dist/ с manifest.json и assets
 ```
 
-### 2. Backend build (PyInstaller)
+### 2. Backend + launcher (PyInstaller)
 
 ```bash
-pyinstaller backend/main.py \
-  --onefile \
-  --name keyset-backend \
-  --add-data "keyset;keyset" \
-  --add-data "regions.json;." \
-  --hidden-import=playwright
+cd ..
+pyinstaller build/keyset.spec
+# Артефакты: dist/KeySetLauncher.exe, dist/keyset-backend.exe, дистрибутив frontend
 ```
 
-### 3. Launcher создание
+### 3. Installer (Inno Setup)
 
 ```bash
-pyinstaller launcher.py \
-  --onefile \
-  --noconsole \
-  --icon=icon.ico
+iscc build/keyset_installer.iss
+# Выход: build/output/KeySetSetup.exe
 ```
 
-### 4. Package всё вместе
+### 4. Smoke-test на чистой Windows VM
+
+1. **Среда**: Windows 11 Pro, без установленного Python/Node.
+2. Скопировать папку `dist/` и запустить `KeySetLauncher.exe` — убедиться, что backend стартует (`curl http://127.0.0.1:8765/api/health`).
+3. Проверить, что окно PyWebView открывает UI (вкладка Accounts загружается, меню работает).
+4. Запустить `KeySetSetup.exe`, установить в `C:\AI\KeySet`.
+5. Из меню «Пуск» открыть KeySet — приложение должно стартовать, ярлыки и uninstall присутствуют.
+6. Выполнить smoke-сценарий: импортировать CSV (100 строк), отправить парсинг (mock-данные), проверить лог `logs/app.log`.
+
+### 5. Итоговая структура dist/
 
 ```
 dist/
+├── KeySetLauncher.exe
 ├── keyset-backend.exe
-├── launcher.exe
 ├── frontend/
 │   ├── index.html
 │   └── assets/
 ├── keyset.db
 ├── regions.json
-└── START.bat
+├── START.bat
+└── README_DEPLOY.txt
 ```
 
 ---
 
 ## Сниппеты кода
 
-### PyInstaller spec файл
+### PyInstaller spec файл (пример)
 
 ```python
-# файл: TBD:TBD-TBD
+# файл: build/keyset.spec (создайте этот файл)
+# -*- mode: python -*-
+from pathlib import Path
+
+project_root = Path(__file__).resolve().parents[1]
+frontend_dist = project_root / "frontend" / "dist"
+
+def collect_frontend():
+    if frontend_dist.exists():
+        return [(str(frontend_dist), "frontend")]
+    raise RuntimeError("frontend/dist отсутствует. Запустите pnpm run build")
+
+a = Analysis(
+    ['launcher.py'],
+    pathex=[str(project_root)],
+    binaries=[],
+    datas=[
+        (str(project_root / 'keyset'), 'keyset'),
+        (str(project_root / 'keyset' / 'data' / 'regions_tree_full.json'), 'keyset/data'),
+        *collect_frontend(),
+    ],
+    hiddenimports=['playwright._impl._backend', 'uvicorn', 'fastapi'],
+    hookspath=[],
+    win_private_assemblies=False,
+    cipher=None,
+)
+pyz = PYZ(a.pure, cipher=None)
+exe = EXE(
+    pyz, a.scripts, a.binaries, a.zipfiles, a.datas,
+    name='KeySetLauncher',
+    debug=False,
+    console=False,
+    icon='assets/icon.ico' if (project_root / 'assets' / 'icon.ico').exists() else None,
+)
+```
+
+### Inno Setup installer (пример)
+
+```ini
+; файл: build/keyset_installer.iss
+[Setup]
+AppName=KeySet
+AppVersion=1.0.0
+DefaultDirName={pf}\KeySet
+DefaultGroupName=KeySet
+OutputDir=build\output
+OutputBaseFilename=KeySetSetup
+Compression=lzma
+SolidCompression=yes
+PrivilegesRequired=admin
+ArchitecturesAllowed=x64
+
+[Files]
+Source: "dist\KeySetLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\keyset-backend.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\frontend\*"; DestDir: "{app}\frontend"; Flags: recursesubdirs createallsubdirs
+Source: "dist\regions.json"; DestDir: "{app}"; Flags: ignoreversion
+
+[Icons]
+Name: "{group}\KeySet"; Filename: "{app}\KeySetLauncher.exe"
+Name: "{group}\Удалить KeySet"; Filename: "{uninstallexe}"
 ```
 
 ### Launcher скрипт
 
 ```python
-# файл: launcher.py:TBD-TBD
+# файл: launcher.py:129-138
+def run_backend() -> None:
+    """Start FastAPI backend inside the current process."""
+    config = Config(
+        "backend.main:app",
+        host=BACKEND_HOST,
+        port=BACKEND_PORT,
+        reload=False,
+        log_level="info",
+    )
+    Server(config).run()
 ```
 
 ### START.bat скрипт
 
-```batch
-# файл: START.bat:TBD-TBD
-```
-
-### Vite production config
-
-```typescript
-// файл: frontend/vite.config.ts:TBD-TBD
+```bat
+:: файл: START.bat
+@echo off
+cd /d %~dp0
+start KeySetLauncher.exe
+timeout /t 2 >nul
+start msedge.exe http://127.0.0.1:8765
 ```
 
 ---
 
-## Типовые ошибки
+## Типовые ошибки / Как чинить
 
 ### ❌ Ошибка: "PyInstaller missing module"
 
-**Причина:** Hidden imports не указаны.
+**Причина:** Неполный список hidden imports.
 
-**Решение:**
-```bash
-pyinstaller --hidden-import=playwright \
-            --hidden-import=playwright.sync_api \
-            main.py
-```
+**Как чинить:**
+1. Добавьте в spec файл `hiddenimports=['playwright._impl._backend', 'uvicorn', 'fastapi']`.
+2. Убедитесь, что установлен `pywin32` (иначе launcher не получит Win32 API).
+3. Повторно соберите: `pyinstaller build/keyset.spec --clean`.
 
 ### ❌ Ошибка: "Frontend static files not found"
 
-**Причина:** Неверный путь к frontend/dist.
+**Причина:** В dist отсутствует папка frontend или неверный путь в spec/installer.
 
-**Решение:**
-- Проверить структуру dist/
-- Убедиться что `npm run build` завершён
-- Проверить StaticFiles mount в FastAPI
+**Как чинить:**
+1. Перед сборкой PyInstaller запустите `pnpm run build` и проверьте `frontend/dist/index.html`.
+2. В `keyset.spec` используйте функцию `collect_frontend()` и убедитесь, что Inno копирует `dist\frontend\*`.
+3. Для отладки запустите `KeySetLauncher.exe --devtools` и убедитесь в корректности путей.
 
 ### ❌ Ошибка: "Database locked"
 
-**Причина:** Множественные процессы пытаются обратиться к SQLite.
+**Причина:** Несколько экземпляров backend используют один SQLite файл.
 
-**Решение:**
-- Использовать WAL mode
-- Добавить timeout в connection
-- Проверить что процессы корректно завершаются
+**Как чинить:**
+1. В `keyset/core/db.py` включите WAL режим (`PRAGMA journal_mode=WAL;` при инициализации).
+2. Открывайте приложение в одном экземпляре или делегируйте повторный запуск через Windows Task Scheduler.
+3. Перед упаковкой очистите `logs/` и убедитесь, что приложение корректно завершает соединения (см. `SessionLocal`).
 
 ---
 

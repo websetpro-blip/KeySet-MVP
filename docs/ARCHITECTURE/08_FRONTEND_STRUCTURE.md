@@ -130,63 +130,185 @@ graph LR
 ### Главная структура приложения
 
 ```typescript
-// файл: frontend/src/App.tsx:TBD-TBD
+// файл: frontend/src/App.tsx:1-21
+import { Navigate, Route, Routes } from "react-router";
+import { AppLayout } from "./components/layout/AppLayout";
+import AccountsModule from "./modules/accounts";
+import MasksModule from "./modules/masks";
+import DataModule from "./modules/data";
+import AnalyticsModule from "./modules/analytics";
+
+export function App() {
+  return (
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Navigate to="/accounts" replace />} />
+        <Route path="/accounts" element={<AccountsModule />} />
+        <Route path="/masks" element={<MasksModule />} />
+        <Route path="/data/*" element={<DataModule />} />
+        <Route path="/analytics/*" element={<AnalyticsModule />} />
+      </Routes>
+    </AppLayout>
+  );
+}
 ```
 
-### Zustand store пример
+### Zustand store с persistence
 
 ```typescript
-// файл: frontend/src/modules/data/store/useStore.ts:TBD-TBD
+// файл: frontend/src/modules/data/store/useStore.ts:35-78
+const initialState: Omit<AppState, 'history'> = {
+  phrases: [],
+  groups: [],
+  stopwords: [],
+  filters: {},
+  savedFilters: [],
+  columnVisibility: {
+    phrase: true,
+    ws: true,
+    qws: true,
+    bws: true,
+    status: true,
+    dateAdded: false,
+  },
+  selectedPhraseIds: new Set(),
+  selectedGroupId: null,
+  activeGroupIds: new Set(),
+  activityLog: [],
+  processProgress: 0,
+  processCurrent: 0,
+  processTotal: 0,
+  columnOrder: [],
+  columnPinning: {},
+  viewTemplates: [],
+  searchMasks: [
+    { id: '1', name: 'Google', url: 'https://www.google.com/search?q={QUERY}' },
+    { id: '2', name: 'Yandex', url: 'https://yandex.ru/search/?text={QUERY}' },
+  ],
+  phraseColors: {},
+  groupColors: {},
+  pinnedPhraseIds: new Set(),
+  footerStats: {},
+  markedPhraseIds: new Set(),
+  pinnedGroupIds: new Set(),
+  snapshots: [],
+  exportPresets: [],
+  phraseTags: [],
+  version: 5,
+  isDataLoaded: false,
+  isDataLoading: false,
+  dataError: null,
+  phrasesCursor: null,
+};
 ```
 
 ### React Router v7 маршруты
 
 ```typescript
-// файл: frontend/src/App.tsx:TBD-TBD
+// файл: frontend/src/App.tsx:10-18
+<AppLayout>
+  <Routes>
+    <Route path="/" element={<Navigate to="/accounts" replace />} />
+    <Route path="/accounts" element={<AccountsModule />} />
+    <Route path="/masks" element={<MasksModule />} />
+    <Route path="/data/*" element={<DataModule />} />
+    <Route path="/analytics/*" element={<AnalyticsModule />} />
+  </Routes>
+</AppLayout>
 ```
 
 ### Пример модуля (Accounts)
 
 ```typescript
-// файл: frontend/src/modules/accounts/index.tsx:TBD-TBD
+// файл: frontend/src/modules/accounts/index.tsx:14-45
+export default function AccountsModule() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<AccountsFilters>({
+    search: "",
+    status: "",
+    onlyWithProxy: false,
+  });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+
+  const loadAccounts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAccounts();
+      setAccounts(data);
+    } catch (loadError) {
+      setAccounts([]);
+      setError(
+        (loadError as Error).message ||
+          "Не удалось загрузить аккаунты. Проверьте backend."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
 ```
 
 ### API client интеграция
 
 ```typescript
-// файл: frontend/src/lib/api.ts:TBD-TBD
+// файл: frontend/src/modules/accounts/api.ts:1-19
+import type { Account } from "./types";
+
+const BASE_URL = "/api/accounts";
+
+export async function fetchAccounts(): Promise<Account[]> {
+  const response = await fetch(BASE_URL, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Accounts API error (${response.status})`);
+  }
+
+  return (await response.json()) as Account[];
+}
 ```
 
 ---
 
-## Типовые ошибки
+## Типовые ошибки / Как чинить
 
 ### ❌ Ошибка: "Cannot read property of undefined" в Zustand
 
-**Причина:** Store не инициализирован или данные еще не загружены.
+**Причина:** Store не инициализирован или данные ещё не загружены.
 
-**Решение:**
-- Добавить проверку на undefined
-- Использовать optional chaining (?.)
-- Инициализировать store с дефолтными значениями
+**Как чинить:**
+1. Инициализируйте `initialState` всеми полями (см. `useStore.ts`) и избегайте `undefined`.
+2. В компонентах используйте `const phrase = store.phrases?.[index] ?? null` и проверяйте `isDataLoaded`.
+3. Помните, что `persist` middleware читает state асинхронно — выводите UI-шаблон до завершения гидратации (`useEffect`).
 
 ### ❌ Ошибка: "React Router v7 navigation not working"
 
 **Причина:** Некорректная настройка routes или basename.
 
-**Решение:**
-- Проверить структуру routes
-- Убедиться что Router правильно обернут
-- Использовать правильные хуки (useNavigate, useLocation)
+**Как чинить:**
+1. Убедитесь, что `<AppLayout>` оборачивает `<Routes>`, а `<BrowserRouter>` инициализирован в `main.tsx`.
+2. Для редиректов используйте `<Navigate to="/accounts" replace />`, а не `useNavigate` в эффектах.
+3. В desktop-сборке используйте `basename={window.__KEYSET_BASE__ ?? '/'}` чтобы роутинг совпадал с путями в Inno Setup.
 
 ### ❌ Ошибка: "Hydration mismatch"
 
 **Причина:** Несоответствие между SSR и client-side рендером.
 
-**Решение:**
-- Убедиться что начальный state одинаковый
-- Использовать useEffect для client-only кода
-- Проверить условный рендеринг
+**Как чинить:**
+1. Вынесите операции с `window`/`localStorage` в `useEffect`.
+2. Зафиксируйте часовой пояс/формат дат при генерации `initialState`, чтобы сервер и клиент совпадали.
+3. Используйте `suppressHydrationWarning` во время отладки и логируйте расхождения.
 
 ---
 
