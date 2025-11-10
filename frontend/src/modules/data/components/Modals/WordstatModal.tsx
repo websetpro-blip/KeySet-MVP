@@ -23,6 +23,14 @@ interface WordstatModalProps {
 }
 
 export const WordstatModal: React.FC<WordstatModalProps> = ({ isOpen, onClose }) => {
+  const renderGuardRef = React.useRef(0);
+  renderGuardRef.current += 1;
+  if (renderGuardRef.current > 40) {
+    throw new Error(`WordstatModal render loop detected (${renderGuardRef.current})`);
+  }
+  React.useEffect(() => {
+    renderGuardRef.current = 0;
+  });
   const {
     phrases,
     selectedPhraseIds,

@@ -332,10 +332,12 @@ function App() {
       />
       
       {/* Новые модалы */}
-      <WordstatModal
-        isOpen={isWordstatModalOpen}
-        onClose={() => setIsWordstatModalOpen(false)}
-      />
+      {isWordstatModalOpen && (
+        <WordstatModal
+          isOpen={true}
+          onClose={() => setIsWordstatModalOpen(false)}
+        />
+      )}
       
       {isFiltersModalOpen && (
         <AdvancedFiltersModal onClose={() => setIsFiltersModalOpen(false)} />
