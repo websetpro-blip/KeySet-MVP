@@ -49,23 +49,33 @@ export class ErrorBoundary extends React.Component<
     }
     
     // Попытка восстановиться от ошибок данных localStorage
-    if (error.message?.includes('JSON') || error.message?.includes('parse')) {
+    const message = error?.message ?? '';
+    const corruptedStoreError =
+      message.includes('JSON') ||
+      message.includes('parse') ||
+      message.includes('Invalid hook call') ||
+      message.includes('#185');
+
+    if (corruptedStoreError) {
       try {
-        // Очищаем все данные localStorage
-        Object.keys(localStorage).forEach(key => {
+        const clearedKeys: string[] = [];
+        Object.keys(localStorage).forEach((key) => {
           if (key.includes('keyset') || key.includes('column') || key.includes('phrase')) {
             localStorage.removeItem(key);
+            clearedKeys.push(key);
           }
         });
-        
-        // Перезагружаем страницу
+
+        console.warn(
+          '[KeySet][store] Cleared potentially corrupted localStorage entries:',
+          clearedKeys,
+        );
+
         setTimeout(() => {
           window.location.reload();
-        }, 2000);
-        
-        console.warn('Ошибка данных - localStorage очищен, перезагрузка через 2 секунды');
+        }, 1500);
       } catch (e) {
-        console.error('Не удалось очистить localStorage:', e);
+        console.error('[KeySet][store] Failed to clear localStorage after crash:', e);
       }
     }
     

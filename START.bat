@@ -4,7 +4,7 @@ echo KeySet MVP Launcher
 echo ====================================
 echo.
 echo Starting backend (FastAPI)...
-start "KeySet Backend" cmd /k "cd /d %~dp0 && python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765"
+start "KeySet Backend" cmd /k "cd /d %~dp0 && .venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8765"
 
 timeout /t 2 /nobreak >nul
 

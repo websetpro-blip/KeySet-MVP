@@ -82,6 +82,48 @@ let historyPast: StateSnapshot[] = [];
 let historyFuture: StateSnapshot[] = [];
 const MAX_HISTORY_SIZE = 50;
 const KEYSET_STORAGE_KEY = 'keyset-store';
+const STORAGE_VERSION_KEY = 'keyset-storage-version';
+const STORAGE_VERSION = '2025-11-11';
+
+const purgePersistedState = () => {
+  try {
+    const removedKeys: string[] = [];
+    const keysToDrop = [
+      KEYSET_STORAGE_KEY,
+      'columnOrder',
+      'columnPinning',
+      'viewTemplates',
+      'phraseColors',
+      'groupColors',
+      'pinnedPhraseIds',
+      'markedPhraseIds',
+      'pinnedGroupIds',
+    ];
+    keysToDrop.forEach((key) => {
+      if (localStorage.getItem(key) !== null) {
+        localStorage.removeItem(key);
+        removedKeys.push(key);
+      }
+    });
+    if (removedKeys.length) {
+      console.warn('[KeySet][store] Purged stale persisted data:', removedKeys);
+    }
+  } catch (error) {
+    console.error('[KeySet][store] Failed to purge persisted data:', error);
+  }
+};
+
+if (typeof window !== 'undefined') {
+  try {
+    const currentVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (currentVersion !== STORAGE_VERSION) {
+      purgePersistedState();
+      localStorage.setItem(STORAGE_VERSION_KEY, STORAGE_VERSION);
+    }
+  } catch (error) {
+    console.error('[KeySet][store] Unable to verify storage version:', error);
+  }
+}
 
 const createSafeStorage = () => ({
   getItem: (name: string): string | null => {
@@ -1185,7 +1227,7 @@ export const useStore = create<KeySetStoreV5>()(
     {
       name: KEYSET_STORAGE_KEY,
       storage: createJSONStorage(() => createSafeStorage()),
-      version: 1,
+      version: 2,
       partialize: (state) => ({
         stopwords: state.stopwords,
         filters: state.filters,

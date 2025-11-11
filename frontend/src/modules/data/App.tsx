@@ -11,7 +11,6 @@ import { ImportModal } from './components/Modals/ImportModal';
 import { ExportModal } from './components/Modals/ExportModal';
 import { DuplicatesModal } from './components/Modals/DuplicatesModal';
 import { StopwordsManagerModal } from './components/Modals/StopwordsManagerModal';
-import { WordstatModal } from './components/Modals/WordstatModal';
 import { AdvancedFiltersModal } from './components/Modals/AdvancedFiltersModal';
 import { ColumnSettingsModal } from './components/Modals/ColumnSettingsModal';
 import { StatisticsModal } from './components/Modals/StatisticsModal';
@@ -32,6 +31,12 @@ import { MassBulkPanel } from './components/MassBulkPanel';
 import { useStore } from './store/useStore';
 import { Modal } from './components/ui/Modal';
 import { Button } from './components/ui/Button';
+
+const LazyWordstatModal = React.lazy(() =>
+  import('./components/Modals/WordstatModal').then((mod) => ({
+    default: mod.WordstatModal,
+  })),
+);
 
 function App() {
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
@@ -333,10 +338,22 @@ function App() {
       
       {/* Новые модалы */}
       {isWordstatModalOpen && (
-        <WordstatModal
-          isOpen={true}
-          onClose={() => setIsWordstatModalOpen(false)}
-        />
+        <React.Suspense
+          fallback={
+            <Modal
+              isOpen={true}
+              onClose={() => setIsWordstatModalOpen(false)}
+              title="Wordstat"
+            >
+              <div className="p-6 text-sm text-gray-500">Загрузка окна Wordstat…</div>
+            </Modal>
+          }
+        >
+          <LazyWordstatModal
+            isOpen={true}
+            onClose={() => setIsWordstatModalOpen(false)}
+          />
+        </React.Suspense>
       )}
       
       {isFiltersModalOpen && (
