@@ -96,8 +96,13 @@ function App() {
   const safePhrases = Array.isArray(phrases) ? phrases : [];
   const safeGroups = Array.isArray(groups) ? groups : [];
 
+  const didInitRef = React.useRef(false);
   React.useEffect(() => {
+    if (didInitRef.current) {
+      return;
+    }
     if (!isDataLoaded && !isDataLoading) {
+      didInitRef.current = true;
       loadInitialData();
     }
   }, [isDataLoaded, isDataLoading, loadInitialData]);

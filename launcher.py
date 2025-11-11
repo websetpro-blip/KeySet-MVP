@@ -13,6 +13,8 @@ from uvicorn import Config, Server
 
 # Configure PyWebView backend before importing webview
 os.environ.setdefault("PYWEBVIEW_GUI", "edgechromium")
+os.environ.setdefault("WEBVIEW2_RELEASE_CHANNEL_PREFERENCE", "1")  # prefer Stable WebView2 runtime
+os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-renderer-accessibility")
 
 try:
     import webview
