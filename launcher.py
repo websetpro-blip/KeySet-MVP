@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 import threading
 import time
 import urllib.error
@@ -33,9 +34,18 @@ DEV_TOKEN = os.environ.get("KEYSET_DEV_TOKEN")
 GUI_PREFERENCE_CHAIN: List[str] = []
 
 
+def _is_cef_supported() -> bool:
+    """Return True if current Python version is supported by cefpython."""
+    major, minor = sys.version_info[:2]
+    # cefpython 66.1 поддерживает Python <= 3.12 (официально до 3.10, но 3.12 тестирован локально)
+    return major == 3 and minor <= 12
+
+
 def _prepare_gui_preference_chain() -> None:
     """Build ordered list of GUI backends to try (cef first, then fallbacks)."""
     preferred = (os.environ.get("PYWEBVIEW_GUI") or "cef").strip().lower()
+    if preferred == "cef" and not _is_cef_supported():
+        preferred = "edgechromium"
     fallbacks = ["edgechromium", "mshtml"]
     GUI_PREFERENCE_CHAIN.clear()
     GUI_PREFERENCE_CHAIN.append(preferred)

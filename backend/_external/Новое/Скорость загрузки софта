@@ -16,6 +16,10 @@
 pip install cefpython3
 pip install "pywebview[cef]"
 
+### 2025-11-13 обновление
+- На Python 3.13 cefpython пока не поддерживается — лаунчер автоматически пропускает запуск через CEF и сразу включает Edge WebView2.
+- Чтобы избежать ошибок `ICoreWebView2_*` и рекурсивных падений, держим WebView2 Runtime в актуальном состоянии (Evergreen Standalone). Скрипт в репозитории ставит последнюю версию из `https://go.microsoft.com/fwlink/p/?LinkId=2124703`.
+
 2) Правка лаунчера: запуск окна на CEF (+ ожидание health)
 
 В backend/launcher.py оставь всё как есть (поднятие FastAPI, ожидание /api/health), но стартуй окно так:
