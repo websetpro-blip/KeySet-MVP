@@ -21,6 +21,13 @@ pip install "pywebview[cef]"
 - Чтобы избежать ошибок `ICoreWebView2_*` и рекурсивных падений, держим WebView2 Runtime в актуальном состоянии (Evergreen Standalone). Скрипт в репозитории ставит последнюю версию из `https://go.microsoft.com/fwlink/p/?LinkId=2124703`.
 - Лаунчер всегда стартует через Edge (`PYWEBVIEW_GUI=edgechromium`) без каких‑либо JS-хаков с `window.native` — PyWebView сам управляет мостом, вмешиваться нельзя.
 - backend/main.py включает GZip + immutable-кэш для `dist/assets` и прогоняет `ensure_schema()` в отдельном потоке на `startup`, чтобы старт не зависал.
+- Во фронте включено нормальное code-splitting (CSS отдельно, чанки `vendor`/`ui`), `inlineDynamicImports` отключён — стартовое окно грузится быстрее.
+
+### 2025-11-14 обновление
+- Вместо Evergreen ставим **Fixed WebView2 Runtime 123.0.2420.65** в каталог приложения (Microsoft рекомендует для desktop). Релизы 124+ вызывают подвисание 10–15 сек — фиксированная 123 избавляет от регресса.
+- Инсталлятор добавляет шаг установки Fixed Runtime перед первым запуском.
+- Vite config вернули к обычным чанкам (`cssCodeSplit: true`, manualChunks для vendor/ui). Никаких `inlineDynamicImports: true`.
+- Лаунчер больше не пробует CEF и не удаляет `window.native`: только Edge WebView2, health-check и `webview.start(debug=False)`.
 
 2) Правка лаунчера: запуск окна на CEF (+ ожидание health)
 
