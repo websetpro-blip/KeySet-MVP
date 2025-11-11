@@ -6,13 +6,13 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, List
 
 import requests
 from uvicorn import Config, Server
 
 # Configure PyWebView backend before importing webview
-os.environ.setdefault("PYWEBVIEW_GUI", "edgechromium")
+os.environ.setdefault("PYWEBVIEW_GUI", "cef")
 
 try:
     import webview
@@ -30,6 +30,21 @@ DEFAULT_EXTERNAL_BASE_URL = os.environ.get("KEYSET_DEVTOOLS_BASE_URL") or os.env
     "KEYSET_PUBLIC_BASE_URL", BACKEND_URL
 )
 DEV_TOKEN = os.environ.get("KEYSET_DEV_TOKEN")
+GUI_PREFERENCE_CHAIN: List[str] = []
+
+
+def _prepare_gui_preference_chain() -> None:
+    """Build ordered list of GUI backends to try (cef first, then fallbacks)."""
+    preferred = (os.environ.get("PYWEBVIEW_GUI") or "cef").strip().lower()
+    fallbacks = ["edgechromium", "mshtml"]
+    GUI_PREFERENCE_CHAIN.clear()
+    GUI_PREFERENCE_CHAIN.append(preferred)
+    for backend in fallbacks:
+        if backend != preferred:
+            GUI_PREFERENCE_CHAIN.append(backend)
+
+
+_prepare_gui_preference_chain()
 
 
 class DevToolsBridge:
@@ -177,28 +192,41 @@ def main() -> None:
     print(f"[launcher] Using devtools base URL: {external_base_url}")
     bridge = WindowAPI(external_base_url, DEV_TOKEN)
 
-    print("[launcher] Creating PyWebView window via Edge WebView2...")
-    window = webview.create_window(
-        "KeySet",
-        BACKEND_URL,
-        js_api=bridge,
-        width=1400,
-        height=900,
-    )
-    bridge.set_window(window)
-
-    print("[launcher] Starting webview loop (close window to exit).")
-    try:
-        webview.start(gui="edgechromium", debug=False)
-    except Exception:  # pragma: no cover - depends on OS runtime
-        print("[launcher] webview failed to start with EdgeChromium backend.")
-        print(
-            "[launcher] Install Microsoft Edge WebView2 Runtime and ensure "
-            "`PYWEBVIEW_GUI=edgechromium` is set."
+    def create_main_window():
+        window = webview.create_window(
+            "KeySet",
+            BACKEND_URL,
+            js_api=bridge,
+            width=1400,
+            height=900,
         )
-        raise
-    finally:
-        print("[launcher] webview loop finished.")
+        bridge.set_window(window)
+        return window
+
+    last_error: Exception | None = None
+    for gui_backend in GUI_PREFERENCE_CHAIN:
+        print(f"[launcher] Creating PyWebView window via '{gui_backend}' backend...")
+        create_main_window()
+        print("[launcher] Starting webview loop (close window to exit).")
+        try:
+            webview.start(gui=gui_backend, debug=False)
+            last_error = None
+            break
+        except Exception as exc:  # pragma: no cover - depends on OS runtime
+            last_error = exc
+            print(
+                f"[launcher] webview failed to start with '{gui_backend}' backend: {exc}"
+            )
+            try:
+                webview.windows.clear()
+            except Exception:  # pragma: no cover - cleanup best effort
+                pass
+            continue
+    else:
+        if last_error:
+            raise last_error
+
+    print("[launcher] webview loop finished.")
 
 
 if __name__ == "__main__":
