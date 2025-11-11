@@ -206,6 +206,16 @@ def main() -> None:
     print(f"[launcher] Using devtools base URL: {external_base_url}")
     bridge = WindowAPI(external_base_url, DEV_TOKEN)
 
+    def _attach_safety_hooks(window) -> None:
+        def _strip_native():
+            try:
+                window.evaluate_js(SAFE_BOOTSTRAP_JS)
+            except Exception as exc:  # pragma: no cover
+                print(f"[launcher] window.native cleanup failed: {exc}")
+
+        window.events.loaded += _strip_native
+        window.events.shown += _strip_native
+
     def create_main_window():
         window = webview.create_window(
             "KeySet",
@@ -213,8 +223,8 @@ def main() -> None:
             js_api=bridge,
             width=1400,
             height=900,
-            js=SAFE_BOOTSTRAP_JS,
         )
+        _attach_safety_hooks(window)
         bridge.set_window(window)
         return window
 
