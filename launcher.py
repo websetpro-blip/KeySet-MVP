@@ -32,6 +32,10 @@ DEFAULT_EXTERNAL_BASE_URL = os.environ.get("KEYSET_DEVTOOLS_BASE_URL") or os.env
 )
 DEV_TOKEN = os.environ.get("KEYSET_DEV_TOKEN")
 GUI_PREFERENCE_CHAIN: List[str] = []
+SAFE_BOOTSTRAP_JS = (
+    "try { if (window.native) { delete window.native; } } "
+    "catch (err) { console.warn('[KeySet] window.native cleanup failed', err); }"
+)
 
 
 def _is_cef_supported() -> bool:
@@ -209,6 +213,7 @@ def main() -> None:
             js_api=bridge,
             width=1400,
             height=900,
+            js=SAFE_BOOTSTRAP_JS,
         )
         bridge.set_window(window)
         return window

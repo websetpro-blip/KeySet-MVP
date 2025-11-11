@@ -19,6 +19,7 @@ pip install "pywebview[cef]"
 ### 2025-11-13 обновление
 - На Python 3.13 cefpython пока не поддерживается — лаунчер автоматически пропускает запуск через CEF и сразу включает Edge WebView2.
 - Чтобы избежать ошибок `ICoreWebView2_*` и рекурсивных падений, держим WebView2 Runtime в актуальном состоянии (Evergreen Standalone). Скрипт в репозитории ставит последнюю версию из `https://go.microsoft.com/fwlink/p/?LinkId=2124703`.
+- При старте удаляем `window.native` (через `webview.create_window(..., js="delete window.native")`), иначе React пытается перечислить свойства и PyWebView валится с `window.native.ActiveControl...` → `maximum recursion depth exceeded`.
 
 2) Правка лаунчера: запуск окна на CEF (+ ожидание health)
 
