@@ -1,14 +1,18 @@
-﻿from __future__ import annotations
-
+from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
+
+from keyset.core.db import ensure_schema
 
 from . import devtools
 from .routers import accounts, data, wordstat
@@ -24,6 +28,20 @@ app.include_router(devtools.router)
 app.include_router(wordstat.router)
 app.include_router(accounts.router)
 app.include_router(data.router)
+
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+class ImmutableCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path.startswith("/assets/"):
+            response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+        return response
+
+
+app.add_middleware(ImmutableCacheMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,6 +49,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _ensure_schema_async() -> None:
+    try:
+        ensure_schema()
+    except Exception as exc:  # pragma: no cover
+        logger.exception("ensure_schema failed: %s", exc)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    threading.Thread(target=_ensure_schema_async, daemon=True).start()
 
 
 @app.get("/api/health")
@@ -130,25 +160,23 @@ def comet_ide() -> FileResponse:
 
 
 if FRONTEND_DIST.exists():
-    # Mount static assets (CSS, JS, images)
-    app.mount(
-        "/assets",
-        StaticFiles(directory=FRONTEND_DIST / "assets"),
-        name="assets",
-    )
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-    # Catch-all route for SPA - must be AFTER all API routes
+    SPA_INDEX = FRONTEND_DIST / "index.html"
+
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str) -> FileResponse:
-        # Don't catch API routes
         if full_path.startswith("api/"):
-            from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
 
-        # Check if file exists (for static assets not in /assets)
         file_path = FRONTEND_DIST / full_path
         if file_path.is_file():
             return FileResponse(file_path)
 
-        # Otherwise serve index.html for SPA routing
-        return FileResponse(FRONTEND_DIST / "index.html")
+        return FileResponse(SPA_INDEX)
+else:
+    @app.get("/", response_class=JSONResponse)
+    async def dist_missing() -> Dict[str, str]:
+        return {"error": "frontend build missing", "hint": "run `npm run build` in frontend/"}

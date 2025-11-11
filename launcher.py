@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import socket
-import sys
 import threading
 import time
 import urllib.error
@@ -13,7 +12,7 @@ import requests
 from uvicorn import Config, Server
 
 # Configure PyWebView backend before importing webview
-os.environ.setdefault("PYWEBVIEW_GUI", "cef")
+os.environ.setdefault("PYWEBVIEW_GUI", "edgechromium")
 
 try:
     import webview
@@ -32,25 +31,12 @@ DEFAULT_EXTERNAL_BASE_URL = os.environ.get("KEYSET_DEVTOOLS_BASE_URL") or os.env
 )
 DEV_TOKEN = os.environ.get("KEYSET_DEV_TOKEN")
 GUI_PREFERENCE_CHAIN: List[str] = []
-SAFE_BOOTSTRAP_JS = (
-    "try { if (window.native) { delete window.native; } } "
-    "catch (err) { console.warn('[KeySet] window.native cleanup failed', err); }"
-)
-
-
-def _is_cef_supported() -> bool:
-    """Return True if current Python version is supported by cefpython."""
-    major, minor = sys.version_info[:2]
-    # cefpython 66.1 поддерживает Python <= 3.12 (официально до 3.10, но 3.12 тестирован локально)
-    return major == 3 and minor <= 12
 
 
 def _prepare_gui_preference_chain() -> None:
-    """Build ordered list of GUI backends to try (cef first, then fallbacks)."""
-    preferred = (os.environ.get("PYWEBVIEW_GUI") or "cef").strip().lower()
-    if preferred == "cef" and not _is_cef_supported():
-        preferred = "edgechromium"
-    fallbacks = ["edgechromium", "mshtml"]
+    """Build ordered list of GUI backends to try (Edge first, then mshtml)."""
+    preferred = (os.environ.get("PYWEBVIEW_GUI") or "edgechromium").strip().lower()
+    fallbacks = ["mshtml"]
     GUI_PREFERENCE_CHAIN.clear()
     GUI_PREFERENCE_CHAIN.append(preferred)
     for backend in fallbacks:
@@ -206,16 +192,6 @@ def main() -> None:
     print(f"[launcher] Using devtools base URL: {external_base_url}")
     bridge = WindowAPI(external_base_url, DEV_TOKEN)
 
-    def _attach_safety_hooks(window) -> None:
-        def _strip_native():
-            try:
-                window.evaluate_js(SAFE_BOOTSTRAP_JS)
-            except Exception as exc:  # pragma: no cover
-                print(f"[launcher] window.native cleanup failed: {exc}")
-
-        window.events.loaded += _strip_native
-        window.events.shown += _strip_native
-
     def create_main_window():
         window = webview.create_window(
             "KeySet",
@@ -224,7 +200,6 @@ def main() -> None:
             width=1400,
             height=900,
         )
-        _attach_safety_hooks(window)
         bridge.set_window(window)
         return window
 
