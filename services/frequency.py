@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Iterable
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func
 
-# Абсолютные импорты из новой структуры
-from core.db import SessionLocal, get_db_connection
-from core.models import FrequencyResult
+try:
+    from ..core.db import SessionLocal, get_db_connection
+    from ..core.models import FrequencyResult
+except ImportError:
+    from core.db import SessionLocal, get_db_connection
+    from core.models import FrequencyResult
 
 QUEUE_STATUSES = ("queued", "running", "ok", "error")
 
@@ -56,7 +59,6 @@ def list_results(status: str | None = None, limit: int = 500) -> list[dict]:
         rows = session.scalars(stmt).all()
         return [
             {
-                'id': row.id,
                 'mask': row.mask,
                 'region': row.region,
                 'status': row.status,
@@ -108,98 +110,6 @@ def clear_results() -> None:
     with SessionLocal() as session:
         session.query(FrequencyResult).delete()
         session.commit()
-
-
-def delete_results(ids: list[int]) -> int:
-    """Удалить результаты по их ID."""
-    if not ids:
-        return 0
-    with SessionLocal() as session:
-        stmt = delete(FrequencyResult).where(FrequencyResult.id.in_(ids))
-        result = session.execute(stmt)
-        session.commit()
-    return result.rowcount or 0
-
-
-def _coerce_int(value: Any) -> int | None:
-    """Convert user-provided string/number into integer frequency."""
-    if value in (None, "", " "):
-        return None
-    try:
-        return max(int(str(value).replace(" ", "").replace(",", "")), 0)
-    except (TypeError, ValueError):
-        return None
-
-
-def upsert_results(rows: Iterable[dict], region: int) -> int:
-    """
-    Persist Wordstat results into freq_results.
-
-    Args:
-        rows: dictionaries returned by wordstat_bridge (phrase/ws/qws/bws/status).
-        region: region id to associate with the records.
-    """
-    payload: list[dict[str, Any]] = []
-    for row in rows or []:
-        phrase = (row.get("phrase") or "").strip()
-        if not phrase:
-            continue
-        payload.append(
-            {
-                "phrase": phrase,
-                "ws": _coerce_int(row.get("ws")),
-                "qws": _coerce_int(row.get("qws")),
-                "bws": _coerce_int(row.get("bws")),
-                "status": (row.get("status") or "ok").strip(),
-            }
-        )
-
-    if not payload:
-        return 0
-
-    now = datetime.utcnow()
-    processed = 0
-    with SessionLocal() as session:
-        for row in payload:
-            stmt = select(FrequencyResult).where(
-                FrequencyResult.mask == row["phrase"],
-                FrequencyResult.region == region,
-            )
-            entity = session.scalars(stmt).first()
-            if not entity:
-                entity = FrequencyResult(mask=row["phrase"], region=region)
-                session.add(entity)
-
-            status_raw = row["status"] or "ok"
-            normalized_status = "ok" if status_raw.lower() in {"ok", "success"} else "error"
-            entity.status = normalized_status
-            entity.error = None if normalized_status == "ok" else status_raw
-            if row["ws"] is not None:
-                entity.freq_total = row["ws"]
-            if row["qws"] is not None:
-                entity.freq_quotes = row["qws"]
-            if row["bws"] is not None:
-                entity.freq_exact = row["bws"]
-            entity.updated_at = now
-            if normalized_status == "ok":
-                entity.attempts = 0
-
-            processed += 1
-
-        session.commit()
-
-    return processed
-
-
-def export_results(limit: int | None = None, status: str | None = None) -> list[FrequencyResult]:
-    """Вернуть записи для экспорта/скачивания."""
-    with SessionLocal() as session:
-        stmt = select(FrequencyResult).order_by(FrequencyResult.updated_at.desc())
-        if status and status != 'all':
-            stmt = stmt.where(FrequencyResult.status == status)
-        if limit:
-            stmt = stmt.limit(limit)
-        return session.scalars(stmt).all()
 
 
 # ============================================================================

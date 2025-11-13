@@ -1,18 +1,17 @@
+# Lazy imports to avoid circular dependencies
+# Import specific modules only when needed
+
 __all__ = [
     "accounts",
-    "chrome_launcher",
-    "chrome_launcher_directparser",
-    "cdp_connector_directparser",
-    "direct_batch",
-    "frequency",
     "tasks",
     "importer",
     "phrase_tools",
-    "proxy_manager",
-    "proxy_validator",
-    "wordstat_bridge",
+    "frequency",
     "direct",
     "wordstat_ws",
     "browser_factory",
-    "multiparser_manager",
+    "proxy_manager",
+    "proxy_validator",
+    "chrome_launcher_directparser",
+    "cdp_connector_directparser",
 ]

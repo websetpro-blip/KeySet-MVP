@@ -11,12 +11,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Iterable
 
-try:
-    from ..workers.turbo_parser_integration import TurboWordstatParser
-    from . import accounts as account_service
-except ImportError:
-    from workers.turbo_parser_integration import TurboWordstatParser
-    from . import accounts as account_service
+from workers.turbo_parser_integration import TurboWordstatParser
+from services import accounts as account_service
 
 
 @dataclass(slots=True)

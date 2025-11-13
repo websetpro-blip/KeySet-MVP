@@ -9,11 +9,16 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
+import os
 
-from utils.proxy import proxy_to_playwright
+try:
+    from ..utils.proxy import proxy_to_playwright
+except ImportError:
+    from utils.proxy import proxy_to_playwright
 
-
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "proxies.json"
+_runtime_root = Path(os.environ.get("KEYSET_RUNTIME_ROOT", Path(__file__).resolve().parents[1]))
+CONFIG_PATH = _runtime_root / "config" / "proxies.json"
+CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _normalize_server(proxy_type: str, server: str) -> str:
@@ -129,9 +134,9 @@ class ProxyManager:
 
     def _bootstrap_from_accounts(self) -> None:
         try:
-            from services import accounts as account_service
-            from core.db import SessionLocal
-            from core.models import Account
+            from . import accounts as account_service
+            from ..core.db import SessionLocal
+            from ..core.models import Account
         except Exception:
             return
         try:

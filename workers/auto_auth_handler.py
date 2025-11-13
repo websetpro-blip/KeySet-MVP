@@ -7,8 +7,20 @@ import asyncio
 import time
 from typing import Optional, Dict, Any
 from playwright.async_api import Page
-from PySide6.QtWidgets import QInputDialog, QMessageBox
-from PySide6.QtCore import QObject, Signal
+# Qt imports - only for GUI mode
+try:
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    from PySide6.QtCore import QObject, Signal
+    QT_AVAILABLE = True
+except (ImportError, OSError):  # OSError for missing libEGL.so.1
+    QT_AVAILABLE = False
+    # Заглушки для headless режима
+    class QObject:  # type: ignore
+        def __init__(self): pass
+    class Signal:  # type: ignore
+        def __init__(self, *args): pass
+    QInputDialog = None  # type: ignore
+    QMessageBox = None  # type: ignore
 
 class AutoAuthHandler(QObject):
     """Обработчик автоматической авторизации в Яндекс"""
