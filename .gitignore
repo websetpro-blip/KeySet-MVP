@@ -15,3 +15,7 @@ backend/__pycache__/
 *.exe
 build/
 *.spec
+# Keep PyInstaller spec file under version control
+!build/
+build/*
+!build/keyset.spec

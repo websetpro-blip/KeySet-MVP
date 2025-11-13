@@ -9,14 +9,16 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
+import os
 
 try:
     from ..utils.proxy import proxy_to_playwright
 except ImportError:
     from utils.proxy import proxy_to_playwright
 
-
-CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "proxies.json"
+_runtime_root = Path(os.environ.get("KEYSET_RUNTIME_ROOT", Path(__file__).resolve().parents[1]))
+CONFIG_PATH = _runtime_root / "config" / "proxies.json"
+CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _normalize_server(proxy_type: str, server: str) -> str:

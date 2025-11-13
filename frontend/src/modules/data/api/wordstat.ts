@@ -1,15 +1,8 @@
 import type { WordstatResult } from '../types';
 
-const BASE_URL = '/api/wordstat';
+import { apiUrl } from '../../../lib/apiClient';
 
-export interface WordstatAccount {
-  id: number;
-  name: string;
-  status: string;
-  profilePath: string;
-  proxy?: string | null;
-  notes?: string | null;
-}
+const BASE_URL = apiUrl('/api/wordstat');
 
 export interface WordstatRegion {
   id: number;
@@ -23,7 +16,7 @@ export interface WordstatRegion {
 export interface WordstatCollectRequest {
   phrases: string[];
   regions: number[];
-  profile: string | null;
+  profile?: string | null;
   modes: {
     ws: boolean;
     qws: boolean;
@@ -68,10 +61,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function fetchWordstatAccounts(): Promise<WordstatAccount[]> {
-  return request<WordstatAccount[]>('/accounts');
-}
-
 export function fetchWordstatRegions(): Promise<WordstatRegion[]> {
   return request<WordstatRegion[]>('/regions');
 }
@@ -82,4 +71,3 @@ export function collectWordstat(payload: WordstatCollectRequest): Promise<Wordst
     body: JSON.stringify(payload),
   });
 }
-

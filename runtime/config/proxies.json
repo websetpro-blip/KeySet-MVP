@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "proxies": [
+    {
+      "id": "538d20b98f6a4a79bc88d37796092f14",
+      "label": "77.73.134.166:8000",
+      "type": "http",
+      "server": "http://77.73.134.166:8000",
+      "username": "TmNfbT",
+      "password": "YFB5cE",
+      "geo": null,
+      "sticky": true,
+      "max_concurrent": 10,
+      "enabled": true,
+      "notes": "",
+      "last_check": null,
+      "last_ip": null
+    },
+    {
+      "id": "86809abe07584f5a8eb5498b764059f8",
+      "label": "213.139.221.207:9393",
+      "type": "http",
+      "server": "http://213.139.221.207:9393",
+      "username": "nDRYz5",
+      "password": "EP0wPC",
+      "geo": null,
+      "sticky": true,
+      "max_concurrent": 10,
+      "enabled": true,
+      "notes": "",
+      "last_check": null,
+      "last_ip": null
+    },
+    {
+      "id": "381ad51198b741988de88d18f7ef0c57",
+      "label": "213.139.222.51:9738",
+      "type": "http",
+      "server": "http://213.139.222.51:9738",
+      "username": "nDRYz5",
+      "password": "EP0wPC",
+      "geo": null,
+      "sticky": true,
+      "max_concurrent": 10,
+      "enabled": true,
+      "notes": "",
+      "last_check": null,
+      "last_ip": null
+    }
+  ]
+}

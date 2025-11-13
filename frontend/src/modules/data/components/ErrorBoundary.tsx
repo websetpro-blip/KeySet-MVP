@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiUrl } from '../../../lib/apiClient';
 
 const serializeError = (error: any) => {
   if (error instanceof Error) {
@@ -39,7 +40,7 @@ export class ErrorBoundary extends React.Component<
         info: errorInfo,
         timestamp: Date.now(),
       };
-      fetch('/api/debug/react-error', {
+      fetch(apiUrl('/api/debug/react-error'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

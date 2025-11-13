@@ -1,4 +1,6 @@
-const BASE_URL = '/api/data';
+import { apiUrl } from '../../../lib/apiClient';
+
+const BASE_URL = apiUrl('/api/data');
 
 export interface FrequencyRowDto {
   id: number;

@@ -12,11 +12,11 @@ if not exist %VENV_PY% (
 )
 
 echo ======================================
-echo   KeySet Launcher (PyWebView)
+echo   KeySet Launcher (Eel + Chrome/Edge)
 echo ======================================
 echo.
-echo Starting backend + UI via launcher.py...
-start "KeySet" cmd /k "%VENV_PY%" launcher.py
+echo Starting backend + UI via launcher_eel.py...
+start "KeySet" cmd /k "%VENV_PY%" launcher_eel.py
 echo.
 echo Launcher started in a separate window. Close it to stop KeySet.
 echo ======================================

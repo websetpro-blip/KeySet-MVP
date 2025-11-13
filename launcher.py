@@ -1,164 +1,88 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import socket
+import subprocess
+import sys
 import threading
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Iterable, List
+import webbrowser
+from collections.abc import Sequence
 
-import requests
 from uvicorn import Config, Server
 
-# Configure PyWebView backend before importing webview
-os.environ.setdefault("PYWEBVIEW_GUI", "edgechromium")
-os.environ.setdefault("WEBVIEW2_RELEASE_CHANNEL_PREFERENCE", "1")  # prefer Stable WebView2 runtime
-os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-renderer-accessibility")
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
+# Import portable paths module
 try:
-    import webview
-except ImportError:  # pragma: no cover
-    webview = None
+    from keyset.core.app_paths import APP_ROOT, RUNTIME
+except ImportError:
+    # Fallback if app_paths not yet in path
+    APP_ROOT = Path(__file__).resolve().parent if not getattr(sys, "frozen", False) else Path(sys.executable).resolve().parent
+    RUNTIME = APP_ROOT / "runtime"
+    RUNTIME.mkdir(parents=True, exist_ok=True)
 
+# === Настройка путей для PyInstaller ===
+if getattr(sys, "frozen", False):
+    bundle_dir = Path(getattr(sys, "_MEIPASS", Path.cwd()))
+    sys.path.insert(0, str(bundle_dir))
+    print(f"[DEBUG] Running from .exe, _MEIPASS: {bundle_dir}")
+    print(f"[DEBUG] APP_ROOT: {APP_ROOT}")
+    print(f"[DEBUG] sys.path: {sys.path[:3]}")
+    backend_path = bundle_dir / "backend"
+    if backend_path.exists():
+        print(f"[DEBUG] OK backend folder found: {backend_path}")
+    else:
+        print(f"[DEBUG] FAIL backend folder NOT found!")
+else:
+    bundle_dir = Path(__file__).resolve().parent
+    print("[DEBUG] Running from Python (dev mode)")
 
 BACKEND_HOST = "127.0.0.1"
-BACKEND_PORT = 8765
-BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
+BACKEND_PORT = 8765  # Фиксированный порт для WebView
 HEALTH_PATH = "/api/health"
 BACKEND_STARTUP_TIMEOUT = 20.0
 HEALTH_POLL_INTERVAL = 0.25
-DEFAULT_EXTERNAL_BASE_URL = os.environ.get("KEYSET_DEVTOOLS_BASE_URL") or os.environ.get(
-    "KEYSET_PUBLIC_BASE_URL", BACKEND_URL
-)
-DEV_TOKEN = os.environ.get("KEYSET_DEV_TOKEN")
-GUI_PREFERENCE_CHAIN: List[str] = []
 
 
-def _prepare_gui_preference_chain() -> None:
-    """Build ordered list of GUI backends to try (Edge first, then mshtml)."""
-    preferred = (os.environ.get("PYWEBVIEW_GUI") or "edgechromium").strip().lower()
-    fallbacks = ["mshtml"]
-    GUI_PREFERENCE_CHAIN.clear()
-    GUI_PREFERENCE_CHAIN.append(preferred)
-    for backend in fallbacks:
-        if backend != preferred:
-            GUI_PREFERENCE_CHAIN.append(backend)
+def pick_free_port() -> int:
+    """Reserve a random ephemeral port for the backend."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((BACKEND_HOST, 0))
+        return sock.getsockname()[1]
 
 
-_prepare_gui_preference_chain()
-
-
-class DevToolsBridge:
-    """Expose backend devtools endpoints to the JS context."""
-
-    def __init__(self, base_url: str, dev_token: str | None) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.dev_token = dev_token
-        self._session = requests.Session()
-
-    def _request(self, method: str, path: str, **kwargs: Any) -> Dict[str, Any] | str:
-        params = kwargs.setdefault("params", {})
-        if self.dev_token and "token" not in params:
-            params["token"] = self.dev_token
-        url = f"{self.base_url}{path}"
-
-        try:
-            response = self._session.request(method, url, timeout=30, **kwargs)
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            return {"error": str(exc), "endpoint": path}
-
-        try:
-            return response.json()
-        except ValueError:
-            return response.text
-
-    # -------- Public API methods exposed to JavaScript --------
-    def read_file(self, path: str, encoding: str | None = None) -> Dict[str, Any] | str:
-        params = {"path": path}
-        if encoding:
-            params["encoding"] = encoding
-        return self._request("get", "/dev/read_file", params=params)
-
-    def save_file(
-        self,
-        path: str,
-        content: str,
-        encoding: str = "utf-8",
-        base64_content: bool = False,
-    ) -> Dict[str, Any] | str:
-        payload = {
-            "path": path,
-            "content": content,
-            "encoding": encoding,
-            "base64_content": base64_content,
-        }
-        return self._request("post", "/dev/save_file", json=payload)
-
-    def save_file_get(
-        self,
-        path: str,
-        content: str,
-        encoding: str = "utf-8",
-        base64_content: bool = False,
-    ) -> Dict[str, Any] | str:
-        params = {
-            "path": path,
-            "content": content,
-            "encoding": encoding,
-            "base64_content": str(base64_content).lower(),
-        }
-        return self._request("get", "/dev/save_file_get", params=params)
-
-    def list_dir(self, path: str = ".") -> Dict[str, Any] | str:
-        return self._request("get", "/dev/list", params={"path": path})
-
-    def reload_modules(self, modules: Iterable[str]) -> Dict[str, Any] | str:
-        payload = {"modules": list(modules)}
-        return self._request("post", "/dev/reload", json=payload)
-
-
-class WindowAPI(DevToolsBridge):
-    """Expose window controls + devtools bridge to the frontend."""
-
-    def __init__(self, base_url: str, dev_token: str | None) -> None:
-        super().__init__(base_url, dev_token)
-        self.window = None
-
-    def set_window(self, window) -> None:
-        self.window = window
-
-    # Window controls -------------------------------------------------
-    def minimize(self) -> None:
-        if self.window:
-            self.window.minimize()
-
-    def maximize(self) -> None:
-        if self.window:
-            self.window.toggle_fullscreen()
-
-    def close(self) -> None:
-        if self.window:
-            self.window.destroy()
-
-
-def run_backend() -> None:
+def run_backend(port: int) -> None:
     """Start FastAPI backend inside the current process."""
+    try:
+        import backend.main  # noqa: F401
+        print("[DEBUG] OK backend.main imported successfully")
+    except Exception as exc:
+        print(f"[DEBUG] FAIL Failed to import backend.main: {exc}")
+        import traceback
+
+        traceback.print_exc()
+        return
+
     config = Config(
         "backend.main:app",
         host=BACKEND_HOST,
-        port=BACKEND_PORT,
+        port=port,
         reload=False,
         log_level="info",
     )
     Server(config).run()
 
 
-def wait_for_backend(timeout: float = BACKEND_STARTUP_TIMEOUT) -> bool:
+def wait_for_backend(base_url: str, timeout: float = BACKEND_STARTUP_TIMEOUT) -> bool:
     """Poll /api/health until backend reports readiness."""
     deadline = time.monotonic() + timeout
-    health_url = f"{BACKEND_URL}{HEALTH_PATH}"
+    health_url = f"{base_url}{HEALTH_PATH}"
 
     while time.monotonic() < deadline:
         try:
@@ -169,66 +93,86 @@ def wait_for_backend(timeout: float = BACKEND_STARTUP_TIMEOUT) -> bool:
             time.sleep(HEALTH_POLL_INTERVAL)
         else:
             time.sleep(HEALTH_POLL_INTERVAL)
-
     return False
 
 
+def launch_browser(url: str) -> subprocess.Popen | None:
+    """Start Edge/Chrome in app mode (standalone window)."""
+    # Use portable runtime directory for Edge profile
+    user_data = RUNTIME / "edge_profile"
+    user_data.mkdir(parents=True, exist_ok=True)
+
+    # Полные пути к браузерам на Windows
+    edge_paths = [
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ]
+    chrome_paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    ]
+
+    # Edge/Chrome в app-mode = окно без адресной строки
+    candidates: list[tuple[str, str, str]] = []
+    for edge_path in edge_paths:
+        if Path(edge_path).exists():
+            candidates.append((edge_path, f"--app={url}", f"--user-data-dir={user_data}"))
+            break
+    for chrome_path in chrome_paths:
+        if Path(chrome_path).exists():
+            candidates.append((chrome_path, f"--app={url}", f"--user-data-dir={user_data}"))
+            break
+
+    for cmd in candidates:
+        try:
+            print(f"[launcher] Opening app window via {Path(cmd[0]).name}...")
+            proc = subprocess.Popen(list(cmd))
+            # Подождем чуть чтобы убедиться что процесс не завершился сразу
+            time.sleep(0.5)
+            if proc.poll() is None:  # Процесс еще жив
+                return proc
+        except Exception as e:
+            print(f"[launcher] Failed to start {Path(cmd[0]).name}: {e}")
+            continue
+
+    # Fallback на обычный браузер
+    print("[launcher] App mode failed, opening default browser...")
+    webbrowser.open(url)
+    return None
+
+
 def main() -> None:
-    print("[launcher] Starting backend thread...")
-    backend_thread = threading.Thread(target=run_backend, daemon=True, name="backend")
+    port = pick_free_port()
+    backend_url = f"http://{BACKEND_HOST}:{port}"
+    print(f"[launcher] Starting backend on {backend_url} ...")
+    backend_thread = threading.Thread(target=run_backend, args=(port,), daemon=True, name="backend")
     backend_thread.start()
 
-    if not wait_for_backend():
+    if not wait_for_backend(backend_url):
         raise RuntimeError(
-            f"Backend did not answer at {BACKEND_URL}{HEALTH_PATH} "
+            f"Backend did not answer at {backend_url}{HEALTH_PATH} "
             f"within {BACKEND_STARTUP_TIMEOUT} seconds."
         )
 
-    if webview is None:
-        print("[launcher] PyWebView is not installed. Run `pip install pywebview`.")
-        print(f"[launcher] UI is still available at {BACKEND_URL} in your browser.")
-        backend_thread.join()
+    browser_proc = launch_browser(backend_url)
+    if browser_proc is None:
+        print("[launcher] Waiting for backend thread (Ctrl+C to exit).")
+        try:
+            backend_thread.join()
+        except KeyboardInterrupt:
+            pass
         return
 
-    external_base_url = DEFAULT_EXTERNAL_BASE_URL
-    print(f"[launcher] Using devtools base URL: {external_base_url}")
-    bridge = WindowAPI(external_base_url, DEV_TOKEN)
+    print("[launcher] Browser window started. Close it to exit KeySet.")
+    try:
+        browser_proc.wait()
+    except KeyboardInterrupt:
+        print("[launcher] Interrupt received, terminating browser...")
+        browser_proc.terminate()
+        browser_proc.wait(timeout=5)
 
-    def create_main_window():
-        window = webview.create_window(
-            "KeySet",
-            BACKEND_URL,
-            js_api=bridge,
-            width=1400,
-            height=900,
-        )
-        bridge.set_window(window)
-        return window
-
-    last_error: Exception | None = None
-    for gui_backend in GUI_PREFERENCE_CHAIN:
-        print(f"[launcher] Creating PyWebView window via '{gui_backend}' backend...")
-        create_main_window()
-        print("[launcher] Starting webview loop (close window to exit).")
-        try:
-            webview.start(gui=gui_backend, debug=False)
-            last_error = None
-            break
-        except Exception as exc:  # pragma: no cover - depends on OS runtime
-            last_error = exc
-            print(
-                f"[launcher] webview failed to start with '{gui_backend}' backend: {exc}"
-            )
-            try:
-                webview.windows.clear()
-            except Exception:  # pragma: no cover - cleanup best effort
-                pass
-            continue
-    else:
-        if last_error:
-            raise last_error
-
-    print("[launcher] webview loop finished.")
+    print("[launcher] Browser closed, shutting down.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":

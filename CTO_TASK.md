@@ -6,7 +6,7 @@
 
 1. **`frontend/src/components/layout/AppLayout.tsx`** - верхняя панель с вкладками (Аккаунты, Маски, Данные, Аналитика)
 2. **`frontend/src/index.css`** - глобальные стили, кнопки управления окном (свернуть/развернуть/закрыть)
-3. **`launcher.py`** - PyWebView лаунчер с frameless окном
+3. **`launcher_eel.py`** - Eel лаунчер (Chrome/Edge) для локального UI
 4. **`backend/main.py`** - FastAPI сервер
 5. **`frontend/package.json`** - все зависимости уже установлены
 6. **Роутинг в `frontend/src/App.tsx`** - уже настроен
@@ -171,7 +171,7 @@ npm run build
 
 # 2. Запустить приложение
 cd ..
-python launcher.py
+python launcher_eel.py
 
 # 3. Проверить все вкладки:
 # - Данные: должна быть таблица с фразами, группы слева, toolbar сверху
@@ -186,7 +186,7 @@ python launcher.py
 2. **НЕ МЕНЯЙ** `frontend/src/App.tsx` (роутинг)
 3. **НЕ МЕНЯЙ** `frontend/src/components/layout/AppLayout.tsx` (верхняя панель)
 4. **НЕ МЕНЯЙ** `frontend/src/index.css` (глобальные стили)
-5. **НЕ МЕНЯЙ** `launcher.py` и `backend/main.py`
+5. **НЕ МЕНЯЙ** `launcher_eel.py` и `backend/main.py`
 6. **КОПИРУЙ** файлы из ГОТОВЫЕ_МОДУЛИ 1:1, НЕ переписывай
 7. **МЕНЯЙ ТОЛЬКО** `index.tsx` в каждом модуле для интеграции
 

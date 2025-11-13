@@ -19,15 +19,7 @@ def _bootstrap() -> None:
 
     os.chdir(project_root)
 
-    try:
-        from keyset.app.main import main
-        source = "keyset.app.main"
-    except ImportError as err:
-        print(f"[run_keyset] Failed to import desktop UI: {err}")
-        from keyset.webview_app.app.main import main
-        source = "keyset.webview_app.app.main"
-
-    print(f"[run_keyset] Launching {source}")
+    from keyset.app.main import main
 
     main()
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -12,14 +13,48 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
-from keyset.core.db import ensure_schema
+from core.db import ensure_schema
+from core.app_paths import WWW_DIR, ensure_runtime, bootstrap_files, APP_ROOT
 
 from . import devtools
-from .routers import accounts, data, wordstat
+from .routers import accounts, data, wordstat, regions
 
 BASE_DIR = Path(__file__).resolve().parent
-FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
-FRONTEND_ROOT = BASE_DIR.parent / "frontend"
+PROJECT_ROOT = BASE_DIR.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+# Initialize runtime directory structure and bootstrap files
+ensure_runtime()
+bootstrap_files()
+
+
+def _resolve_frontend_paths() -> tuple[Path, Path]:
+    """Resolve frontend dist/root paths for dev and frozen modes."""
+    repo_root = BASE_DIR.parent
+    dev_frontend_root = repo_root / "frontend"
+    dev_dist = dev_frontend_root / "dist"
+
+    if getattr(sys, "frozen", False):
+        bundle_dir = Path(getattr(sys, "_MEIPASS", APP_ROOT))
+        packaged_frontend_root = bundle_dir / "frontend"
+        packaged_dist = packaged_frontend_root / "dist"
+        if packaged_dist.exists():
+            return packaged_dist, packaged_frontend_root
+        if WWW_DIR.exists():
+            return WWW_DIR, APP_ROOT
+        if dev_dist.exists():
+            return dev_dist, dev_frontend_root
+
+    if dev_dist.exists():
+        return dev_dist, dev_frontend_root
+    if WWW_DIR.exists():
+        return WWW_DIR, APP_ROOT
+    return dev_dist, dev_frontend_root
+
+
+FRONTEND_DIST, FRONTEND_ROOT = _resolve_frontend_paths()
 
 app = FastAPI(title="KeySet LocalAgent", version="0.1.0")
 logger = logging.getLogger("keyset.react")
@@ -28,8 +63,18 @@ app.include_router(devtools.router)
 app.include_router(wordstat.router)
 app.include_router(accounts.router)
 app.include_router(data.router)
+app.include_router(regions.router)
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8080",
+    "http://localhost:8080",
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:8765",
+    "http://localhost:8765",
+]
 
 
 class ImmutableCacheMiddleware(BaseHTTPMiddleware):
@@ -44,7 +89,7 @@ class ImmutableCacheMiddleware(BaseHTTPMiddleware):
 app.add_middleware(ImmutableCacheMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

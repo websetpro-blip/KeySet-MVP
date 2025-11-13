@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Search } from 'lucide-react'
+import { apiUrl } from '../../../lib/apiClient'
 
 interface SearchQuery {
   id: number
@@ -28,7 +29,7 @@ export function Analytics() {
 
   const loadAnalytics = async () => {
     try {
-      const response = await fetch('/api/analytics')
+      const response = await fetch(apiUrl('/api/analytics'))
       if (!response.ok) {
         throw new Error(`Failed to load analytics: ${response.status}`)
       }

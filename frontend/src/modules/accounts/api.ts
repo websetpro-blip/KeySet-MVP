@@ -1,6 +1,7 @@
 import type { Account } from "./types";
+import { apiUrl } from "../../lib/apiClient";
 
-const BASE_URL = "/api/accounts";
+const BASE_URL = apiUrl("/api/accounts");
 
 export async function fetchAccounts(): Promise<Account[]> {
   const response = await fetch(BASE_URL, {

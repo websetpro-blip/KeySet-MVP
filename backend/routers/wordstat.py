@@ -1,34 +1,34 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-import json
 import logging
 from functools import lru_cache
-from pathlib import Path
+from importlib import import_module
 from typing import Any, Dict, Iterable, List
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, validator
 
+from core.geo import load_region_rows
+
 logger = logging.getLogger(__name__)
 
-# Paths -----------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-LEGACY_ROOT = PROJECT_ROOT / "keyset"
-REGIONS_DATASET = LEGACY_ROOT / "data" / "regions_tree_full.json"
 
-# Legacy services -------------------------------------------------------------
-try:  # pragma: no cover - интеграция со старым софтом
-    from keyset.services import accounts as legacy_accounts
-    from keyset.services import frequency as frequency_service
-except Exception as exc:  # pragma: no cover
-    legacy_accounts = None
-    logger.warning("Wordstat accounts service unavailable: %s", exc)
+def _import_module(*candidates: str):
+    last_exc: Exception | None = None
+    for dotted in candidates:
+        try:
+            return import_module(dotted)
+        except Exception as exc:  # pragma: no cover - legacy окружение
+            last_exc = exc
+    if last_exc:
+        logger.warning("Failed to import modules %s: %s", candidates, last_exc)
+    return None
 
-try:  # pragma: no cover
-    from keyset.services import wordstat_bridge
-except Exception as exc:  # pragma: no cover
-    wordstat_bridge = None
-    logger.warning("Wordstat parser bridge unavailable: %s", exc)
+
+legacy_accounts = _import_module("keyset.services.accounts", "services.accounts")
+frequency_service = _import_module("keyset.services.frequency", "services.frequency")
+wordstat_bridge = _import_module("keyset.services.wordstat_bridge", "services.wordstat_bridge")
+turbo_wordstat_service = _import_module("keyset.services.wordstat_ws")
 
 
 router = APIRouter(prefix="/api/wordstat", tags=["wordstat"])
@@ -126,69 +126,31 @@ def _ensure_wordstat_available() -> None:
         )
 
 
-DEFAULT_REGION_TREE = [
-    {
-        "value": 225,
-        "label": "Россия",
-        "children": [
-            {"value": 213, "label": "Москва"},
-            {"value": 2, "label": "Санкт-Петербург"},
-        ],
-    }
-]
-
-
-def _iter_region_nodes(root: Dict[str, Any]) -> List[RegionPayload]:
-    rows: list[RegionPayload] = []
-
-    def walk(node: Dict[str, Any], trail: list[str], depth: int, parent_id: int | None) -> None:
-        try:
-            node_id = int(node["value"])
-        except (KeyError, TypeError, ValueError):
-            return
-        label = str(node.get("label") or "").strip()
-        if not label:
-            return
-
-        children = node.get("children") or []
-        branch = trail + [label]
-        rows.append(
-            RegionPayload(
-                id=node_id,
-                name=label,
-                path=" / ".join(branch),
-                parentId=parent_id,
-                depth=depth,
-                hasChildren=bool(children),
-            )
-        )
-
-        for child in children:
-            walk(child, branch, depth + 1, node_id)
-
-    walk(root, [], 0, None)
-    return rows
-
-
 @lru_cache(maxsize=1)
 def _load_region_rows() -> tuple[RegionPayload, ...]:
-    dataset = DEFAULT_REGION_TREE
-    if REGIONS_DATASET.exists():
-        try:
-            dataset = json.loads(REGIONS_DATASET.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:  # pragma: no cover
-            logger.warning("Failed to read regions dataset, using fallback: %s", exc)
+    try:
+        payload = load_region_rows()
+    except Exception as exc:  # pragma: no cover
+        logger.warning("Failed to load geo dataset: %s", exc)
+        payload = []
 
-    roots = dataset if isinstance(dataset, list) else [dataset]
     rows: list[RegionPayload] = []
-    for entry in roots:
-        rows.extend(_iter_region_nodes(entry))
-
-    if not rows:
-        rows.extend(_iter_region_nodes(DEFAULT_REGION_TREE[0]))
+    for entry in payload:
+        try:
+            rows.append(
+                RegionPayload(
+                    id=int(entry.get('id')),
+                    name=str(entry.get('name') or ''),
+                    path=str(entry.get('path') or ''),
+                    parentId=entry.get('parentId'),
+                    depth=int(entry.get('depth') or 0),
+                    hasChildren=bool(entry.get('hasChildren')),
+                )
+            )
+        except (TypeError, ValueError):
+            continue
 
     return tuple(rows)
-
 
 def _serialize_account(account: Any) -> AccountPayload:
     profile_path = getattr(account, "profile_path", "") or ""
@@ -237,20 +199,35 @@ def collect_frequency(payload: CollectRequest) -> list[CollectResponseRow]:
     modes = payload.modes.enabled()
     if not any(modes.values()):
         raise HTTPException(status_code=422, detail="Р’С‹Р±РµСЂРёС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРёРЅ СЂРµР¶РёРј С‡Р°СЃС‚РѕС‚РЅРѕСЃС‚Рё.")
+    results: list[dict] | None = None
+    last_exc: Exception | None = None
 
-    _ensure_wordstat_available()
-    try:
-        results = wordstat_bridge.collect_frequency(  # type: ignore[union-attr]
-            payload.phrases,
-            modes=modes,
-            regions=payload.regions,
-            profile=payload.profile,
-        )
-    except RuntimeError as exc:  # pragma: no cover
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    except Exception as exc:  # pragma: no cover
-        logger.exception("Wordstat parser crashed: %s", exc)
-        raise HTTPException(status_code=500, detail="Wordstat parser error") from exc
+    if turbo_wordstat_service is not None:  # type: ignore[truthy-builtin]
+        try:
+            results = turbo_wordstat_service.collect_frequency(  # type: ignore[attr-defined]
+                payload.phrases,
+                modes=modes,
+                regions=payload.regions,
+                profile=payload.profile,
+            )
+        except Exception as exc:  # pragma: no cover
+            last_exc = exc
+            logger.warning("Turbo Wordstat service failed, fallback to bridge: %s", exc)
+
+    if results is None:
+        _ensure_wordstat_available()
+        try:
+            results = wordstat_bridge.collect_frequency(  # type: ignore[union-attr]
+                payload.phrases,
+                modes=modes,
+                regions=payload.regions,
+                profile=payload.profile,
+            )
+        except RuntimeError as exc:  # pragma: no cover
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except Exception as exc:  # pragma: no cover
+            logger.exception("Wordstat parser crashed: %s", exc)
+            raise HTTPException(status_code=500, detail="Wordstat parser error") from exc
 
     region_id = payload.regions[0] if payload.regions else None
     response: list[CollectResponseRow] = []
@@ -266,11 +243,15 @@ def collect_frequency(payload: CollectRequest) -> list[CollectResponseRow]:
             )
         )
 
-    if region_id is not None and results:
+    if region_id is not None and results and frequency_service is not None:
         try:
             frequency_service.upsert_results(results, region_id)
         except Exception as exc:  # pragma: no cover
             logger.warning("Failed to persist Wordstat results: %s", exc)
+            if last_exc:
+                logger.warning("Turbo service previously failed with: %s", last_exc)
+    elif region_id is not None and not frequency_service:
+        logger.debug("Frequency service unavailable; skipping persistence.")
 
     return response
 

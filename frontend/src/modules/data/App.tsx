@@ -101,11 +101,12 @@ function App() {
     if (didInitRef.current) {
       return;
     }
+    didInitRef.current = true;
     if (!isDataLoaded && !isDataLoading) {
-      didInitRef.current = true;
       loadInitialData();
     }
-  }, [isDataLoaded, isDataLoading, loadInitialData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Настройка сенсоров для drag & drop
   const sensors = useSensors(

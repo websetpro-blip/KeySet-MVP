@@ -9,6 +9,7 @@
 import argparse
 import asyncio
 import json
+import os
 import pathlib
 import time
 import sys
@@ -17,7 +18,8 @@ from typing import Dict, Iterable, List, Optional, Any
 from urllib.parse import quote
 import logging
 
-LOG_DIR = pathlib.Path(__file__).resolve().parent / "logs"
+RUNTIME_ROOT = pathlib.Path(os.environ.get("KEYSET_RUNTIME_ROOT", pathlib.Path(__file__).resolve().parent))
+LOG_DIR = RUNTIME_ROOT / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 from playwright.async_api import async_playwright, BrowserContext, Page, Response
@@ -51,16 +53,6 @@ except ImportError:  # pragma: no cover - fallback for scripts
         save_cookies_to_db,
         load_cookies_from_profile_to_context,
     )
-
-# Fingerprint hook для антидетекта
-try:
-    from modules.fingerprint_hook import (
-        apply_fingerprint_post_init,
-        get_browser_args_for_fingerprint
-    )
-    FINGERPRINT_HOOK_AVAILABLE = True
-except ImportError:
-    FINGERPRINT_HOOK_AVAILABLE = False
 
 # Настройка логирования
 logging.basicConfig(
@@ -406,42 +398,23 @@ class TurboParser:
             # 1. ЗАПУСК CHROME
             self.logger.info(f"[1/6] Запуск Chrome с профилем {self.account_name}...")
             
-            # Подготовка аргументов браузера с учетом отпечатков
-            browser_args = [
-                "--start-maximized",
-                "--disable-blink-features=AutomationControlled",
-                "--disable-features=IsolateOrigins,site-per-process",
-                "--disable-site-isolation-trials",
-                "--no-first-run",
-                "--no-default-browser-check",
-            ]
-            
-            # Добавить аргументы для отпечатка если доступны
-            if FINGERPRINT_HOOK_AVAILABLE:
-                fingerprint_args = get_browser_args_for_fingerprint(self.account_name)
-                browser_args.extend(fingerprint_args)
-                if fingerprint_args:
-                    self.logger.info(f"[Fingerprint] Applied {len(fingerprint_args)} fingerprint arguments")
-            
             try:
                 context: BrowserContext = await p.chromium.launch_persistent_context(
                     user_data_dir=str(self.profile_path),
                     headless=self.headless,
                     channel="chrome",
                     proxy=proxy_config,
-                    args=browser_args,
+                    args=[
+                        "--start-maximized",
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-features=IsolateOrigins,site-per-process",
+                        "--disable-site-isolation-trials",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                    ],
                     viewport=None,
                     locale="ru-RU",
                 )
-                
-                # Применить отпечаток после инициализации контекста
-                if FINGERPRINT_HOOK_AVAILABLE:
-                    fingerprint_applied = await apply_fingerprint_post_init(context, self.account_name)
-                    if fingerprint_applied:
-                        self.logger.info(f"[Fingerprint] Applied fingerprint for {self.account_name}")
-                    else:
-                        self.logger.info(f"[Fingerprint] No fingerprint found for {self.account_name}")
-                        
             except Exception as e:
                 self.logger.error(f"Failed to launch browser: {e}")
                 raise

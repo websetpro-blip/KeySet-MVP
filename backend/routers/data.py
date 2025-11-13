@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from keyset.services import frequency as frequency_service
+from services import frequency as frequency_service
 
 
 router = APIRouter(prefix="/api/data", tags=["data"])

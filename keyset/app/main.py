@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import importlib
-import logging
 from pathlib import Path
 from typing import Any, Optional, Callable
 
@@ -31,9 +30,6 @@ from PySide6.QtWidgets import (
 
 from .keys_panel import KeysPanel
 from .widgets.activity_log import ActivityLogWidget
-from .module_autoloader import create_autoloader
-
-logger = logging.getLogger(__name__)
 
 try:
     from .tabs.parsing_tab_v5 import ParsingTabV5 as ParsingTab
@@ -162,14 +158,13 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(splitter)
 
-        # Используем новый accounts_v2 модуль с CARDVANCE дизайном
         self.accounts = self._instantiate_widget(
-            module="keyset.modules.accounts_v2.widget",
-            class_name="AccountsV2Widget",
+            module="keyset.app.accounts_tab_extended",
+            class_name="AccountsTabExtended",
             parent=self,
             fallback=lambda parent: QWidget(parent),
         )
-        self.tabs.addTab(self.accounts, "🔑 Аккаунты")
+        self.tabs.addTab(self.accounts, "Аккаунты")
 
         if ParsingTab is not None:
             try:
@@ -204,42 +199,10 @@ class MainWindow(QMainWindow):
         )
         self.tabs.addTab(self.masks, "Маски")
 
-        # Автозагрузка модулей из modules/
-        self._load_modules()
-
         self._apply_qss()
         self._connect_signals()
         self._setup_tab_switching()
         self.log_event("Приложение запущено")
-
-    def _load_modules(self) -> None:
-        """Автоматическая загрузка модулей из директории modules/ с использованием autoloader"""
-        try:
-            # Create autoloader
-            autoloader = create_autoloader()
-            
-            # Load all modules with app context
-            loaded_modules = autoloader.load_all_modules(app_context=self)
-            
-            # Mount modules as tabs
-            for loaded in loaded_modules:
-                # Build tab title with optional icon
-                tab_title = loaded.metadata.title
-                if loaded.metadata.icon:
-                    tab_title = f"{loaded.metadata.icon} {loaded.metadata.title}"
-                
-                # Add tab to main window
-                self.tabs.addTab(loaded.widget, tab_title)
-                
-                # Log success
-                self.log_event(f"✓ Модуль {loaded.metadata.id} загружен")
-            
-            # Store autoloader for cleanup
-            self._module_autoloader = autoloader
-            
-        except Exception as e:
-            logger.error(f"Error loading modules: {e}", exc_info=True)
-            self.log_event(f"Ошибка загрузки модулей: {e}", level="ERROR")
 
     @staticmethod
     def _supports_callback(cls: Callable) -> bool:
@@ -320,18 +283,11 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if not app:
             return
-        # CARDVANCE white-premium тема для всего приложения.
-        cardvance_global = Path(__file__).parent.parent / "styles" / "modern.qss"
-        if cardvance_global.exists():
-            app.setStyleSheet(cardvance_global.read_text(encoding="utf-8"))
-            self.log_event("Применена тема: modern.qss")
-            return
-
-        # Fallback на предыдущие стили.
+        # Prefer светлые темы в стиле Beige-Gold; при отсутствии берём любую доступную.
         theme_candidates = (
             "beige_gold.qss",
             "orange_light.qss",
-            "keyset_dark.qss",
+            "keyset_dark.qss",  # fallback на тёмную, если светлые не найдены
             "semtool_dark.qss",
             "orange_dark.qss",
         )
@@ -374,7 +330,7 @@ class MainWindow(QMainWindow):
         current_widget = self.tabs.widget(index)
         
         # Скрываем KeysPanel если открыта вкладка Парсинг (т.к. у неё свой внутренний панель групп)
-        if current_widget in (getattr(self, "accounts", None), getattr(self, "parsing", None)):
+        if hasattr(self, 'parsing') and current_widget == self.parsing:
             self.keys_panel.hide()
         else:
             self.keys_panel.show()
@@ -391,17 +347,6 @@ class MainWindow(QMainWindow):
 
     def log_message(self, message: str, level: str = "INFO") -> None:
         self.log_event(message, level)
-    
-    def closeEvent(self, event) -> None:
-        """Handle application close - unload modules"""
-        try:
-            if hasattr(self, '_module_autoloader'):
-                self._module_autoloader.unload_all_modules()
-                logger.info("Modules unloaded on app close")
-        except Exception as e:
-            logger.error(f"Error unloading modules: {e}", exc_info=True)
-        
-        super().closeEvent(event)
 
 
 def main() -> None:
