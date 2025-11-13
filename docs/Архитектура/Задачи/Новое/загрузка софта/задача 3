@@ -1,0 +1,328 @@
+ЗАДАЧА ДЛЯ КОДЕКСА (минимум правок, всё в UTF-8)
+
+Цель:
+Перенести рабочие модули из C:\AI\yandex\KeySet-MVP\keyset\… в корень проекта так, чтобы новый UI (React) и FastAPI продолжали работать без изменения логики парсера/ГЕО/БД. Пока ничего не удаляем.
+
+0) Ограничения
+
+Не переписывать код парсера и сервисов — только перенос и тонкие адаптеры.
+
+Все действия внутри C:\AI\yandex\KeySet-MVP.
+
+Никаких дополнительных «подпроектов» и «бутстрапов». Только нужные каталоги/файлы.
+
+1) Что переносим (1:1, без правок в содержимом)
+
+Создай новый пакет в корне: app_core/ со структурой, зеркально как в keyset/:
+
+app_core/
+  core/
+    db.py
+    app_paths.py
+  services/
+    accounts.py
+    frequency.py
+    wordstat_bridge.py
+    turbo_parser_improved.py   # если лежит в корне keyset — положи сюда
+  data/
+    regions_tree_full.json
+
+
+Копируй только нужные рабочие файлы (которые реально вызываются из backend/routers). Ничего лишнего.
+
+2) Импортный «шов» (временный, чтобы ничего не сломать)
+
+Добавь тонкий адаптер, чтобы старые импорты keyset.… продолжили работать:
+
+keyset/__init__.py               -> from app_core import *
+keyset/services/__init__.py      -> from app_core.services import *
+keyset/core/__init__.py          -> from app_core.core import *
+
+3) Обновить импорты в API (строго точечно)
+
+В файлах роутеров меняем импорты на новый пакет:
+
+backend/routers/accounts.py → from app_core.services import accounts as accounts_service
+
+backend/routers/data.py → from app_core.services import frequency as frequency_service
+
+backend/routers/wordstat.py → from app_core.services import wordstat_bridge
+
+Внутри самих сервисов ничего не менять.
+
+4) Пути к БД/профилям/ГЕО — централизованно
+
+Используем один файл путей (внутри нового пакета), чтобы весь код смотрел в корень проекта, а не в keyset/:
+
+app_core/core/app_paths.py (обновить так):
+
+from __future__ import annotations
+from pathlib import Path
+import sys
+
+def app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[2]  # корень KeySet-MVP
+
+VAR = app_root() / "var"        # все рабочие данные тут
+DB_PATH = VAR / "db" / "keyset.db"
+PROFILES_DIR = VAR / "profiles"
+GEO_FILE = VAR / "data" / "regions_tree_full.json"
+
+def ensure_layout():
+    (VAR / "db").mkdir(parents=True, exist_ok=True)
+    (VAR / "profiles").mkdir(parents=True, exist_ok=True)
+    (VAR / "data").mkdir(parents=True, exist_ok=True)
+
+
+app_core/core/db.py (обновить так):
+
+from sqlalchemy import create_engine
+from app_core.core.app_paths import DB_PATH, ensure_layout
+ensure_layout()
+engine = create_engine(f"sqlite:///{DB_PATH.as_posix()}", connect_args={"check_same_thread": False})
+
+
+Итог: все рабочие файлы (БД, профили, geo) живут в KeySet-MVP\var\… — в одном месте. Никаких ссылок на keyset/ внутри логики.
+
+5) Эндпоинты на новую файловую схему
+
+accounts.list читает VAR/profiles (а не keyset/.profiles).
+
+data.regions читает VAR/data/regions_tree_full.json.
+
+data/phrases читает БД из VAR/db/keyset.db (это уже приходит через app_core.core.db).
+
+Обнови соответствующие пути в роутерах на app_core.core.app_paths.
+
+6) Сборка PyInstaller (один .exe, всё в комплекте)
+
+build/keyset.spec — datas минимум:
+
+datas = [
+  ('frontend/dist', 'www'),               # SPA
+  ('var/data/regions_tree_full.json', 'var/data'),
+  ('var/db/keyset.db', 'var/db'),         # дефолтная БД на первый запуск
+  ('var/profiles', 'var/profiles'),       # при необходимости
+]
+# и обязательно console=False + icon, windowed
+
+
+Важно: в коде мы читаем из var/..., не из keyset/.... Значит, в релизном пакете нет зависимости от папки keyset/.
+
+7) Фронт на /api (без портов и URL)
+
+Проверь клиент: axios/fetch с baseURL: "/api" и пересобери Vite.
+
+8) Тест-план (быстро)
+
+npm run build (frontend)
+
+py -m PyInstaller -y build\keyset.spec
+
+dist\KeySet\KeySet.exe
+
+/api/health → 200
+
+/api/accounts → папки из var\profiles\…
+
+/api/data/phrases → строки из var\db\keyset.db
+
+вкладки «Аккаунты/Данные» не пустые
+
+опционально: POST /api/parsing/start дергает app_core.services.turbo_parser_improved (тонкая обёртка; импорт через app_core)
+
+Пояснение, зачем так
+
+Ничего не ломаем: код из keyset не переписываем — просто копируем в app_core.
+
+Единая точка данных: всё живёт в var/… (БД/профили/GEO) — одна папка, как ты и просил.
+
+Нет «левого мусора»: никаких новых под-проектов, только app_core.
+
+Перенести рабочие модули из keyset/ в корень проекта (в единственный новый пакет app_core/), сохранив всю бизнес-логику. Никаких переписывании логики: просто перенос и тонкие адаптеры. Все пути к БД/профилям/ГЕО — в одном месте (var/).
+
+Что делаем (минимум файлов)
+1) Перенос кода (1:1, без изменения содержимого)
+
+Создать один новый пакет в корне проекта:
+
+C:\AI\yandex\KeySet-MVP\app_core\
+  core\
+    db.py
+    app_paths.py
+  services\
+    accounts.py
+    frequency.py
+    wordstat_bridge.py
+    turbo_parser_improved.py   # если был в keyset/
+  data\
+    regions_tree_full.json     # если требуется в рантайме
+
+
+Скопировать сюда только реально используемые файлы из keyset/ (те, что дергают роутеры backend).
+
+2) Временный адаптер, чтобы ничего не падало
+
+Оставляем keyset/ как есть, но кладём по одному пустому __init__.py, которые перенаправляют импорты на новый пакет:
+
+keyset/__init__.py               ->  from app_core import *
+keyset/services/__init__.py      ->  from app_core.services import *
+keyset/core/__init__.py          ->  from app_core.core import *
+
+
+Это нужно только на время переноса, чтобы старые импорты не падали до полного перехода.
+
+3) Единая схема путей (в одном месте)
+
+В новом app_core/core/app_paths.py описываем единую директорию данных проекта var/ и гарантируем её структуру:
+
+from __future__ import annotations
+from pathlib import Path
+import sys
+
+def APP_ROOT() -> Path:
+    return Path(sys.executable).parent if getattr(sys, "frozen", False) \
+           else Path(__file__).resolve().parents[2]
+
+VAR_DIR      = APP_ROOT() / "var"
+DB_FILE      = VAR_DIR / "db" / "keyset.db"
+PROFILES_DIR = VAR_DIR / "profiles"
+GEO_FILE     = VAR_DIR / "data" / "regions_tree_full.json"
+
+def ensure_layout():
+    (VAR_DIR / "db").mkdir(parents=True, exist_ok=True)
+    (VAR_DIR / "profiles").mkdir(parents=True, exist_ok=True)
+    (VAR_DIR / "data").mkdir(parents=True, exist_ok=True)
+
+def sync_legacy_once():
+    """Без «бутстрапов»: лёгкая одноразовая синхронизация прямо из этого модуля."""
+    ensure_layout()
+    # 1) БД: приоритет dist\keyset.db, затем keyset\keyset.db
+    for candidate in [APP_ROOT() / "dist" / "keyset.db", APP_ROOT() / "keyset" / "keyset.db"]:
+        if candidate.exists():
+            if not DB_FILE.exists() or candidate.stat().st_mtime > DB_FILE.stat().st_mtime:
+                DB_FILE.write_bytes(candidate.read_bytes())
+            break
+    # 2) GEO: скопировать, если нет
+    legacy_geo = APP_ROOT() / "keyset" / "data" / "regions_tree_full.json"
+    if legacy_geo.exists() and not GEO_FILE.exists():
+        GEO_FILE.write_bytes(legacy_geo.read_bytes())
+    # 3) Профили: первый перенос структуры, без переименований
+    legacy_profiles = APP_ROOT() / "keyset" / ".profiles"
+    if legacy_profiles.exists():
+        for p in legacy_profiles.iterdir():
+            if p.is_dir():
+                dst = PROFILES_DIR / p.name
+                if not dst.exists():
+                    dst.mkdir(parents=True, exist_ok=True)
+                    # копируем только файлы верхнего уровня — без тяжёлых рекурсий
+                    for f in p.iterdir():
+                        if f.is_file():
+                            (dst / f.name).write_bytes(f.read_bytes())
+
+4) Подключение путей и БД (без отдельных «bootstrap»-файлов)
+
+В app_core/core/db.py:
+
+from sqlalchemy import create_engine
+from app_core.core.app_paths import DB_FILE, ensure_layout, sync_legacy_once
+
+ensure_layout()
+sync_legacy_once()  # ← вызываем здесь, а не отдельным «бутстрапом»
+engine = create_engine(f"sqlite:///{DB_FILE.as_posix()}",
+                       connect_args={"check_same_thread": False})
+
+
+Это даёт нам одно место, где создаётся структура var/ и мягко подтягивается живая БД/ГЕО/профили — без отдельных модулей и «бутстрапов».
+
+5) Роутеры backend переключить на app_core
+
+Точечно заменить импорты:
+
+backend/routers/accounts.py:
+
+from app_core.core.app_paths import PROFILES_DIR
+
+
+(если раньше читали из keyset/.profiles — читаем из PROFILES_DIR)
+
+backend/routers/data.py:
+
+from app_core.core.app_paths import DB_FILE, GEO_FILE
+# и/или from app_core.core.db import engine
+
+
+backend/routers/wordstat.py:
+
+from app_core.services import wordstat_bridge as wordstat_service
+from app_core.services import frequency as frequency_service
+
+
+Если нужен старт парсинга:
+
+from app_core.services import turbo_parser_improved as turbo
+
+6) SPA из одного origin
+
+В backend/main.py (если не сделано): раздаём фронт и API из одного origin:
+
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+import sys
+
+def _spa_dir() -> Path:
+    dev = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+    if dev.exists(): return dev
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent / "www"
+    return dev
+
+app.mount("/", StaticFiles(directory=str(_spa_dir()), html=True), name="static")
+
+
+Во фронте axios-клиент — только baseURL: "/api".
+
+7) PyInstaller — один .exe, всё рядом
+
+В .spec добавить минимум:
+
+datas = [
+    ('frontend/dist', 'www'),                    # SPA
+    ('var/db/keyset.db', 'var/db'),             # дефолтная БД на первый запуск
+    ('var/data/regions_tree_full.json', 'var/data'),
+    ('var/profiles', 'var/profiles'),           # если нужно
+]
+# + console=False, icon и т.д.
+
+
+В рантайме всё читается из var/…. Папку keyset/ проект больше не трогает.
+
+Короткий чек-лист для запуска
+
+Скопировать файлы из keyset/ в app_core/ (как указано).
+
+Положить адаптеры __init__.py в keyset/… (перенаправление на app_core).
+
+Поменять импорты в роутерах на app_core (3–4 места).
+
+Убедиться, что фронт бьёт на /api.
+
+Собрать:
+cd frontend && npm run build && cd ..
+py -m PyInstaller -y build\keyset.spec
+
+Запустить dist\KeySet\KeySet.exe — вкладки «Аккаунты»/«Данные» не пустые.
+
+Так мы:
+
+не плодим новые сервисы/модули,
+
+не используем слово «бутстрап» и не создаём отдельные файлы ради инициализации,
+
+всё складываем в один пакет app_core/ + var/ для данных,
+
+даём возможность спокойно перейти на новый пакет, когда убедишься, что всё работает.
+
+Если хочешь — могу выдать точные diff-вставки по файлам, чтобы кодекс просто применил патчи без рассуждений.

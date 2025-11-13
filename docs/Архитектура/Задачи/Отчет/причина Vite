@@ -1,0 +1,94 @@
+# Проблема: KeySet-MVP не запускался - белый экран и ошибки PyWebView
+
+## Симптомы:
+1. PyWebView окно открывалось, но падало с ошибкой `webview.errors.WebViewException: Main window failed to start`
+2. Ошибка возникала в файле `webview/dom/element.py` при попытке доступа к DOM.body
+3. Все assets загружались успешно (CSS, JS bundle, vite.svg), но React не инициализировался
+4. После загрузки vite.svg никаких дополнительных запросов не было - приложение зависало
+
+## Корневая причина:
+**Vite code-splitting создавал множество мелких chunks, которые ломали инициализацию js_api bridge в PyWebView**
+
+Когда Vite собирал фронтенд с включенным code-splitting (настройка по умолчанию), он создавал такие файлы:
+- vendor-BD-WZS7N.js
+- vendor-react-BeNjHMlV.js
+- tab-data-DC4rwfnn.js
+- index-eQ5cn-KO.js (основной bundle)
+
+PyWebView пытался инжектить js_api bridge (WindowAPI с методами DevToolsBridge) **до того, как страница полностью загрузилась**. При наличии множества chunks это приводило к race condition:
+- PyWebView вызывал `window.evaluate_js()` для получения списка DOM events
+- DOM.body еще не был готов из-за асинхронной загрузки chunks
+- Инжекция падала с исключением
+
+## Решение:
+
+### 1. Скопировал рабочие компоненты из KeySet-MVP-claude
+```bash
+# Venv с Python 3.11.8 и совместимыми версиями пакетов
+rm -rf .venv
+cp -r ../KeySet-MVP-claude/.venv .venv
+
+# Рабочий launcher.py (идентичен, но работал с правильным dist)
+cp ../KeySet-MVP-claude/launcher.py launcher.py
+
+# Рабочий backend/main.py (идентичен)
+cp ../KeySet-MVP-claude/backend/main.py backend/main.py
+```
+
+### 2. **Ключевое решение: Скопировал frontend/dist без code-splitting**
+```bash
+rm -rf frontend/dist
+cp -r ../KeySet-MVP-claude/frontend/dist frontend/dist
+```
+
+KeySet-MVP-claude использует **один большой bundle** вместо множества chunks:
+- `index-CV_t14DI.js` - 1.3 MB (все в одном файле)
+- `index-C-WZsHsY.css` - CSS
+- Шрифты FontAwesome
+
+Это решает проблему потому что:
+1. Весь JavaScript загружается **одним синхронным запросом**
+2. PyWebView может безопасно инжектить js_api bridge после того, как единственный bundle загрузился
+3. Нет race conditions между загрузкой chunks и инициализацией PyWebView DOM API
+
+## Результат:
+После замены dist на версию без code-splitting, запуск прошел успешно:
+```
+INFO: 127.0.0.1:65089 - "GET / HTTP/1.1" 200 OK
+INFO: 127.0.0.1:50486 - "GET /assets/index-C-WZsHsY.css HTTP/1.1" 200 OK
+INFO: 127.0.0.1:65089 - "GET /assets/index-CV_t14DI.js HTTP/1.1" 200 OK
+INFO: 127.0.0.1:65089 - "GET /assets/fa-solid-900-8GirhLYJ.woff2 HTTP/1.1" 200 OK
+INFO: 127.0.0.1:65089 - "GET /vite.svg HTTP/1.1" 200 OK
+INFO: 127.0.0.1:65089 - "GET /api/accounts HTTP/1.1" 200 OK  ← React инициализировался!
+```
+
+## Что НЕ сработало (попытки до решения):
+1. ❌ Смена версий Python (пробовал 3.10, 3.12, 3.13) - не помогло
+2. ❌ Обновление pythonnet с 3.0.3 до 3.0.5 - не помогло
+3. ❌ Переустановка FastAPI/uvicorn - не помогло
+4. ❌ Пересборка frontend через `npm run build` - только ухудшило (создал еще больше chunks)
+5. ❌ Попытка использовать `gui="mshtml"` вместо `edgechromium` - не помогло
+
+## Долгосрочное решение:
+Чтобы избежать этой проблемы в будущем, нужно настроить Vite для сборки **единого bundle без code-splitting** в KeySet-MVP/frontend/vite.config.ts:
+
+```typescript
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined, // Отключить автоматический code-splitting
+      },
+    },
+  },
+});
+```
+
+После этого `npm run build` будет создавать один большой bundle, совместимый с PyWebView js_api инжекцией.
+
+## Команда для запуска:
+```bash
+cd C:\AI\yandex\KeySet-MVP
+.venv\Scripts\python.exe launcher.py
+```
