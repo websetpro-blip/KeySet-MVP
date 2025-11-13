@@ -9,6 +9,7 @@ import { QuickFilters } from "./components/QuickFilters";
 import { AccountsTable } from "./components/AccountsTable";
 import { TableSummary } from "./components/TableSummary";
 import { AccountSidebar } from "./components/AccountSidebar";
+import { AddAccountDialog } from "./components/AddAccountDialog";
 import * as api from "./api";
 import { apiAccountToAccount, accountToUpdatePayload } from "./mapper";
 
@@ -23,6 +24,7 @@ export default function AccountsModule() {
   });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   // Fetch accounts on mount
   useEffect(() => {
@@ -88,8 +90,7 @@ export default function AccountsModule() {
     try {
       switch (action) {
         case "add":
-          alert("Функция 'Добавить аккаунт' в разработке");
-          // TODO: Open add account dialog
+          setShowAddDialog(true);
           break;
 
         case "edit":
@@ -183,6 +184,14 @@ export default function AccountsModule() {
     } catch (err) {
       throw new Error(`Не удалось запустить аккаунты: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
+  };
+
+  const handleCreateAccount = async (payload: api.CreateAccountPayload) => {
+    const response = await api.createAccount(payload);
+    const newAccount = apiAccountToAccount(response);
+    setAccounts(prev => [...prev, newAccount]);
+    setCurrentAccount(newAccount);
+    alert(`Аккаунт ${newAccount.email} успешно создан`);
   };
 
   const handleQuickStatus = (status: "active" | "needs_login" | "error") => {
@@ -308,6 +317,13 @@ export default function AccountsModule() {
           onClose={() => {}}
         />
       </div>
+
+      {showAddDialog && (
+        <AddAccountDialog
+          onSubmit={handleCreateAccount}
+          onClose={() => setShowAddDialog(false)}
+        />
+      )}
     </div>
   );
 }
