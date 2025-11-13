@@ -7,44 +7,77 @@ export const ParsingSimulationModal: React.FC<{ onClose: () => void }> = ({ onCl
   const [progress, setProgress] = useState(0);
   const [current, setCurrent] = useState(0);
   const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const handleStartParsing = async () => {
     setIsParsing(true);
+    setError(null);
     const totalPhrases = phrases.length;
     setTotal(totalPhrases);
 
-    for (let i = 0; i < totalPhrases; i++) {
-      // Генерируем случайные частоты
-      const ws = Math.floor(Math.random() * 5000) + 100;
-      const qws = Math.floor(ws * 0.7);
-      const bws = Math.floor(ws * 0.3);
+    try {
+      // Вызываем реальный API Wordstat
+      addLog('info', `Запуск парсинга ${totalPhrases} фраз через TurboParser...`);
 
-      // Обновляем фразу
-      updatePhrase(phrases[i].id, {
-        ws,
-        qws,
-        bws,
-        status: 'success'
+      const response = await fetch('/api/wordstat/collect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phrases: phrases.map(p => p.text),
+          modes: {
+            ws: true,   // Обычная частотность
+            qws: true,  // В кавычках
+            bws: true   // Восклицательный знак
+          },
+          regions: [225], // Россия
+          profile: null   // Все аккаунты
+        }),
       });
 
-      // Показываем прогресс
-      const progressValue = Math.round(((i + 1) / totalPhrases) * 100);
-      setProgress(progressValue);
-      setCurrent(i + 1);
-      setProcessProgress(progressValue, i + 1, totalPhrases);
-      
-      if ((i + 1) % 10 === 0 || i === totalPhrases - 1) {
-        addLog('info', `Парсинг: ${i + 1}/${totalPhrases} фраз (${progressValue}%)`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
       }
 
-      // Имитируем задержку
-      await new Promise(resolve => setTimeout(resolve, 30));
-    }
+      const results = await response.json();
 
-    setIsParsing(false);
-    addLog('success', `Парсинг завершён: ${totalPhrases} фраз обработано`);
-    
-    setTimeout(() => onClose(), 1500);
+      // Обновляем фразы реальными результатами
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const phrase = phrases.find(p => p.text === result.phrase);
+
+        if (phrase) {
+          updatePhrase(phrase.id, {
+            ws: typeof result.ws === 'number' ? result.ws : null,
+            qws: typeof result.qws === 'number' ? result.qws : null,
+            bws: typeof result.bws === 'number' ? result.bws : null,
+            status: result.status === 'OK' ? 'success' : 'error'
+          });
+        }
+
+        // Показываем прогресс
+        const progressValue = Math.round(((i + 1) / results.length) * 100);
+        setProgress(progressValue);
+        setCurrent(i + 1);
+        setProcessProgress(progressValue, i + 1, results.length);
+
+        if ((i + 1) % 10 === 0 || i === results.length - 1) {
+          addLog('info', `Парсинг: ${i + 1}/${results.length} фраз (${progressValue}%)`);
+        }
+      }
+
+      setIsParsing(false);
+      addLog('success', `Парсинг завершён: ${results.length} фраз обработано`);
+
+      setTimeout(() => onClose(), 1500);
+    } catch (err) {
+      setIsParsing(false);
+      const errorMsg = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(errorMsg);
+      addLog('error', `Ошибка парсинга: ${errorMsg}`);
+    }
   };
 
   return (
@@ -54,13 +87,20 @@ export const ParsingSimulationModal: React.FC<{ onClose: () => void }> = ({ onCl
 
         <div className="mb-6">
           <p className="text-gray-600 mb-4">
-            Симуляция парсинга {phrases.length} фраз из Yandex Wordstat
+            Парсинг {phrases.length} фраз из Yandex Wordstat через TurboParser (5 браузеров × 10 табов)
           </p>
+
+          {/* Сообщение об ошибке */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              <strong>Ошибка:</strong> {error}
+            </div>
+          )}
 
           {/* Прогресс-бар */}
           <div className="w-full bg-gray-200 rounded overflow-hidden h-8 mb-2">
             <div
-              className="h-full bg-blue-500 transition-all flex items-center justify-center text-white text-sm font-bold"
+              className={`h-full ${error ? 'bg-red-500' : 'bg-blue-500'} transition-all flex items-center justify-center text-white text-sm font-bold`}
               style={{ width: `${progress}%` }}
             >
               {progress > 0 && `${progress}%`}
