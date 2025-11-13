@@ -2,19 +2,31 @@
 from __future__ import annotations
 
 import random
-from importlib import import_module
-from typing import Any
+from typing import Any, Callable, Iterable, Optional
+
+try:
+    from . import wordstat_ws
+except ImportError:  # pragma: no cover - доступно только в полной сборке
+    wordstat_ws = None  # type: ignore
+
+try:
+    from . import frequency as frequency_service
+except ImportError:  # pragma: no cover
+    frequency_service = None  # type: ignore
+
+try:
+    from . import direct_batch
+except ImportError:  # pragma: no cover
+    direct_batch = None  # type: ignore
 
 
-def _call(module: str, func: str, *args, **kwargs) -> Any:
+def _try_call(handler: Optional[Callable], *args, **kwargs) -> Any:
+    if handler is None:
+        return None
     try:
-        mod = import_module(module)
-        target = getattr(mod, func, None)
-        if callable(target):
-            return target(*args, **kwargs)
+        return handler(*args, **kwargs)
     except Exception:
         return None
-    return None
 
 
 def collect_frequency(
@@ -26,13 +38,14 @@ def collect_frequency(
 ) -> list[dict]:
     """Proxy to whichever frequency implementation is available."""
 
-    for module, func in [
-        ("keyset.services.wordstat_ws", "collect_frequency"),
-        ("keyset.services.frequency", "collect_frequency_ui"),
-        ("keyset.services.frequency", "collect_frequency"),
-        ("keyset.workers.full_pipeline_worker", "collect_frequency"),
-    ]:
-        payload = _call(module, func, phrases, modes=modes, regions=regions, profile=profile)
+    handlers: Iterable[Optional[Callable]] = [
+        getattr(wordstat_ws, "collect_frequency", None) if wordstat_ws else None,
+        getattr(frequency_service, "collect_frequency_ui", None) if frequency_service else None,
+        getattr(frequency_service, "collect_frequency", None) if frequency_service else None,
+    ]
+
+    for handler in handlers:
+        payload = _try_call(handler, phrases, modes=modes, regions=regions, profile=profile)
         if payload is not None:
             return payload
 
@@ -60,21 +73,17 @@ def collect_depth(
     regions: list[int],
     profile: str | None,
 ) -> list[dict]:
-    for module, func in [
-        ("keyset.services.frequency", "collect_depth"),
-        ("keyset.workers.full_pipeline_worker", "collect_depth"),
-    ]:
-        payload = _call(
-            module,
-            func,
-            phrases,
-            column=column,
-            pages=pages,
-            regions=regions,
-            profile=profile,
-        )
-        if payload is not None:
-            return payload
+    handler = getattr(frequency_service, "collect_depth", None) if frequency_service else None
+    payload = _try_call(
+        handler,
+        phrases,
+        column=column,
+        pages=pages,
+        regions=regions,
+        profile=profile,
+    )
+    if payload is not None:
+        return payload
 
     # fallback — echo the phrases with dummy counts
     return [
@@ -97,9 +106,8 @@ def collect_forecast(
     storage_state = (profile_ctx or {}).get("storage_state")
     proxy = (profile_ctx or {}).get("proxy")
 
-    result = _call(
-        "keyset.services.direct_batch",
-        "get_bids_sync",
+    result = _try_call(
+        getattr(direct_batch, "get_bids_sync", None) if direct_batch else None,
         phrases,
         storage_state=storage_state,
         proxy=proxy,

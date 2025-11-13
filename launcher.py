@@ -20,7 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Import portable paths module
 try:
-    from keyset.core.app_paths import APP_ROOT, RUNTIME
+    from core.app_paths import APP_ROOT, RUNTIME
 except ImportError:
     # Fallback if app_paths not yet in path
     APP_ROOT = Path(__file__).resolve().parent if not getattr(sys, "frozen", False) else Path(sys.executable).resolve().parent

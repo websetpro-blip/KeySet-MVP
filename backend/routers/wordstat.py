@@ -2,34 +2,18 @@
 
 import logging
 from functools import lru_cache
-from importlib import import_module
 from typing import Any, Dict, Iterable, List
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, validator
 
 from core.geo import load_region_rows
+from services import accounts as legacy_accounts
+from services import frequency as frequency_service
+from services import wordstat_bridge
+from services import wordstat_ws as turbo_wordstat_service
 
 logger = logging.getLogger(__name__)
-
-
-def _import_module(*candidates: str):
-    last_exc: Exception | None = None
-    for dotted in candidates:
-        try:
-            return import_module(dotted)
-        except Exception as exc:  # pragma: no cover - legacy окружение
-            last_exc = exc
-    if last_exc:
-        logger.warning("Failed to import modules %s: %s", candidates, last_exc)
-    return None
-
-
-legacy_accounts = _import_module("keyset.services.accounts", "services.accounts")
-frequency_service = _import_module("keyset.services.frequency", "services.frequency")
-wordstat_bridge = _import_module("keyset.services.wordstat_bridge", "services.wordstat_bridge")
-turbo_wordstat_service = _import_module("keyset.services.wordstat_ws")
-
 
 router = APIRouter(prefix="/api/wordstat", tags=["wordstat"])
 

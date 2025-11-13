@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 
 # Проверяем обе БД
-dist_db = r'C:\AI\yandex\KeySet-MVP\dist\keyset.db'main_db = r'C:\AI\yandex\KeySet-MVP\keyset\keyset.db'
+project_root = Path(__file__).resolve().parent
+dist_db = project_root / "dist" / "keyset.db"
+main_db = project_root / "keyset.db"
 
 result = {}
 

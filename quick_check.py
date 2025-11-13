@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # Мгновенная диагностика
 
-import sqlite3
 import os
+import sqlite3
+from pathlib import Path
 
 # Проверим обе БД
+root = Path(__file__).resolve().parent
 paths = {
-    "dist": r'C:\AI\yandex\KeySet-MVP\dist\keyset.db',
-    "main": r'C:\AI\yandex\KeySet-MVP\keyset\keyset.db'
+    "dist": root / "dist" / "keyset.db",
+    "main": root / "keyset.db",
 }
 
 for name, path in paths.items():
