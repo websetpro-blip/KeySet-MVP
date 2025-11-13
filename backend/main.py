@@ -37,6 +37,9 @@ from db import (
     update_task,
 )
 
+# Import routers
+from backend.routers import wordstat
+
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
 
@@ -53,6 +56,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(wordstat.router)
 
 
 # Pydantic schemas for request/response
