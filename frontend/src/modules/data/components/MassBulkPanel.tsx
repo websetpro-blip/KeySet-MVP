@@ -194,9 +194,9 @@ export const MassBulkPanel: React.FC<MassBulkPanelProps> = ({ selectedCount, sel
   const [showGroupSelect, setShowGroupSelect] = React.useState<'move' | 'copy' | null>(null);
   const [isMassEditOpen, setIsMassEditOpen] = React.useState(false);
 
-  const handleGroupAction = (groupId: string, action: 'move' | 'copy') => {
+  const handleGroupAction = async (groupId: string, action: 'move' | 'copy') => {
     if (action === 'move') {
-      movePhrasesToGroup(selectedIds, groupId);
+      await movePhrasesToGroup(selectedIds, groupId);
       addLog('success', `Перемещено ${selectedCount} фраз`);
     } else {
       copyPhrasesToGroup(selectedIds, groupId);
@@ -205,9 +205,9 @@ export const MassBulkPanel: React.FC<MassBulkPanelProps> = ({ selectedCount, sel
     setShowGroupSelect(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (confirm(`Удалить выделенные фразы (${selectedCount} шт.)?`)) {
-      deleteSelectedPhrases(selectedIds);
+      await deleteSelectedPhrases(selectedIds);
     }
   };
 

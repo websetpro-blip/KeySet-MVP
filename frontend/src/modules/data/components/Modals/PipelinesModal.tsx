@@ -65,6 +65,8 @@ const pipelines: Record<PipelineType, PipelineConfig> = {
 
 const PipelinesModal: React.FC<PipelinesModalProps> = ({ isOpen, onClose }) => {
   const { phrases, stopwords, setPhrases, addLog } = useStore();
+  const safePhrases = Array.isArray(phrases) ? phrases : [];
+  const safeStopwords = Array.isArray(stopwords) ? stopwords : [];
   const [selectedPipeline, setSelectedPipeline] = useState<PipelineType>('quick');
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -74,8 +76,8 @@ const PipelinesModal: React.FC<PipelinesModalProps> = ({ isOpen, onClose }) => {
   const config = pipelines[selectedPipeline];
 
   const handleRunPipeline = async () => {
-    if (phrases.length === 0) {
-      addLog('warning', 'Нет фраз для обработки');
+    if (safePhrases.length === 0) {
+      addLog?.('warning', 'Нет фраз для обработки');
       return;
     }
 
@@ -85,21 +87,21 @@ const PipelinesModal: React.FC<PipelinesModalProps> = ({ isOpen, onClose }) => {
     setShowPreview(false);
 
     try {
-      const context = { phrases, stopwords };
+      const context = { phrases: safePhrases, stopwords: safeStopwords };
       const stepLogs: string[] = [];
       let current = { ...context };
-      const initialCount = current.phrases.length;
+      const initialCount = current.phrases?.length || 0;
 
       // Выполняем каждый шаг с обновлением прогресса
       for (let i = 0; i < config.steps.length; i++) {
         setCurrentStep(i + 1);
-        const before = current.phrases.length;
+        const before = current.phrases?.length || 0;
         
         // Небольшая задержка для визуализации
         await new Promise(resolve => setTimeout(resolve, 100));
         
         current = await config.steps[i](current);
-        const after = current.phrases.length;
+        const after = current.phrases?.length || 0;
         const diff = before - after;
 
         const stepLog = diff > 0 
@@ -116,12 +118,14 @@ const PipelinesModal: React.FC<PipelinesModalProps> = ({ isOpen, onClose }) => {
       setLog([...stepLogs]);
 
       // Применяем результат
-      setPhrases(current.phrases);
-      addLog('success', `${config.name}: удалено ${totalRemoved} фраз`);
+      if (Array.isArray(current.phrases)) {
+        setPhrases(current.phrases);
+      }
+      addLog?.('success', `${config.name}: удалено ${totalRemoved} фраз`);
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Неизвестная ошибка';
-      addLog('error', `Ошибка выполнения пайплайна: ${errorMsg}`);
+      addLog?.('error', `Ошибка выполнения пайплайна: ${errorMsg}`);
       setLog(prev => [...prev, `Ошибка: ${errorMsg}`]);
     } finally {
       setIsProcessing(false);

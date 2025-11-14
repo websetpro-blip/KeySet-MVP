@@ -16,13 +16,28 @@ from urllib.parse import quote
 
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 
-from utils.proxy import proxy_to_playwright
-from utils.text_fix import WORDSTAT_FETCH_NORMALIZER_SCRIPT, fix_mojibake
-from core.db import SessionLocal
-from core.models import Account
-from services.proxy_manager import ProxyManager, proxy_preflight, Proxy
-from workers.visual_browser_manager import VisualBrowserManager, BrowserStatus
-from workers.auto_auth_handler import AutoAuthHandler
+try:
+    from core.app_paths import CONFIG_DIR, DB_DIR
+except ImportError:  # pragma: no cover
+    CONFIG_DIR = Path(__file__).resolve().parents[1] / "runtime" / "config"
+    DB_DIR = Path(__file__).resolve().parents[1] / "runtime" / "db"
+
+try:
+    from ..utils.proxy import proxy_to_playwright
+    from ..utils.text_fix import WORDSTAT_FETCH_NORMALIZER_SCRIPT, fix_mojibake
+    from ..core.db import SessionLocal
+    from ..core.models import Account
+    from ..services.proxy_manager import ProxyManager, proxy_preflight, Proxy
+    from .visual_browser_manager import VisualBrowserManager, BrowserStatus
+    from .auto_auth_handler import AutoAuthHandler
+except ImportError:
+    from utils.proxy import proxy_to_playwright
+    from utils.text_fix import WORDSTAT_FETCH_NORMALIZER_SCRIPT, fix_mojibake
+    from core.db import SessionLocal
+    from core.models import Account
+    from services.proxy_manager import ProxyManager, proxy_preflight, Proxy
+    from .visual_browser_manager import VisualBrowserManager, BrowserStatus
+    from .auto_auth_handler import AutoAuthHandler
 
 
 def _wire_logging(page: Page) -> None:
@@ -184,7 +199,7 @@ class TurboWordstatParser:
         self.num_tabs = 10
         self.num_browsers = 1
         self.visual_manager = None
-        self.db_path = Path("C:/AI/yandex/keyset/data/keyset.db")
+        self.db_path = DB_DIR / "keyset.db"
         self.auth_handler = AutoAuthHandler()
         self.proxy_manager = ProxyManager.instance()
         self._proxy_item: Optional[Proxy] = None
@@ -200,7 +215,7 @@ class TurboWordstatParser:
     def _load_auth_data(self) -> None:
         """Загружаем данные авторизации из accounts.json"""
         try:
-            accounts_json_path = Path("C:/AI/yandex/keyset/configs/accounts.json")
+            accounts_json_path = CONFIG_DIR / "accounts.json"
             if not accounts_json_path.exists():
                 accounts_json_path = Path("C:/AI/yandex/configs/accounts.json")
             if not accounts_json_path.exists():

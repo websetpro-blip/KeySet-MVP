@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiUrl } from '../../../lib/apiClient';
 
 const serializeError = (error: any) => {
   if (error instanceof Error) {
@@ -30,25 +31,52 @@ export class ErrorBoundary extends React.Component<
   componentDidCatch(error: any, errorInfo: any) {
     // Логируем ошибку
     console.error('KeySet Error Boundary caught an error:', error, errorInfo);
+
+    try {
+      const payload = {
+        path: window.location.pathname,
+        userAgent: navigator.userAgent,
+        error: serializeError(error),
+        info: errorInfo,
+        timestamp: Date.now(),
+      };
+      fetch(apiUrl('/api/debug/react-error'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch {
+      // ignore telemetry issues
+    }
     
     // Попытка восстановиться от ошибок данных localStorage
-    if (error.message?.includes('JSON') || error.message?.includes('parse')) {
+    const message = error?.message ?? '';
+    const corruptedStoreError =
+      message.includes('JSON') ||
+      message.includes('parse') ||
+      message.includes('Invalid hook call') ||
+      message.includes('#185');
+
+    if (corruptedStoreError) {
       try {
-        // Очищаем все данные localStorage
-        Object.keys(localStorage).forEach(key => {
+        const clearedKeys: string[] = [];
+        Object.keys(localStorage).forEach((key) => {
           if (key.includes('keyset') || key.includes('column') || key.includes('phrase')) {
             localStorage.removeItem(key);
+            clearedKeys.push(key);
           }
         });
-        
-        // Перезагружаем страницу
+
+        console.warn(
+          '[KeySet][store] Cleared potentially corrupted localStorage entries:',
+          clearedKeys,
+        );
+
         setTimeout(() => {
           window.location.reload();
-        }, 2000);
-        
-        console.warn('Ошибка данных - localStorage очищен, перезагрузка через 2 секунды');
+        }, 1500);
       } catch (e) {
-        console.error('Не удалось очистить localStorage:', e);
+        console.error('[KeySet][store] Failed to clear localStorage after crash:', e);
       }
     }
     

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { Loader2 } from 'lucide-react';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { PhrasesTable } from './components/PhrasesTable/PhrasesTable';
 import { GroupsPanel } from './components/GroupsPanel/GroupsPanel';
@@ -10,7 +11,6 @@ import { ImportModal } from './components/Modals/ImportModal';
 import { ExportModal } from './components/Modals/ExportModal';
 import { DuplicatesModal } from './components/Modals/DuplicatesModal';
 import { StopwordsManagerModal } from './components/Modals/StopwordsManagerModal';
-import { ParsingSimulationModal } from './components/Modals/ParsingSimulationModal';
 import { AdvancedFiltersModal } from './components/Modals/AdvancedFiltersModal';
 import { ColumnSettingsModal } from './components/Modals/ColumnSettingsModal';
 import { StatisticsModal } from './components/Modals/StatisticsModal';
@@ -32,12 +32,18 @@ import { useStore } from './store/useStore';
 import { Modal } from './components/ui/Modal';
 import { Button } from './components/ui/Button';
 
+const LazyWordstatModal = React.lazy(() =>
+  import('./components/Modals/WordstatModal').then((mod) => ({
+    default: mod.WordstatModal,
+  })),
+);
+
 function App() {
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = React.useState(false);
   const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = React.useState(false);
   const [isStopwordsModalOpen, setIsStopwordsModalOpen] = React.useState(false);
-  const [isParsingModalOpen, setIsParsingModalOpen] = React.useState(false);
+  const [isWordstatModalOpen, setIsWordstatModalOpen] = React.useState(false);
   const [isFiltersModalOpen, setIsFiltersModalOpen] = React.useState(false);
   const [isColumnSettingsOpen, setIsColumnSettingsOpen] = React.useState(false);
   const [isStatisticsModalOpen, setIsStatisticsModalOpen] = React.useState(false);
@@ -76,7 +82,31 @@ function App() {
     movePhrasesToGroup,
     copyPhrasesToGroup,
     updateGroupParent,
+    loadInitialData,
+    isDataLoaded,
+    isDataLoading,
+    dataError,
   } = useStore();
+
+  const normalizedSelectedPhraseIds =
+    selectedPhraseIds instanceof Set
+      ? selectedPhraseIds
+      : new Set(Array.isArray(selectedPhraseIds) ? selectedPhraseIds : []);
+
+  const safePhrases = Array.isArray(phrases) ? phrases : [];
+  const safeGroups = Array.isArray(groups) ? groups : [];
+
+  const didInitRef = React.useRef(false);
+  React.useEffect(() => {
+    if (didInitRef.current) {
+      return;
+    }
+    didInitRef.current = true;
+    if (!isDataLoaded && !isDataLoading) {
+      loadInitialData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Настройка сенсоров для drag & drop
   const sensors = useSensors(
@@ -102,7 +132,7 @@ function App() {
     if (activeType === 'phrase' && (overType === 'group' || overType === 'group-target')) {
       const phraseId = active.id as string;
       const groupId = over.id as string;
-      const phrase = phrases.find(p => p.id === phraseId);
+      const phrase = safePhrases.find(p => p.id === phraseId);
       
       if (!phrase || phrase.groupId === groupId) {
         return;
@@ -127,7 +157,7 @@ function App() {
       
       // Проверяем, что целевая группа не является подгруппой перемещаемой группы
       const isDescendant = (parentId: string, childId: string): boolean => {
-        const group = groups.find(g => g.id === childId);
+        const group = safeGroups.find(g => g.id === childId);
         if (!group) return false;
         if (group.parentId === parentId) return true;
         if (group.parentId) return isDescendant(parentId, group.parentId);
@@ -151,12 +181,12 @@ function App() {
   }, { enableOnFormTags: false });
   
   useHotkeys('delete', () => {
-    if (selectedPhraseIds.size > 0) {
+    if (normalizedSelectedPhraseIds.size > 0) {
       const confirmed = window.confirm(
-        `Удалить выделенные фразы (${selectedPhraseIds.size} шт.)?`
+        `Удалить выделенные фразы (${normalizedSelectedPhraseIds.size} шт.)?`
       );
       if (confirmed) {
-        deletePhrases(Array.from(selectedPhraseIds));
+        deletePhrases(Array.from(normalizedSelectedPhraseIds));
       }
     }
   }, { enableOnFormTags: false });
@@ -187,12 +217,13 @@ function App() {
   
   useHotkeys('f5', (e) => {
     e.preventDefault();
-    addLog('info', 'Данные обновлены');
+    loadInitialData();
+    addLog('info', 'Обновляем данные из базы');
   });
   
   useHotkeys('ctrl+d', (e) => {
     e.preventDefault();
-    if (selectedPhraseIds.size > 0) {
+    if (normalizedSelectedPhraseIds.size > 0) {
       addLog('info', 'Дублирование фраз - используйте копирование в группу');
     }
   }, { enableOnFormTags: false });
@@ -211,6 +242,36 @@ function App() {
     }
   }, { enableOnFormTags: false });
   
+  if (dataError) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full bg-white border border-red-200 shadow-sm rounded-lg p-8 text-center">
+          <h2 className="text-xl font-semibold text-red-700 mb-3">Не удалось загрузить данные</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            {dataError}
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button variant="primary" onClick={() => loadInitialData()} className="w-full">
+              Повторить попытку
+            </Button>
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Перезагрузить приложение
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isDataLoaded) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-600">
+        <Loader2 className="w-10 h-10 animate-spin mb-3" />
+        <p className="text-lg font-medium">Загружаем данные из локальной базы...</p>
+      </div>
+    );
+  }
+
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="h-screen flex flex-col bg-gray-50 font-sans">
@@ -220,7 +281,7 @@ function App() {
           onExportClick={() => setIsExportModalOpen(true)}
           onDuplicatesClick={() => setIsDuplicatesModalOpen(true)}
           onStopwordsClick={() => setIsStopwordsModalOpen(true)}
-          onParsingClick={() => setIsParsingModalOpen(true)}
+          onParsingClick={() => setIsWordstatModalOpen(true)}
           onFiltersClick={() => setIsFiltersModalOpen(true)}
           onColumnSettingsClick={() => setIsColumnSettingsOpen(true)}
           onStatisticsClick={() => setIsStatisticsModalOpen(true)}
@@ -246,10 +307,10 @@ function App() {
           <StatusBar />
           
           {/* Массовые операции */}
-          {selectedPhraseIds.size > 0 && (
+          {normalizedSelectedPhraseIds.size > 0 && (
             <MassBulkPanel 
-              selectedCount={selectedPhraseIds.size} 
-              selectedIds={Array.from(selectedPhraseIds)} 
+              selectedCount={normalizedSelectedPhraseIds.size} 
+              selectedIds={Array.from(normalizedSelectedPhraseIds)} 
             />
           )}
         </div>
@@ -282,8 +343,23 @@ function App() {
       />
       
       {/* Новые модалы */}
-      {isParsingModalOpen && (
-        <ParsingSimulationModal onClose={() => setIsParsingModalOpen(false)} />
+      {isWordstatModalOpen && (
+        <React.Suspense
+          fallback={
+            <Modal
+              isOpen={true}
+              onClose={() => setIsWordstatModalOpen(false)}
+              title="Wordstat"
+            >
+              <div className="p-6 text-sm text-gray-500">Загрузка окна Wordstat…</div>
+            </Modal>
+          }
+        >
+          <LazyWordstatModal
+            isOpen={true}
+            onClose={() => setIsWordstatModalOpen(false)}
+          />
+        </React.Suspense>
       )}
       
       {isFiltersModalOpen && (
@@ -400,7 +476,7 @@ function App() {
               <Button
                 onClick={() => {
                   movePhrasesToGroup(moveCopyDialog.phraseIds, moveCopyDialog.targetGroupId);
-                  const group = groups.find(g => g.id === moveCopyDialog.targetGroupId);
+                  const group = safeGroups.find(g => g.id === moveCopyDialog.targetGroupId);
                   addLog('success', `Фраза перемещена в "${group?.name}"`);
                   setMoveCopyDialog(null);
                 }}
@@ -412,7 +488,7 @@ function App() {
               <Button
                 onClick={() => {
                   copyPhrasesToGroup(moveCopyDialog.phraseIds, moveCopyDialog.targetGroupId);
-                  const group = groups.find(g => g.id === moveCopyDialog.targetGroupId);
+                  const group = safeGroups.find(g => g.id === moveCopyDialog.targetGroupId);
                   addLog('success', `Фраза скопирована в "${group?.name}"`);
                   setMoveCopyDialog(null);
                 }}

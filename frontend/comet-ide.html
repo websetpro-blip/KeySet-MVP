@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Comet IDE - KeySet</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/atom-one-dark.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/highlight.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Fira Code', monospace;
+            display: flex;
+            height: 100vh;
+            background: #1e1e1e;
+            color: #e0e0e0;
+        }
+
+        .sidebar {
+            width: 25%;
+            background: #252526;
+            border-right: 1px solid #404040;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .main {
+            width: 75%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: #2d2d30;
+            padding: 10px;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            gap: 10px;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #editor {
+            flex: 1;
+            padding: 15px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        .file-item {
+            padding: 8px;
+            margin: 3px 0;
+            background: #333333;
+            border-left: 3px solid #007acc;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+
+        .file-item:hover { background: #404040; }
+        .file-item.active { background: #007acc; border-left-color: #fff; }
+
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: monospace;
+            transition: all 0.2s;
+        }
+
+        button:hover { background: #005a9e; }
+        button:active { transform: scale(0.95); }
+
+        .status {
+            background: #1e1e1e;
+            padding: 10px;
+            border-top: 1px solid #404040;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .status.success { color: #4ec9b0; }
+        .status.error { color: #f48771; }
+
+        input[type="text"] {
+            background: #333333;
+            color: #e0e0e0;
+            border: 1px solid #404040;
+            padding: 6px 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            width: 100%;
+        }
+
+        .tabs {
+            background: #2d2d30;
+            padding: 5px;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+        }
+
+        .tab {
+            background: #3e3e42;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab.active { background: #1e1e1e; border-bottom: 2px solid #007acc; }
+        .tab:hover { background: #404040; }
+
+        .folder-title {
+            font-weight: bold;
+            color: #4ec9b0;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3 style="padding: 10px; color: #4ec9b0;">📁 Project Files</h3>
+        <input type="text" id="searchFiles" placeholder="Search files..." />
+        <div id="fileList"></div>
+    </div>
+
+    <div class="main">
+        <div class="tabs" id="tabs"></div>
+
+        <div class="toolbar">
+            <button onclick="saveFile()">💾 Save</button>
+            <button onclick="reloadFile()">🔄 Reload</button>
+            <button onclick="createFile()">➕ New File</button>
+            <button onclick="searchInFile()">🔍 Find</button>
+            <span id="fileInfo" style="color: #888; flex: 1;"></span>
+        </div>
+
+        <div class="editor-container">
+            <textarea id="editor" spellcheck="false"></textarea>
+        </div>
+
+        <div class="status" id="status">Ready</div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        const TOKEN = '440fe2cbccc940ad840ce22e0d0b26af';
+
+        let currentFile = null;
+        let openTabs = [];
+        let fileCache = {};
+
+        const PROJECT_STRUCTURE = {
+            'backend/': ['db.py', 'main.py', 'devtools.py', 'launcher.py'],
+            'frontend/src/': ['App.tsx', 'Data.tsx', 'main.tsx'],
+            'frontend/': ['comet-ide.html', 'index.html'],
+            'docs/': ['README.md', 'ARCHITECTURE.md'],
+            'tests/': ['test_parser.py', 'test_db.py'],
+        };
+
+        async function init() {
+            loadFileTree();
+            setStatus('🚀 IDE loaded', 'success');
+        }
+
+        function loadFileTree() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+
+            Object.entries(PROJECT_STRUCTURE).forEach(([folder, files]) => {
+                const wrapper = document.createElement('div');
+
+                const title = document.createElement('div');
+                title.textContent = `📂 ${folder}`;
+                title.className = 'folder-title';
+                wrapper.appendChild(title);
+
+                files.forEach((file) => {
+                    const item = document.createElement('div');
+                    item.className = 'file-item';
+                    item.textContent = `📄 ${file}`;
+                    item.onclick = () => openFile(folder + file);
+                    wrapper.appendChild(item);
+                });
+
+                fileList.appendChild(wrapper);
+            });
+        }
+
+        async function openFile(path) {
+            if (currentFile === path) return;
+
+            setStatus(`📂 Loading ${path} ...`);
+            try {
+                const response = await fetch(`${API}/dev/read_file?path=${encodeURIComponent(path)}&token=${TOKEN}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+
+                currentFile = path;
+                fileCache[path] = data.content;
+                document.getElementById('editor').value = data.content;
+                document.getElementById('fileInfo').textContent = `${path} • ${data.content.length} bytes`;
+                addTab(path);
+                setStatus(`✅ Loaded ${path}`, 'success');
+            } catch (err) {
+                setStatus(`❌ Error loading ${path}: ${err.message}`, 'error');
+            }
+        }
+
+        function addTab(path) {
+            if (openTabs.includes(path)) {
+                document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+                const existing = [...document.querySelectorAll('.tab')].find((t) => t.dataset.path === path);
+                if (existing) existing.classList.add('active');
+                return;
+            }
+            openTabs.push(path);
+            const tab = document.createElement('div');
+            tab.className = 'tab active';
+            tab.dataset.path = path;
+            tab.textContent = path.split('/').pop();
+            tab.onclick = () => {
+                document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+                tab.classList.add('active');
+                openFile(path);
+            };
+
+            const close = document.createElement('span');
+            close.textContent = ' ✕';
+            close.style.cursor = 'pointer';
+            close.onclick = (e) => {
+                e.stopPropagation();
+                openTabs = openTabs.filter((t) => t !== path);
+                tab.remove();
+                if (currentFile === path) {
+                    currentFile = null;
+                    document.getElementById('editor').value = '';
+                    document.getElementById('fileInfo').textContent = '';
+                }
+            };
+            tab.appendChild(close);
+
+            document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+            document.getElementById('tabs').appendChild(tab);
+        }
+
+        async function saveFile() {
+            if (!currentFile) return setStatus('❌ No file selected', 'error');
+
+            const content = document.getElementById('editor').value;
+            setStatus(`💾 Saving ${currentFile} ...`);
+            try {
+                const response = await fetch(`${API}/dev/save_file_post?token=${TOKEN}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({path: currentFile, content}),
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                fileCache[currentFile] = content;
+                setStatus(`✅ Saved ${currentFile}`, 'success');
+            } catch (err) {
+                setStatus(`❌ Save error: ${err.message}`, 'error');
+            }
+        }
+
+        async function reloadFile() {
+            if (currentFile) await openFile(currentFile);
+        }
+
+        async function createFile() {
+            const name = prompt('Введите путь нового файла (например, backend/new_file.py):');
+            if (!name) return;
+            document.getElementById('editor').value = '';
+            currentFile = name;
+            addTab(name);
+            setStatus(`✏️ Editing new file: ${name}`);
+        }
+
+        function searchInFile() {
+            const query = prompt('Search for:');
+            if (!query) return;
+            const content = document.getElementById('editor').value;
+            const matches = content.match(new RegExp(query, 'gi')) || [];
+            setStatus(`Found ${matches.length} matches for "${query}"`, matches.length ? 'success' : 'error');
+        }
+
+        function setStatus(text, type = '') {
+            const status = document.getElementById('status');
+            status.textContent = text;
+            status.className = `status ${type}`;
+        }
+
+        setInterval(() => {
+            if (!currentFile) return;
+            const editorValue = document.getElementById('editor').value;
+            if (editorValue !== fileCache[currentFile]) {
+                saveFile();
+            }
+        }, 30000);
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveFile();
+            }
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>

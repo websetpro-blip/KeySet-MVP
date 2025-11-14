@@ -28,16 +28,15 @@ const predefinedColors = [
 ];
 
 const TagsModal: React.FC<TagsModalProps> = ({ isOpen, onClose }) => {
-  const { 
-    phraseTags, 
-    phrases, 
-    selectedPhraseIds,
-    addPhraseTag, 
-    assignTagToPhrase, 
-    removeTagFromPhrase,
-    deletePhraseTag, 
-    addLog 
-  } = useStore();
+  const store = useStore();
+  const phraseTags = Array.isArray(store.phraseTags) ? store.phraseTags : [];
+  const phrases = Array.isArray(store.phrases) ? store.phrases : [];
+  const rawSelectedIds = store.selectedPhraseIds;
+  const selectedPhraseIds =
+    rawSelectedIds instanceof Set
+      ? rawSelectedIds
+      : new Set(Array.isArray(rawSelectedIds) ? rawSelectedIds : []);
+  const { addPhraseTag, assignTagToPhrase, removeTagFromPhrase, deletePhraseTag, addLog } = store;
   
   const [mode, setMode] = useState<'list' | 'create'>('list');
   const [formData, setFormData] = useState({
@@ -53,56 +52,56 @@ const TagsModal: React.FC<TagsModalProps> = ({ isOpen, onClose }) => {
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      addLog('warning', 'Введите название тега');
+      addLog?.('warning', 'Введите название тега');
       return;
     }
 
-    addPhraseTag(formData.name, formData.color);
+    addPhraseTag?.(formData.name, formData.color);
     setMode('list');
-    addLog('success', `Тег создан: ${formData.name}`);
+    addLog?.('success', `Тег создан: ${formData.name}`);
   };
 
   const handleDelete = (tag: PhraseTag) => {
-    const usageCount = phrases.filter(p => p.tags?.includes(tag.id)).length;
+    const usageCount = phrases.filter(p => Array.isArray(p.tags) && p.tags.includes(tag.id)).length;
     const confirmMsg = usageCount > 0 
       ? `Удалить тег "${tag.name}"?\n\nТег используется в ${usageCount} фразах.`
       : `Удалить тег "${tag.name}"?`;
 
     if (confirm(confirmMsg)) {
-      deletePhraseTag(tag.id);
-      addLog('success', `Тег удален: ${tag.name}`);
+      deletePhraseTag?.(tag.id);
+      addLog?.('success', `Тег удален: ${tag.name}`);
     }
   };
 
   const handleAssignToSelected = (tagId: string) => {
     if (selectedPhraseIds.size === 0) {
-      addLog('warning', 'Выберите фразы для назначения тега');
+      addLog?.('warning', 'Выберите фразы для назначения тега');
       return;
     }
 
     Array.from(selectedPhraseIds).forEach(phraseId => {
       const phrase = phrases.find(p => p.id === phraseId);
-      if (phrase && !phrase.tags?.includes(tagId)) {
-        assignTagToPhrase(phraseId, tagId);
+      if (phrase && !(phrase.tags || []).includes(tagId)) {
+        assignTagToPhrase?.(phraseId, tagId);
       }
     });
 
     const tag = phraseTags.find(t => t.id === tagId);
-    addLog('success', `Тег "${tag?.name}" назначен ${selectedPhraseIds.size} фразам`);
+    addLog?.('success', `Тег "${tag?.name}" назначен ${selectedPhraseIds.size} фразам`);
   };
 
   const handleRemoveFromSelected = (tagId: string) => {
     if (selectedPhraseIds.size === 0) {
-      addLog('warning', 'Выберите фразы для удаления тега');
+      addLog?.('warning', 'Выберите фразы для удаления тега');
       return;
     }
 
     Array.from(selectedPhraseIds).forEach(phraseId => {
-      removeTagFromPhrase(phraseId, tagId);
+      removeTagFromPhrase?.(phraseId, tagId);
     });
 
     const tag = phraseTags.find(t => t.id === tagId);
-    addLog('success', `Тег "${tag?.name}" удален с ${selectedPhraseIds.size} фраз`);
+    addLog?.('success', `Тег "${tag?.name}" удален с ${selectedPhraseIds.size} фраз`);
   };
 
   const handleCancel = () => {
@@ -110,7 +109,7 @@ const TagsModal: React.FC<TagsModalProps> = ({ isOpen, onClose }) => {
   };
 
   const getTagUsageCount = (tagId: string) => {
-    return phrases.filter(p => p.tags?.includes(tagId)).length;
+    return phrases.filter(p => Array.isArray(p.tags) && p.tags.includes(tagId)).length;
   };
 
   const formatDate = (timestamp: number) => {

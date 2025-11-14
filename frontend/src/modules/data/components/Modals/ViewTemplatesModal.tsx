@@ -10,36 +10,35 @@ interface ViewTemplatesModalProps {
 }
 
 export const ViewTemplatesModal: React.FC<ViewTemplatesModalProps> = ({ isOpen, onClose }) => {
-  const {
-    viewTemplates,
-    columnVisibility,
-    columnOrder,
-    columnPinning,
-    saveViewTemplate,
-    loadViewTemplate,
-    deleteViewTemplate,
-    addLog,
-  } = useStore();
+  const store = useStore();
+  const viewTemplates = Array.isArray(store.viewTemplates) ? store.viewTemplates : [];
+  const columnVisibility = store.columnVisibility ?? {};
+  const columnOrder = Array.isArray(store.columnOrder) ? store.columnOrder : [];
+  const columnPinning = store.columnPinning ?? { left: [], right: [] };
+  const { saveViewTemplate, loadViewTemplate, deleteViewTemplate, addLog } = store;
 
   const [newTemplateName, setNewTemplateName] = React.useState('');
   const [isSaveMode, setIsSaveMode] = React.useState(false);
 
   const handleSave = () => {
-    if (newTemplateName.trim()) {
-      saveViewTemplate(newTemplateName.trim());
-      setNewTemplateName('');
-      setIsSaveMode(false);
+    if (!newTemplateName.trim()) {
+      addLog?.('warning', 'Введите название шаблона вида');
+      return;
     }
+
+    saveViewTemplate?.(newTemplateName.trim());
+    setNewTemplateName('');
+    setIsSaveMode(false);
   };
 
   const handleLoad = (templateId: string) => {
-    loadViewTemplate(templateId);
+    loadViewTemplate?.(templateId);
     onClose();
   };
 
   const handleDelete = (templateId: string) => {
     if (confirm('Удалить этот шаблон вида?')) {
-      deleteViewTemplate(templateId);
+      deleteViewTemplate?.(templateId);
     }
   };
 
@@ -52,7 +51,7 @@ export const ViewTemplatesModal: React.FC<ViewTemplatesModalProps> = ({ isOpen, 
             Текущая конфигурация:
           </div>
           <div className="text-xs text-blue-700 space-y-1">
-            <div>Видимые колонки: {Object.entries(columnVisibility).filter(([_, v]) => v).length}</div>
+            <div>Видимые колонки: {Object.entries(columnVisibility).filter(([_, v]) => Boolean(v)).length}</div>
             <div>Закреплено колонок: {(columnPinning.left?.length || 0) + (columnPinning.right?.length || 0)}</div>
             <div>Порядок колонок: {columnOrder.length > 0 ? 'Настроен' : 'По умолчанию'}</div>
           </div>
@@ -111,9 +110,9 @@ export const ViewTemplatesModal: React.FC<ViewTemplatesModalProps> = ({ isOpen, 
                       {template.name}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {Object.entries(template.columnVisibility).filter(([_, v]) => v).length} видимых колонок
-                      {(template.columnPinning.left?.length || 0) + (template.columnPinning.right?.length || 0) > 0 && 
-                        ` • ${(template.columnPinning.left?.length || 0) + (template.columnPinning.right?.length || 0)} закреплено`
+                      {Object.entries(template.columnVisibility ?? {}).filter(([_, v]) => Boolean(v)).length} видимых колонок
+                      {(template.columnPinning?.left?.length || 0) + (template.columnPinning?.right?.length || 0) > 0 && 
+                        ` • ${(template.columnPinning?.left?.length || 0) + (template.columnPinning?.right?.length || 0)} закреплено`
                       }
                     </div>
                   </div>

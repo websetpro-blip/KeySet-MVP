@@ -14,6 +14,7 @@ interface CrossMinusationModalProps {
 
 export const CrossMinusationModal: React.FC<CrossMinusationModalProps> = ({ isOpen, onClose }) => {
   const { phrases, updatePhrase, addLog } = useStore();
+  const safePhrases = Array.isArray(phrases) ? phrases : [];
   
   const [useMorphology, setUseMorphology] = React.useState(true);
   const [minOverlap, setMinOverlap] = React.useState(50);
@@ -26,13 +27,18 @@ export const CrossMinusationModal: React.FC<CrossMinusationModalProps> = ({ isOp
     setIsComputing(true);
     setIsApplied(false);
     
+    if (safePhrases.length === 0) {
+      addLog?.('warning', 'Нет фраз для анализа');
+      return;
+    }
+
     try {
-      const result = computeCrossMinusation(phrases, useMorphology, minOverlap);
+      const result = computeCrossMinusation(safePhrases, useMorphology, minOverlap);
       setMatches(result.matches);
       setSelectedMatches(new Set(result.matches.map((_, idx) => idx)));
-      addLog('success', `Найдено совпадений: ${result.matches.length}`);
+      addLog?.('success', `Найдено совпадений: ${result.matches.length}`);
     } catch (error) {
-      addLog('error', `Ошибка кросс-минусации: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
+      addLog?.('error', `Ошибка кросс-минусации: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     } finally {
       setIsComputing(false);
     }
@@ -53,7 +59,7 @@ export const CrossMinusationModal: React.FC<CrossMinusationModalProps> = ({ isOp
     });
     
     setIsApplied(true);
-    addLog('success', `Применено минус-слов: ${appliedCount} фраз`);
+    addLog?.('success', `Применено минус-слов: ${appliedCount} фраз`);
   };
 
   const toggleMatch = (idx: number) => {

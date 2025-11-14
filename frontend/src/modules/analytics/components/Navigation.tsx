@@ -19,7 +19,7 @@ export function Navigation() {
     return () => window.removeEventListener('storage', checkConnection)
   }, [])
 
-  const isActive = (path: string) => location.pathname === path
+  const isActive = (path: string) => location.pathname.endsWith(path)
 
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm">
@@ -30,12 +30,12 @@ export function Navigation() {
               <BarChart3 className="w-8 h-8 text-blue-600" />
               <span className="text-xl font-bold text-gray-900">Яндекс.Директ Аналитика</span>
             </div>
-            
+
             <div className="flex space-x-4">
               <Link
-                to="/dashboard"
+                to="dashboard"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/dashboard')
+                  isActive('dashboard')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
@@ -43,11 +43,11 @@ export function Navigation() {
                 <Home className="w-4 h-4" />
                 <span>Dashboard</span>
               </Link>
-              
+
               <Link
-                to="/analytics"
+                to="analytics"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/analytics')
+                  isActive('analytics')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
@@ -55,11 +55,11 @@ export function Navigation() {
                 <TrendingUp className="w-4 h-4" />
                 <span>Аналитика</span>
               </Link>
-              
+
               <Link
-                to="/recommendations"
+                to="recommendations"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/recommendations')
+                  isActive('recommendations')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
@@ -67,11 +67,11 @@ export function Navigation() {
                 <BarChart3 className="w-4 h-4" />
                 <span>Рекомендации</span>
               </Link>
-              
+
               <Link
-                to="/settings"
+                to="settings"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/settings')
+                  isActive('settings')
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}

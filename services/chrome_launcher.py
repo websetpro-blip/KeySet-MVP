@@ -16,6 +16,8 @@ import time
 from pathlib import Path
 from typing import Dict, Optional, Sequence
 
+from core.app_paths import APP_ROOT, PROFILES, RUNTIME
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -28,9 +30,9 @@ class ChromeLauncher:
         Path.home() / "AppData/Local/Google/Chrome/Application/chrome.exe",
     )
 
-    BASE_DIR = Path(r"C:/AI/yandex")
+    BASE_DIR = APP_ROOT
     DEFAULT_START_URL = "about:blank"
-    EXTENSIONS_ROOT = BASE_DIR / "runtime" / "proxy_extensions"
+    EXTENSIONS_ROOT = RUNTIME / "proxy_extensions"
 
     _processes: Dict[str, Dict[str, Optional[Path]]] = {}
 
@@ -96,12 +98,21 @@ console.log('[ProxyAuth] service worker registered');
 
         legacy_root = Path(r"C:/AI/yandex")
         base_root = cls.BASE_DIR
+        runtime_profiles = PROFILES
+        legacy_profiles = legacy_root / ".profiles"
+
         candidates: list[Path] = []
 
         def add_candidate(path: Path) -> None:
-            resolved = path if path.is_absolute() else path
+            resolved = path
             if resolved not in candidates:
                 candidates.append(resolved)
+
+        def strip_profiles_prefix(path: Path) -> Path:
+            parts = list(path.parts)
+            if parts and parts[0] == ".profiles":
+                return Path(*parts[1:]) if len(parts) > 1 else Path()
+            return path
 
         if profile_path:
             raw = Path(str(profile_path).strip())
@@ -113,12 +124,23 @@ console.log('[ProxyAuth] service worker registered');
                     pass
                 else:
                     add_candidate(base_root / relative)
+                    stripped = strip_profiles_prefix(relative)
+                    if stripped.parts:
+                        add_candidate(runtime_profiles / stripped)
+                    else:
+                        add_candidate(runtime_profiles)
             else:
+                normalized = strip_profiles_prefix(raw)
                 add_candidate(base_root / raw)
+                if normalized.parts:
+                    add_candidate(runtime_profiles / normalized)
+                else:
+                    add_candidate(runtime_profiles)
                 add_candidate(legacy_root / raw)
         else:
+            add_candidate(runtime_profiles / account)
+            add_candidate(legacy_profiles / account)
             add_candidate(base_root / ".profiles" / account)
-            add_candidate(legacy_root / ".profiles" / account)
 
         for candidate in candidates:
             if candidate and candidate.exists():

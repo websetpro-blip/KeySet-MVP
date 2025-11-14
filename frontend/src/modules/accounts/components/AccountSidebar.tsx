@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Account } from "../types";
-import * as api from "../api";
-import { accountToUpdatePayload } from "../mapper";
 
 const TABS = [
   { id: "basic", label: "Основное", icon: "fas fa-info-circle" },
@@ -13,60 +11,11 @@ const TABS = [
 
 interface AccountSidebarProps {
   account: Account | null;
-  onAccountUpdate?: (updated: Partial<Account>) => void | Promise<void>;
   onClose(): void;
 }
 
-export function AccountSidebar({ account, onAccountUpdate, onClose }: AccountSidebarProps) {
+export function AccountSidebar({ account, onClose }: AccountSidebarProps) {
   const [activeTab, setActiveTab] = useState("basic");
-  const [editedAccount, setEditedAccount] = useState<Account | null>(account);
-  const [proxyTestResult, setProxyTestResult] = useState<any>(null);
-  const [proxyTesting, setProxyTesting] = useState(false);
-
-  // Update edited account when account prop changes
-  useEffect(() => {
-    setEditedAccount(account);
-  }, [account]);
-
-  const handleSave = async () => {
-    if (!editedAccount || !onAccountUpdate) return;
-
-    try {
-      await onAccountUpdate(editedAccount);
-    } catch (err) {
-      console.error("Failed to save account:", err);
-    }
-  };
-
-  const handleProxyTest = async () => {
-    if (!editedAccount) return;
-
-    try {
-      setProxyTesting(true);
-      setProxyTestResult(null);
-
-      const [host, port] = (editedAccount.proxy || "").split(":");
-      if (!host || !port) {
-        alert("Введите корректный адрес прокси (host:port)");
-        return;
-      }
-
-      const result = await api.testProxy(
-        host.trim(),
-        parseInt(port.trim(), 10),
-        editedAccount.proxyUsername || undefined,
-        editedAccount.proxyPassword || undefined,
-        editedAccount.proxyType
-      );
-
-      setProxyTestResult(result);
-      alert(`Прокси работает! Время ответа: ${result.response_time_ms}ms`);
-    } catch (err) {
-      alert(`Ошибка тестирования прокси: ${err instanceof Error ? err.message : "Unknown error"}`);
-    } finally {
-      setProxyTesting(false);
-    }
-  };
 
   return (
     <div className="sidebar" id="settingsSidebar">
@@ -74,11 +23,11 @@ export function AccountSidebar({ account, onAccountUpdate, onClose }: AccountSid
         <h3>Настройки аккаунта</h3>
       </div>
 
-      {editedAccount && (
+      {account && (
         <div className="account-info">
           <div className="account-email">
             <i className="fas fa-user-circle" />
-            <span>{editedAccount.email}</span>
+            <span>{account.email}</span>
           </div>
         </div>
       )}
@@ -99,30 +48,14 @@ export function AccountSidebar({ account, onAccountUpdate, onClose }: AccountSid
         </div>
 
         <div className="tabs-content">
-          {renderTabContent(
-            activeTab,
-            editedAccount,
-            setEditedAccount,
-            handleSave,
-            handleProxyTest,
-            proxyTesting,
-            proxyTestResult
-          )}
+          {renderTabContent(activeTab, account)}
         </div>
       </div>
     </div>
   );
 }
 
-function renderTabContent(
-  tab: string,
-  account: Account | null,
-  setAccount: (account: Account | null) => void,
-  onSave: () => void,
-  onProxyTest: () => void,
-  proxyTesting: boolean,
-  proxyTestResult: any
-) {
+function renderTabContent(tab: string, account: Account | null) {
   if (!account) {
     return (
       <div className="empty-state">
@@ -137,24 +70,12 @@ function renderTabContent(
         <div className="tab-content active">
           <div className="form-group">
             <label>Email</label>
-            <input
-              type="email"
-              value={account.email}
-              onChange={(e) =>
-                setAccount({ ...account, email: e.target.value })
-              }
-            />
+            <input type="email" value={account.email} readOnly />
           </div>
           <div className="form-group">
             <label>Пароль</label>
             <div className="password-field">
-              <input
-                type="password"
-                value={account.password}
-                onChange={(e) =>
-                  setAccount({ ...account, password: e.target.value })
-                }
-              />
+              <input type="password" value={account.password} readOnly />
               <button type="button" className="password-toggle">
                 <i className="fas fa-eye" />
               </button>
@@ -162,23 +83,11 @@ function renderTabContent(
           </div>
           <div className="form-group">
             <label>Секретный вопрос</label>
-            <input
-              type="text"
-              value={account.secretAnswer}
-              onChange={(e) =>
-                setAccount({ ...account, secretAnswer: e.target.value })
-              }
-            />
+            <input type="text" value={account.secretAnswer} readOnly />
           </div>
           <div className="form-group">
             <label>Профиль Chrome</label>
-            <input
-              type="text"
-              value={account.profilePath}
-              onChange={(e) =>
-                setAccount({ ...account, profilePath: e.target.value })
-              }
-            />
+            <input type="text" value={account.profilePath} readOnly />
           </div>
           <div className="info-section">
             <div className="info-item">
@@ -194,11 +103,6 @@ function renderTabContent(
               <span className="info-value">{account.profileSize}</span>
             </div>
           </div>
-          <div className="action-buttons" style={{ marginTop: "20px" }}>
-            <button className="btn btn-success" type="button" onClick={onSave}>
-              <i className="fas fa-save" /> Сохранить
-            </button>
-          </div>
         </div>
       );
 
@@ -207,83 +111,43 @@ function renderTabContent(
         <div className="tab-content active">
           <div className="form-group">
             <label>Адрес прокси</label>
-            <input
-              type="text"
-              value={account.proxy}
-              onChange={(e) =>
-                setAccount({ ...account, proxy: e.target.value })
-              }
-              placeholder="192.168.1.101:8080"
-            />
+            <input type="text" defaultValue={account.proxy} placeholder="192.168.1.101:8080" />
           </div>
           <div className="form-group">
             <label>Логин (опционально)</label>
-            <input
-              type="text"
-              value={account.proxyUsername}
-              onChange={(e) =>
-                setAccount({ ...account, proxyUsername: e.target.value })
-              }
-              placeholder="user3"
-            />
+            <input type="text" defaultValue={account.proxyUsername} placeholder="user3" />
           </div>
           <div className="form-group">
             <label>Пароль (опционально)</label>
-            <input
-              type="password"
-              value={account.proxyPassword}
-              onChange={(e) =>
-                setAccount({ ...account, proxyPassword: e.target.value })
-              }
-              placeholder="••••••••"
-            />
+            <input type="password" defaultValue={account.proxyPassword} placeholder="••••••••" />
           </div>
           <div className="form-group">
             <label>Тип протокола</label>
-            <select
-              value={account.proxyType}
-              onChange={(e) =>
-                setAccount({
-                  ...account,
-                  proxyType: e.target.value as "http" | "https" | "socks5",
-                })
-              }
-            >
+            <select defaultValue={account.proxyType}>
               <option value="http">HTTP</option>
               <option value="https">HTTPS</option>
               <option value="socks5">SOCKS5</option>
             </select>
           </div>
-          <div className="action-buttons" style={{ marginTop: "15px", display: "flex", gap: "10px" }}>
-            <button
-              className="btn btn-info"
-              type="button"
-              onClick={onProxyTest}
-              disabled={proxyTesting}
-            >
-              <i className={proxyTesting ? "fas fa-spinner fa-spin" : "fas fa-flask"} />
-              {proxyTesting ? " Тестируем..." : " Тест прокси"}
-            </button>
-            <button className="btn btn-success" type="button" onClick={onSave}>
-              <i className="fas fa-save" /> Сохранить
+          <div className="proxy-test-section">
+            <button className="btn btn-info" type="button" style={{ marginTop: "15px" }}>
+              <i className="fas fa-flask" /> Тест прокси
             </button>
           </div>
-          {proxyTestResult && (
-            <div className="proxy-status-info" style={{ marginTop: "15px" }}>
-              <div className="proxy-status-item">
-                <span className="status-label">Статус:</span>
-                <span className="status-value">✅ {proxyTestResult.status}</span>
-              </div>
-              <div className="proxy-status-item">
-                <span className="status-label">Скорость:</span>
-                <span className="status-value">{proxyTestResult.response_time_ms}ms</span>
-              </div>
-              <div className="proxy-status-item">
-                <span className="status-label">Прокси:</span>
-                <span className="status-value">{proxyTestResult.proxy}</span>
-              </div>
+          <div className="proxy-status-info" style={{ display: "none" }}>
+            <div className="proxy-status-item">
+              <span className="status-label">Статус:</span>
+              <span className="status-value">🔵 Прямое подключение</span>
             </div>
-          )}
+            <div className="proxy-status-item">
+              <span className="status-label">Скорость:</span>
+              <span className="status-value">--</span>
+            </div>
+            <div className="proxy-status-item">
+              <span className="status-label">IP:</span>
+              <span className="status-value">--</span>
+            </div>
+          </div>
         </div>
       );
 
@@ -292,15 +156,7 @@ function renderTabContent(
         <div className="tab-content active">
           <div className="form-group">
             <label>Предустановка</label>
-            <select
-              value={account.fingerprint}
-              onChange={(e) =>
-                setAccount({
-                  ...account,
-                  fingerprint: e.target.value as any,
-                })
-              }
-            >
+            <select defaultValue="russia_standard">
               <option value="russia_standard">🇷🇺 Россия (стандарт)</option>
               <option value="kazakhstan_standard">🇰🇿 Казахстан (стандарт)</option>
               <option value="no_spoofing">🌐 Без подмены</option>
@@ -358,9 +214,6 @@ function renderTabContent(
             </button>
             <button className="btn btn-success btn-small" type="button">
               <i className="fas fa-chart-bar" /> Проверить
-            </button>
-            <button className="btn btn-success btn-small" type="button" onClick={onSave}>
-              <i className="fas fa-save" /> Сохранить
             </button>
           </div>
         </div>

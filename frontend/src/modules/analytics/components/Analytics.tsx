@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { AlertTriangle, Search } from 'lucide-react'
+import { apiUrl } from '../../../lib/apiClient'
 
 interface SearchQuery {
   id: number
@@ -11,6 +11,11 @@ interface SearchQuery {
   conversions: number
   ctr: number
   cpa: number | null
+}
+
+interface AnalyticsResponse {
+  topWastefulQueries: SearchQuery[]
+  topExpensiveConversions: SearchQuery[]
 }
 
 export function Analytics() {
@@ -24,20 +29,14 @@ export function Analytics() {
 
   const loadAnalytics = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-analytics', {
-        body: {
-          accountId: '33333333-3333-3333-3333-333333333333',
-          dateFrom: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          dateTo: new Date().toISOString().split('T')[0]
-        }
-      })
-
-      if (error) throw error
-
-      if (data?.data) {
-        setTopWastefulQueries(data.data.topWastefulQueries || [])
-        setTopExpensiveConversions(data.data.topExpensiveConversions || [])
+      const response = await fetch(apiUrl('/api/analytics'))
+      if (!response.ok) {
+        throw new Error(`Failed to load analytics: ${response.status}`)
       }
+
+      const data = (await response.json()) as AnalyticsResponse
+      setTopWastefulQueries(data.topWastefulQueries ?? [])
+      setTopExpensiveConversions(data.topExpensiveConversions ?? [])
     } catch (error) {
       console.error('Error loading analytics:', error)
     } finally {

@@ -35,7 +35,7 @@ export const ImportModal: React.FC<{
       }
       
       if (result.phrases.length > 0) {
-        addPhrases(result.phrases);
+        await addPhrases(result.phrases);
         onClose();
       } else {
         setError('Файл не содержит данных');
@@ -61,7 +61,7 @@ export const ImportModal: React.FC<{
       const result = await importFromClipboard(text);
       
       if (result.phrases.length > 0) {
-        addPhrases(result.phrases);
+        await addPhrases(result.phrases);
         onClose();
       } else {
         setError('Нет данных для импорта');

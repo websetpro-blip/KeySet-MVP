@@ -1,6 +1,11 @@
-import DataApp from "./App";
-import "./index.css";
+﻿import "./index.css";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import App from "./App";
 
 export default function DataModule() {
-  return <DataApp />;
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
 }

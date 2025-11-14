@@ -10,6 +10,9 @@ interface SnapshotsModalProps {
 
 const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
   const { snapshots, phrases, groups, createSnapshot, restoreSnapshot, deleteSnapshot, addLog } = useStore();
+  const safeSnapshots = Array.isArray(snapshots) ? snapshots : [];
+  const safePhrases = Array.isArray(phrases) ? phrases : [];
+  const safeGroups = Array.isArray(groups) ? groups : [];
   
   const [mode, setMode] = useState<'list' | 'create'>('list');
   const [formData, setFormData] = useState({
@@ -24,26 +27,26 @@ const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      addLog('warning', 'Введите название снапшота');
+      addLog?.('warning', 'Введите название снапшота');
       return;
     }
 
     createSnapshot(formData.name, formData.description);
     setMode('list');
-    addLog('success', `Снапшот создан: ${formData.name}`);
+    addLog?.('success', `Снапшот создан: ${formData.name}`);
   };
 
   const handleRestore = (snapshot: Snapshot) => {
     if (confirm(`Восстановить снапшот "${snapshot.name}"?\n\nТекущее состояние будет заменено.`)) {
       restoreSnapshot(snapshot.id);
-      addLog('success', `Снапшот восстановлен: ${snapshot.name}`);
+      addLog?.('success', `Снапшот восстановлен: ${snapshot.name}`);
     }
   };
 
   const handleDelete = (snapshot: Snapshot) => {
     if (confirm(`Удалить снапшот "${snapshot.name}"?`)) {
       deleteSnapshot(snapshot.id);
-      addLog('success', `Снапшот удален: ${snapshot.name}`);
+      addLog?.('success', `Снапшот удален: ${snapshot.name}`);
     }
   };
 
@@ -63,8 +66,8 @@ const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
   };
 
   const formatSize = (snapshot: Snapshot) => {
-    const phrasesCount = snapshot.data.phrases.length;
-    const groupsCount = snapshot.data.groups.length;
+    const phrasesCount = Array.isArray(snapshot.data?.phrases) ? snapshot.data.phrases.length : 0;
+    const groupsCount = Array.isArray(snapshot.data?.groups) ? snapshot.data.groups.length : 0;
     return `${phrasesCount} фраз, ${groupsCount} групп`;
   };
 
@@ -95,7 +98,7 @@ const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Текущее состояние</h3>
               <div className="text-sm text-gray-600">
-                Фраз: {phrases.length} | Групп: {groups.length}
+                Фраз: {safePhrases.length} | Групп: {safeGroups.length}
               </div>
             </div>
 
@@ -103,14 +106,14 @@ const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-gray-700">
-                  Сохраненные снапшоты ({snapshots.length}/50)
+                  Сохраненные снапшоты ({safeSnapshots.length}/50)
                 </h3>
                 <button
                   onClick={handleCreateNew}
-                  disabled={snapshots.length >= 50}
+                  disabled={safeSnapshots.length >= 50}
                   className={`
                     px-3 py-1.5 text-sm text-white rounded-lg transition-colors
-                    ${snapshots.length >= 50 
+                    ${safeSnapshots.length >= 50 
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-indigo-600 hover:bg-indigo-700'
                     }
@@ -120,14 +123,14 @@ const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
                 </button>
               </div>
 
-              {snapshots.length === 0 ? (
+              {safeSnapshots.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <div className="text-sm">Нет сохраненных снапшотов</div>
                   <div className="text-xs mt-1">Создайте снапшот для сохранения текущего состояния</div>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {snapshots.slice().reverse().map(snapshot => (
+                  {safeSnapshots.slice().reverse().map(snapshot => (
                     <div key={snapshot.id} className="p-4 bg-white rounded-lg border border-gray-200">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -216,8 +219,8 @@ const SnapshotsModal: React.FC<SnapshotsModalProps> = ({ isOpen, onClose }) => {
             <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
               <div className="font-medium mb-1">Будет сохранено:</div>
               <ul className="space-y-1 ml-4">
-                <li>• Фразы: {phrases.length}</li>
-                <li>• Группы: {groups.length}</li>
+                <li>• Фразы: {safePhrases.length}</li>
+                <li>• Группы: {safeGroups.length}</li>
                 <li>• Фильтры и настройки</li>
               </ul>
             </div>

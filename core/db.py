@@ -1,27 +1,35 @@
 ﻿from __future__ import annotations
 
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 import json
 import os
+import shutil
 import sqlite3
 import uuid
 
-from sqlalchemy import create_engine, inspect, text, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-_runtime_db = os.environ.get("KEYSET_RUNTIME_DB")
-if _runtime_db:
-    DB_PATH = Path(_runtime_db)
-    DATA_DIR = DB_PATH.parent
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-else:
-    DATA_DIR = BASE_DIR / 'data'
-    DATA_DIR.mkdir(exist_ok=True)
-    DB_PATH = DATA_DIR / 'keyset.db'
+from .app_paths import (
+    CONFIG_DIR,
+    DB_DIR,
+    GEO_DIR,
+    bootstrap_files,
+    ensure_runtime,
+    sqlite_url,
+)
 
-DATABASE_URL = f'sqlite:///{DB_PATH.as_posix()}'
+# Гарантируем наличие runtime и копируем шаблонные данные до инициализации engine
+ensure_runtime()
+bootstrap_files()
+
+DB_PATH = DB_DIR / "keyset.db"
+DATABASE_URL = sqlite_url()
+
+# Keep DATA_DIR for backwards compatibility with groups.json loading
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = DB_PATH.parent  # Directory containing the active database
 
 
 class Base(DeclarativeBase):
@@ -300,6 +308,14 @@ def ensure_schema() -> None:
             '''))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_freq_status ON freq_results(status)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_freq_updated ON freq_results(updated_at)"))
+    with engine.begin() as conn:
+        freq_columns = {row[1] for row in conn.execute(text('PRAGMA table_info(freq_results)'))}
+        if 'freq_quotes' not in freq_columns:
+            conn.execute(text("ALTER TABLE freq_results ADD COLUMN freq_quotes INTEGER NOT NULL DEFAULT 0"))
+        if 'freq_exact' not in freq_columns:
+            conn.execute(text("ALTER TABLE freq_results ADD COLUMN freq_exact INTEGER NOT NULL DEFAULT 0"))
+        if 'group' not in freq_columns:
+            conn.execute(text("ALTER TABLE freq_results ADD COLUMN \"group\" TEXT NULL"))
 
     with engine.begin() as conn:
         info_rows = list(conn.execute(text('PRAGMA table_info(tasks)')))

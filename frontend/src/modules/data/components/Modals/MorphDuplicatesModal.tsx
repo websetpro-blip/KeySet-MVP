@@ -14,6 +14,7 @@ interface MorphDuplicatesModalProps {
 
 export const MorphDuplicatesModal: React.FC<MorphDuplicatesModalProps> = ({ isOpen, onClose }) => {
   const { phrases, deletePhrases, addLog } = useStore();
+  const safePhrases = Array.isArray(phrases) ? phrases : [];
   
   const [activeTab, setActiveTab] = React.useState<'exact' | 'morph'>('morph');
   const [duplicateGroups, setDuplicateGroups] = React.useState<Phrase[][]>([]);
@@ -24,16 +25,22 @@ export const MorphDuplicatesModal: React.FC<MorphDuplicatesModalProps> = ({ isOp
     if (isOpen) {
       analyzeDuplicates();
     }
-  }, [isOpen, activeTab, phrases]);
+  }, [isOpen, activeTab, safePhrases]);
 
   const analyzeDuplicates = () => {
     setIsAnalyzing(true);
     setToDelete(new Set());
     
     try {
+      if (safePhrases.length === 0) {
+        setDuplicateGroups([]);
+        addLog?.('warning', 'Нет фраз для поиска дублей');
+        return;
+      }
+
       const groups = activeTab === 'morph' 
-        ? findMorphologicalDuplicates(phrases)
-        : findExactDuplicates(phrases);
+        ? findMorphologicalDuplicates(safePhrases)
+        : findExactDuplicates(safePhrases);
       
       setDuplicateGroups(groups);
       
@@ -44,9 +51,9 @@ export const MorphDuplicatesModal: React.FC<MorphDuplicatesModalProps> = ({ isOp
       });
       setToDelete(idsToDelete);
       
-      addLog('info', `Найдено групп дублей: ${groups.length}`);
+      addLog?.('info', `Найдено групп дублей: ${groups.length}`);
     } catch (error) {
-      addLog('error', `Ошибка анализа дублей: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
+      addLog?.('error', `Ошибка анализа дублей: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -69,7 +76,7 @@ export const MorphDuplicatesModal: React.FC<MorphDuplicatesModalProps> = ({ isOp
     }
 
     deletePhrases(Array.from(toDelete));
-    addLog('success', `Удалено дублей: ${toDelete.size}`);
+    addLog?.('success', `Удалено дублей: ${toDelete.size}`);
     onClose();
   };
 

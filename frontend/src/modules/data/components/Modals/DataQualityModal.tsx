@@ -14,6 +14,7 @@ interface DataQualityModalProps {
 
 export const DataQualityModal: React.FC<DataQualityModalProps> = ({ isOpen, onClose }) => {
   const { phrases, setPhrases, addLog } = useStore();
+  const safePhrases = Array.isArray(phrases) ? phrases : [];
   
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -32,11 +33,16 @@ export const DataQualityModal: React.FC<DataQualityModalProps> = ({ isOpen, onCl
     setProcessingResult(null);
     
     try {
-      const result = await analyzeDataQuality(phrases);
+      if (safePhrases.length === 0) {
+        addLog?.('warning', 'Нет данных для анализа качества');
+        return;
+      }
+
+      const result = await analyzeDataQuality(safePhrases);
       setAnalysis(result);
-      addLog('info', `Анализ качества завершен. Оценка: ${result.qualityScore}/100`);
+      addLog?.('info', `Анализ качества завершен. Оценка: ${result.qualityScore}/100`);
     } catch (error) {
-      addLog('error', `Ошибка анализа: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
+      addLog?.('error', `Ошибка анализа: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -46,20 +52,25 @@ export const DataQualityModal: React.FC<DataQualityModalProps> = ({ isOpen, onCl
     setIsProcessing(true);
     
     try {
-      const result = await quickCleanup(phrases, useMorphology);
+      if (safePhrases.length === 0) {
+        addLog?.('warning', 'Нет фраз для очистки');
+        return;
+      }
+
+      const result = await quickCleanup(safePhrases, useMorphology);
       
       if (result.success) {
         setPhrases(result.phrases);
         setProcessingResult(result);
-        addLog('success', `Быстрая очистка: удалено ${result.removed}, изменено ${result.modified} фраз`);
+        addLog?.('success', `Быстрая очистка: удалено ${result.removed}, изменено ${result.modified} фраз`);
         
         // Обновляем анализ
         await runAnalysis();
       } else {
-        addLog('error', `Ошибки при очистке: ${result.errors.join(', ')}`);
+        addLog?.('error', `Ошибки при очистке: ${result.errors.join(', ')}`);
       }
     } catch (error) {
-      addLog('error', `Ошибка очистки: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
+      addLog?.('error', `Ошибка очистки: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -69,20 +80,25 @@ export const DataQualityModal: React.FC<DataQualityModalProps> = ({ isOpen, onCl
     setIsProcessing(true);
     
     try {
-      const result = await deepCleanup(phrases, useMorphology);
+      if (safePhrases.length === 0) {
+        addLog?.('warning', 'Нет фраз для очистки');
+        return;
+      }
+
+      const result = await deepCleanup(safePhrases, useMorphology);
       
       if (result.success) {
         setPhrases(result.phrases);
         setProcessingResult(result);
-        addLog('success', `Глубокая очистка: удалено ${result.removed}, изменено ${result.modified} фраз`);
+        addLog?.('success', `Глубокая очистка: удалено ${result.removed}, изменено ${result.modified} фраз`);
         
         // Обновляем анализ
         await runAnalysis();
       } else {
-        addLog('error', `Ошибки при очистке: ${result.errors.join(', ')}`);
+        addLog?.('error', `Ошибки при очистке: ${result.errors.join(', ')}`);
       }
     } catch (error) {
-      addLog('error', `Ошибка очистки: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
+      addLog?.('error', `Ошибка очистки: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     } finally {
       setIsProcessing(false);
     }

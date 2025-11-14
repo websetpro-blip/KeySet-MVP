@@ -7,22 +7,13 @@ import time
 
 from sqlalchemy import select
 
-try:
-    # Относительные импорты для запуска как пакета
-    from ..core.db import SessionLocal
-    from ..core.models import Account
-    from ..utils.proxy import proxy_to_playwright
-    from ..utils.text_fix import fix_mojibake
-    from .proxy_manager import ProxyManager
-    from .chrome_launcher import ChromeLauncher
-except ImportError:
-    # Абсолютные импорты для запуска как скрипта
-    from core.db import SessionLocal
-    from core.models import Account
-    from utils.proxy import proxy_to_playwright
-    from utils.text_fix import fix_mojibake
-    from .proxy_manager import ProxyManager
-    from .chrome_launcher import ChromeLauncher
+# Абсолютные импорты из новой структуры
+from core.db import SessionLocal
+from core.models import Account
+from utils.proxy import proxy_to_playwright
+from utils.text_fix import fix_mojibake
+from services.proxy_manager import ProxyManager
+from services.chrome_launcher import ChromeLauncher
 
 # Для проверки прокси и автологина
 try:

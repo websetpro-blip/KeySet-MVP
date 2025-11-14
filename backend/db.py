@@ -82,7 +82,7 @@ class Task(Base):
 
     # Parameters
     seed_file = Column(String(500), nullable=False)  # File with phrases
-    region = Column(Integer, default=225)  # Region ID (lr parameter)
+    region = Column(Integer, nullable=True)  # Region ID (lr parameter)
     headless = Column(Boolean, default=False)  # Headless browser mode
     dump_json = Column(Boolean, default=False)  # Save JSON log
     kind = Column(String(50), default="frequency")  # frequency/forecast/etc
@@ -117,7 +117,7 @@ class FrequencyResult(Base):
 
     # Phrase and region
     mask = Column(String(500), nullable=False, index=True)  # Keyword phrase
-    region = Column(Integer, default=225, index=True)  # Region ID
+    region = Column(Integer, nullable=True, index=True)  # Region ID
 
     # Frequencies
     freq_total = Column(Integer, default=0)  # Broad match (WS)
