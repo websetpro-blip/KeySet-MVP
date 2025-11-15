@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { to: "/accounts", label: "Аккаунты" },
   { to: "/masks", label: "Маски" },
   { to: "/data", label: "Данные" },
+  { to: "/announcements", label: "Объявления" },
   { to: "/analytics", label: "Аналитика" },
 ];
 
