@@ -5,6 +5,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 const AccountsModule = lazy(() => import("./modules/accounts"));
 const MasksModule = lazy(() => import("./modules/masks"));
 const DataModule = lazy(() => import("./modules/data"));
+const AnnouncementsModule = lazy(() => import("./modules/announcements"));
 const AnalyticsModule = lazy(() => import("./modules/analytics"));
 
 const RouteFallback = () => (
@@ -39,6 +40,14 @@ export function App() {
           element={
             <Suspense fallback={<RouteFallback />}>
               <DataModule />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/announcements/*"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <AnnouncementsModule />
             </Suspense>
           }
         />
