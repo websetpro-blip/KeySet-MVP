@@ -1,198 +1,315 @@
+// Zustand store для модуля Объявления
+// Основано на требованиях из ГОТОВЫЕ_МОДУЛИ/Объявления
+
 import { create } from 'zustand';
-import type { AdTemplate, GeneratedAd, AnnouncementsState, GenerateOptions } from '../types';
-import { generateAdsFromPhrases } from '../lib/generator';
+import { persist } from 'zustand/middleware';
+import type {
+  AdRow,
+  AnnouncementsState,
+  GenerationSettings,
+  RuleSet,
+  AIGenerateOptions,
+  AIGenerateResponse,
+} from '../types';
+import {
+  generateAdsFromKeys,
+  applyRuleSetsToRow,
+  addDefaultQuickLinks,
+  trimRowToLimits,
+} from '../lib/generator';
 
 interface AnnouncementsStore extends AnnouncementsState {
-  // Действия для шаблонов
-  addTemplate: (template: Omit<AdTemplate, 'id' | 'createdAt'>) => void;
-  updateTemplate: (id: string, template: Partial<AdTemplate>) => void;
-  deleteTemplate: (id: string) => void;
-  selectTemplate: (id: string | null) => void;
+  // Действия с настройками
+  updateSettings: (settings: Partial<GenerationSettings>) => void;
 
-  // Действия для генерации объявлений
-  generateAds: (
-    phrases: Array<{ id: string; text: string }>,
-    options: GenerateOptions
-  ) => Promise<void>;
-  deleteAd: (id: string) => void;
-  deleteAds: (ids: string[]) => void;
-  updateAd: (id: string, ad: Partial<GeneratedAd>) => void;
-  selectAds: (ids: string[]) => void;
-  selectAllAds: () => void;
-  deselectAllAds: () => void;
+  // Действия с правилами подмены
+  updateRuleSet: (index: number, ruleSet: Partial<RuleSet>) => void;
+  toggleRuleSet: (index: number) => void;
 
-  // Утилиты
+  // Генерация объявлений (ручная)
+  generateAds: (keys: string[]) => void;
+
+  // Генерация с ИИ
+  generateWithAI: (keys: string[]) => Promise<void>;
+
+  // Действия со строками
+  updateRow: (index: number, row: Partial<AdRow>) => void;
+  deleteRows: (indices: number[]) => void;
+  addQuickLinksToAll: () => void;
+  trimAllToLimits: () => void;
+  applyRulesToAll: () => void;
+
+  // Выбор строк
+  selectRow: (index: number) => void;
+  deselectRow: (index: number) => void;
+  selectAllRows: () => void;
+  deselectAllRows: () => void;
+  toggleRowSelection: (index: number) => void;
+
+  // Очистка
   clearAll: () => void;
-  getAdsByTemplate: (templateId: string) => GeneratedAd[];
-  getAdsByPhrase: (phraseId: string) => GeneratedAd[];
 }
 
-// Шаблон по умолчанию
-const DEFAULT_TEMPLATE: Omit<AdTemplate, 'id' | 'createdAt'> = {
-  name: 'Шаблон по умолчанию',
-  title1: '{Phrase} - купить в Москве',
-  title2: 'Низкие цены, быстрая доставка',
-  text: 'Большой выбор {phrase}. Гарантия качества. Доставка по всей России. Звоните!',
-  displayUrl: 'site.ru/{phrase}',
-  quickLinks: [
-    { title: 'Каталог', description: 'Весь ассортимент товаров' },
-    { title: 'Акции', description: 'Скидки до 50%' },
-    { title: 'Доставка', description: 'Быстрая доставка по городу' },
-    { title: 'Гарантия', description: 'Официальная гарантия' },
-  ],
-  usePhraseInTitle: true,
-  usePhraseInText: true,
+// Дефолтные настройки
+const defaultSettings: GenerationSettings = {
+  domain: '',
+  utm: 'utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}',
+  h1Template: '{key}',
+  h2Suffix: 'Скидки • Доставка сегодня',
+  textVariants: ['Официальный дилер. Доставка за 1 день. Гарантия 2 года.'],
 };
 
-export const useStore = create<AnnouncementsStore>((set, get) => ({
-  templates: [
+// Дефолтные правила подмены
+const defaultRuleSets: RuleSet[] = [
+  {
+    name: 'Глобальные замены',
+    enabled: true,
+    rules: [],
+  },
+  {
+    name: 'ГЕО/морфология',
+    enabled: true,
+    rules: [],
+  },
+];
+
+export const useStore = create<AnnouncementsStore>()(
+  persist(
+    (set, get) => ({
+      // Начальное состояние
+      rows: [],
+      settings: defaultSettings,
+      ruleSets: defaultRuleSets,
+      isGenerating: false,
+      isAIGenerating: false,
+      selectedRowIndices: new Set<number>(),
+
+      // Обновить настройки
+      updateSettings: (newSettings) => {
+        set((state) => ({
+          settings: { ...state.settings, ...newSettings },
+        }));
+      },
+
+      // Обновить набор правил
+      updateRuleSet: (index, ruleSet) => {
+        set((state) => {
+          const newRuleSets = [...state.ruleSets];
+          newRuleSets[index] = { ...newRuleSets[index], ...ruleSet };
+          return { ruleSets: newRuleSets };
+        });
+      },
+
+      // Включить/выключить набор правил
+      toggleRuleSet: (index) => {
+        set((state) => {
+          const newRuleSets = [...state.ruleSets];
+          newRuleSets[index] = {
+            ...newRuleSets[index],
+            enabled: !newRuleSets[index].enabled,
+          };
+          return { ruleSets: newRuleSets };
+        });
+      },
+
+      // Генерировать объявления вручную
+      generateAds: (keys) => {
+        const { settings } = get();
+
+        if (keys.length === 0) {
+          alert('Нет ключевых фраз для генерации');
+          return;
+        }
+
+        if (!settings.domain.trim()) {
+          alert('Укажите домен');
+          return;
+        }
+
+        set({ isGenerating: true });
+
+        try {
+          const newRows = generateAdsFromKeys(
+            keys,
+            settings,
+            (current, total) => {
+              // Прогресс можно показать в UI
+              console.log(`Генерация: ${current}/${total}`);
+            }
+          );
+
+          set({ rows: newRows, isGenerating: false });
+        } catch (error) {
+          console.error('Ошибка генерации:', error);
+          alert('Ошибка при генерации объявлений');
+          set({ isGenerating: false });
+        }
+      },
+
+      // Генерировать с ИИ (через API)
+      generateWithAI: async (keys) => {
+        const { settings } = get();
+
+        if (keys.length === 0) {
+          alert('Нет ключевых фраз для генерации');
+          return;
+        }
+
+        if (!settings.domain.trim()) {
+          alert('Укажите домен');
+          return;
+        }
+
+        set({ isAIGenerating: true });
+
+        try {
+          const payload: AIGenerateOptions = {
+            keys,
+            domain: settings.domain,
+            utm: settings.utm,
+            locale: 'ru',
+            mode: 'serp', // Анализ SERP
+            limits: {
+              H1: 56,
+              H2: 56,
+              TEXT: 81,
+              DISPLAY_URL: 20,
+              CLARIFICATION: 66,
+              QUICKLINK_TEXT: 30,
+              QUICKLINK_DESC: 60,
+            },
+          };
+
+          const response = await fetch('/api/ai/ads/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data: AIGenerateResponse = await response.json();
+
+          if (!data.rows || data.rows.length === 0) {
+            throw new Error('ИИ вернул пустой результат');
+          }
+
+          set({ rows: data.rows, isAIGenerating: false });
+        } catch (error) {
+          console.error('Ошибка AI генерации:', error);
+          alert('ИИ недоступен или не настроен. Используйте ручную генерацию.');
+          set({ isAIGenerating: false });
+        }
+      },
+
+      // Обновить строку
+      updateRow: (index, partialRow) => {
+        set((state) => {
+          const newRows = [...state.rows];
+          newRows[index] = { ...newRows[index], ...partialRow };
+          return { rows: newRows };
+        });
+      },
+
+      // Удалить строки
+      deleteRows: (indices) => {
+        set((state) => {
+          const newRows = state.rows.filter((_, i) => !indices.includes(i));
+          const newSelected = new Set<number>();
+
+          // Пересчитываем индексы выбранных строк
+          state.selectedRowIndices.forEach((oldIndex) => {
+            const deletedBefore = indices.filter((i) => i < oldIndex).length;
+            if (!indices.includes(oldIndex)) {
+              newSelected.add(oldIndex - deletedBefore);
+            }
+          });
+
+          return { rows: newRows, selectedRowIndices: newSelected };
+        });
+      },
+
+      // Добавить быстрые ссылки ко всем
+      addQuickLinksToAll: () => {
+        const { rows, settings } = get();
+        const newRows = rows.map((row) => addDefaultQuickLinks(row, settings.domain));
+        set({ rows: newRows });
+      },
+
+      // Обрезать все по лимитам
+      trimAllToLimits: () => {
+        const { rows } = get();
+        const newRows = rows.map((row) => trimRowToLimits(row));
+        set({ rows: newRows });
+      },
+
+      // Применить правила подмены ко всем
+      applyRulesToAll: () => {
+        const { rows, ruleSets } = get();
+        const newRows = rows.map((row) => applyRuleSetsToRow(row, ruleSets));
+        set({ rows: newRows });
+      },
+
+      // Выбрать строку
+      selectRow: (index) => {
+        set((state) => {
+          const newSelected = new Set(state.selectedRowIndices);
+          newSelected.add(index);
+          return { selectedRowIndices: newSelected };
+        });
+      },
+
+      // Снять выбор строки
+      deselectRow: (index) => {
+        set((state) => {
+          const newSelected = new Set(state.selectedRowIndices);
+          newSelected.delete(index);
+          return { selectedRowIndices: newSelected };
+        });
+      },
+
+      // Выбрать все строки
+      selectAllRows: () => {
+        const { rows } = get();
+        const allIndices = new Set(rows.map((_, i) => i));
+        set({ selectedRowIndices: allIndices });
+      },
+
+      // Снять выбор всех строк
+      deselectAllRows: () => {
+        set({ selectedRowIndices: new Set<number>() });
+      },
+
+      // Переключить выбор строки
+      toggleRowSelection: (index) => {
+        set((state) => {
+          const newSelected = new Set(state.selectedRowIndices);
+          if (newSelected.has(index)) {
+            newSelected.delete(index);
+          } else {
+            newSelected.add(index);
+          }
+          return { selectedRowIndices: newSelected };
+        });
+      },
+
+      // Очистить всё
+      clearAll: () => {
+        set({
+          rows: [],
+          selectedRowIndices: new Set<number>(),
+        });
+      },
+    }),
     {
-      ...DEFAULT_TEMPLATE,
-      id: 'template_default',
-      createdAt: Date.now(),
-    },
-  ],
-  generatedAds: [],
-  selectedTemplateId: 'template_default',
-  selectedAdIds: new Set(),
-  isGenerating: false,
-  progress: 0,
-  totalToGenerate: 0,
-
-  // Действия для шаблонов
-  addTemplate: (template) => {
-    const newTemplate: AdTemplate = {
-      ...template,
-      id: `template_${Date.now()}`,
-      createdAt: Date.now(),
-    };
-    set((state) => ({
-      templates: [...state.templates, newTemplate],
-    }));
-  },
-
-  updateTemplate: (id, updates) => {
-    set((state) => ({
-      templates: state.templates.map((t) =>
-        t.id === id ? { ...t, ...updates } : t
-      ),
-    }));
-  },
-
-  deleteTemplate: (id) => {
-    set((state) => ({
-      templates: state.templates.filter((t) => t.id !== id),
-      selectedTemplateId:
-        state.selectedTemplateId === id ? null : state.selectedTemplateId,
-    }));
-  },
-
-  selectTemplate: (id) => {
-    set({ selectedTemplateId: id });
-  },
-
-  // Генерация объявлений
-  generateAds: async (phrases, options) => {
-    const { templateId, phraseIds, replaceExisting } = options;
-    const template = get().templates.find((t) => t.id === templateId);
-
-    if (!template) {
-      throw new Error('Шаблон не найден');
+      name: 'announcements-storage', // Имя в localStorage
+      partialize: (state) => ({
+        // Сохраняем только настройки и правила, не сохраняем сгенерированные объявления
+        settings: state.settings,
+        ruleSets: state.ruleSets,
+      }),
     }
-
-    // Фильтруем фразы по ID
-    const selectedPhrases = phrases.filter((p) => phraseIds.includes(p.id));
-
-    if (selectedPhrases.length === 0) {
-      throw new Error('Не выбрано ни одной фразы');
-    }
-
-    set({
-      isGenerating: true,
-      progress: 0,
-      totalToGenerate: selectedPhrases.length,
-    });
-
-    // Генерируем объявления
-    const newAds = generateAdsFromPhrases(
-      selectedPhrases,
-      template,
-      (current, total) => {
-        set({ progress: current, totalToGenerate: total });
-      }
-    );
-
-    set((state) => {
-      let updatedAds = [...state.generatedAds];
-
-      if (replaceExisting) {
-        // Удаляем существующие объявления для этих фраз
-        updatedAds = updatedAds.filter(
-          (ad) => !phraseIds.includes(ad.phraseId)
-        );
-      }
-
-      return {
-        generatedAds: [...updatedAds, ...newAds],
-        isGenerating: false,
-        progress: 0,
-        totalToGenerate: 0,
-      };
-    });
-  },
-
-  deleteAd: (id) => {
-    set((state) => ({
-      generatedAds: state.generatedAds.filter((ad) => ad.id !== id),
-      selectedAdIds: new Set(
-        Array.from(state.selectedAdIds).filter((adId) => adId !== id)
-      ),
-    }));
-  },
-
-  deleteAds: (ids) => {
-    set((state) => ({
-      generatedAds: state.generatedAds.filter((ad) => !ids.includes(ad.id)),
-      selectedAdIds: new Set(
-        Array.from(state.selectedAdIds).filter((adId) => !ids.includes(adId))
-      ),
-    }));
-  },
-
-  updateAd: (id, updates) => {
-    set((state) => ({
-      generatedAds: state.generatedAds.map((ad) =>
-        ad.id === id ? { ...ad, ...updates } : ad
-      ),
-    }));
-  },
-
-  selectAds: (ids) => {
-    set({ selectedAdIds: new Set(ids) });
-  },
-
-  selectAllAds: () => {
-    set((state) => ({
-      selectedAdIds: new Set(state.generatedAds.map((ad) => ad.id)),
-    }));
-  },
-
-  deselectAllAds: () => {
-    set({ selectedAdIds: new Set() });
-  },
-
-  clearAll: () => {
-    set({
-      generatedAds: [],
-      selectedAdIds: new Set(),
-    });
-  },
-
-  getAdsByTemplate: (templateId) => {
-    return get().generatedAds.filter((ad) => ad.templateId === templateId);
-  },
-
-  getAdsByPhrase: (phraseId) => {
-    return get().generatedAds.filter((ad) => ad.phraseId === phraseId);
-  },
-}));
+  )
+);

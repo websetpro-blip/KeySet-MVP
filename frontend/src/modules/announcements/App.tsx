@@ -1,314 +1,553 @@
-import React, { useState } from 'react';
-import { useStore } from './store/useStore';
-import { exportToYandexDirectCSV } from './lib/generator';
-import './App.css';
+// Модуль Объявления - табличный интерфейс
+// Основано на требованиях из ГОТОВЫЕ_МОДУЛИ/Объявления
 
-// Импортируем типы из модуля Data для интеграции
-interface Phrase {
-  id: string;
-  text: string;
-  ws: number;
-}
+import React, { useState, useMemo } from 'react';
+import { useStore } from './store/useStore';
+import { LIMITS } from './types';
+import {
+  exportToCSV,
+  downloadCSV,
+  copyRowsAsTSV,
+  copyKeysOnly,
+  displayUrl,
+} from './lib/generator';
+import styles from './App.module.css';
 
 export default function AnnouncementsApp() {
   const {
-    templates,
-    generatedAds,
-    selectedTemplateId,
-    selectedAdIds,
+    rows,
+    settings,
     isGenerating,
-    progress,
-    totalToGenerate,
-    selectTemplate,
+    isAIGenerating,
+    selectedRowIndices,
+    updateSettings,
     generateAds,
-    selectAllAds,
-    deselectAllAds,
-    deleteAds,
+    generateWithAI,
+    updateRow,
+    deleteRows,
+    addQuickLinksToAll,
+    trimAllToLimits,
+    selectAllRows,
+    deselectAllRows,
+    toggleRowSelection,
   } = useStore();
 
-  const [samplePhrases] = useState<Phrase[]>([
-    { id: '1', text: 'купить пылесос', ws: 15000 },
-    { id: '2', text: 'пылесос для дома', ws: 8500 },
-    { id: '3', text: 'робот пылесос цена', ws: 12000 },
-    { id: '4', text: 'беспроводной пылесос', ws: 6200 },
-    { id: '5', text: 'моющий пылесос', ws: 5800 },
-  ]);
+  // Локальное состояние для ввода ключей
+  const [keysInput, setKeysInput] = useState('');
+  const [campaignName, setCampaignName] = useState(`AUTO-${new Date().toISOString().slice(0, 10)}`);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
-  const [selectedPhraseIds, setSelectedPhraseIds] = useState<Set<string>>(new Set());
-  const [campaignName, setCampaignName] = useState('Моя кампания');
-  const [adGroupName, setAdGroupName] = useState('Группа объявлений');
+  // Парсим ключи
+  const keys = useMemo(() => {
+    return [...new Set(keysInput.split(/\r?\n/).map((s) => s.trim()).filter(Boolean))].slice(0, 1000);
+  }, [keysInput]);
 
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  // Текущее объявление для предпросмотра
+  const currentAd = rows[previewIndex];
 
-  const handleGenerateAds = async () => {
-    if (!selectedTemplateId || selectedPhraseIds.size === 0) {
-      alert('Выберите шаблон и хотя бы одну фразу');
+  // Обработчики
+  const handleGenerate = () => {
+    if (!keys.length) {
+      alert('Добавьте ключевые фразы (по одной в строке)');
       return;
     }
-
-    try {
-      await generateAds(samplePhrases, {
-        templateId: selectedTemplateId,
-        phraseIds: Array.from(selectedPhraseIds),
-        replaceExisting: true,
-      });
-    } catch (error) {
-      console.error('Ошибка генерации объявлений:', error);
-      alert('Ошибка при генерации объявлений');
-    }
+    generateAds(keys);
+    setPreviewIndex(0);
   };
 
-  const handleExport = () => {
-    if (generatedAds.length === 0) {
+  const handleGenerateAI = async () => {
+    if (!keys.length) {
+      alert('Добавьте ключевые фразы (по одной в строке)');
+      return;
+    }
+    await generateWithAI(keys);
+    setPreviewIndex(0);
+  };
+
+  const handleExportCSV = () => {
+    if (!rows.length) {
       alert('Нет объявлений для экспорта');
       return;
     }
 
-    const csv = exportToYandexDirectCSV(generatedAds, campaignName, adGroupName);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
+    const csv = exportToCSV(rows, {
+      campaignName,
+      delimiter: ';',
+      includeBOM: true,
+    });
 
-    link.setAttribute('href', url);
-    link.setAttribute('download', `yandex_direct_ads_${Date.now()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCSV(csv, `yandex_ads_${Date.now()}.csv`);
   };
 
-  const togglePhraseSelection = (phraseId: string) => {
-    const newSet = new Set(selectedPhraseIds);
-    if (newSet.has(phraseId)) {
-      newSet.delete(phraseId);
-    } else {
-      newSet.add(phraseId);
-    }
-    setSelectedPhraseIds(newSet);
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedAdIds.size === 0) {
-      alert('Выберите объявления для удаления');
+  const handleCopyTSV = async () => {
+    if (!rows.length) {
+      alert('Нет объявлений для копирования');
       return;
     }
 
-    if (confirm(`Удалить ${selectedAdIds.size} объявлений?`)) {
-      deleteAds(Array.from(selectedAdIds));
-      deselectAllAds();
+    const success = await copyRowsAsTSV(rows);
+    if (success) {
+      alert('Таблица скопирована в буфер обмена');
+    } else {
+      alert('Ошибка копирования');
     }
   };
 
+  const handleCopyKeys = async () => {
+    if (!rows.length) {
+      alert('Нет объявлений');
+      return;
+    }
+
+    const success = await copyKeysOnly(rows);
+    if (success) {
+      alert('Ключи скопированы в буфер обмена');
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedRowIndices.size === 0) {
+      alert('Выберите строки для удаления');
+      return;
+    }
+
+    if (confirm(`Удалить ${selectedRowIndices.size} строк?`)) {
+      deleteRows(Array.from(selectedRowIndices));
+      setPreviewIndex(0);
+    }
+  };
+
+  const handleEditCell = (rowIndex: number, field: string, value: string) => {
+    updateRow(rowIndex, { [field]: value });
+  };
+
   return (
-    <div className="announcements-app">
-      <div className="announcements-header">
-        <h1>Генератор объявлений для Яндекс Директ</h1>
-        <p className="announcements-subtitle">
-          Создавайте тысячи объявлений за пару минут из ключевых фраз
+    <div className={styles.container}>
+      {/* Шапка */}
+      <div className={styles.header}>
+        <h1 className={styles.title}>Генератор объявлений для Яндекс.Директ</h1>
+        <p className={styles.subtitle}>
+          Создавайте 1000 готовых объявлений за 5-10 минут
         </p>
       </div>
 
-      <div className="announcements-content">
-        {/* Левая панель - Шаблоны и фразы */}
-        <div className="announcements-sidebar">
-          {/* Выбор шаблона */}
-          <div className="announcements-section">
-            <h2>Шаблон объявления</h2>
-            <select
-              className="template-select"
-              value={selectedTemplateId || ''}
-              onChange={(e) => selectTemplate(e.target.value)}
-            >
-              {templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
+      {/* Основной контент */}
+      <div className={styles.content}>
+        {/* Левая колонка - Ввод ключей и настройки */}
+        <div className={styles.sidebar}>
+          {/* Шаг 1: Ключи */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Шаг 1 — Ключевые фразы</h2>
+            <textarea
+              className={styles.textarea}
+              placeholder="Ключи — по одному в строке"
+              value={keysInput}
+              onChange={(e) => setKeysInput(e.target.value)}
+              rows={10}
+            />
+            <div className={styles.hint}>Фраз: {keys.length} / 1000</div>
+          </section>
 
-            {selectedTemplate && (
-              <div className="template-preview">
-                <div className="template-field">
-                  <label>Заголовок 1:</label>
-                  <div className="template-value">{selectedTemplate.title1}</div>
-                </div>
-                {selectedTemplate.title2 && (
-                  <div className="template-field">
-                    <label>Заголовок 2:</label>
-                    <div className="template-value">{selectedTemplate.title2}</div>
-                  </div>
-                )}
-                <div className="template-field">
-                  <label>Текст:</label>
-                  <div className="template-value">{selectedTemplate.text}</div>
-                </div>
-                <div className="template-options">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedTemplate.usePhraseInTitle}
-                      readOnly
-                    />
-                    Фраза в заголовке
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedTemplate.usePhraseInText}
-                      readOnly
-                    />
-                    Фраза в тексте
-                  </label>
-                </div>
+          {/* Шаг 2: Домен и UTM */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Шаг 2 — Домен и UTM</h2>
+            <div className={styles.field}>
+              <label className={styles.label}>Домен/лендинг</label>
+              <input
+                className={styles.input}
+                placeholder="example.ru"
+                value={settings.domain}
+                onChange={(e) => updateSettings({ domain: e.target.value })}
+              />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label}>UTM-шаблон (опц.)</label>
+              <input
+                className={styles.input}
+                value={settings.utm}
+                onChange={(e) => updateSettings({ utm: e.target.value })}
+              />
+              <div className={styles.hint}>
+                В предпросмотре показываем только домен/путь, без UTM
               </div>
-            )}
-          </div>
+            </div>
+          </section>
 
-          {/* Выбор фраз */}
-          <div className="announcements-section">
-            <h2>Ключевые фразы ({samplePhrases.length})</h2>
-            <div className="phrases-actions">
+          {/* Шаг 3: Заголовки */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Шаг 3 — Заголовки</h2>
+            <div className={styles.field}>
+              <label className={styles.label}>Шаблон H1</label>
+              <input
+                className={styles.input}
+                value={settings.h1Template}
+                onChange={(e) => updateSettings({ h1Template: e.target.value })}
+              />
+              <div className={styles.hint}>
+                Подстановка: {'{key}'}; если H1 &gt; 56, хвост уйдёт в H2
+              </div>
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label}>Суффикс H2</label>
+              <input
+                className={styles.input}
+                value={settings.h2Suffix}
+                onChange={(e) => updateSettings({ h2Suffix: e.target.value })}
+              />
+              <div className={styles.hint}>
+                Если ключ влез в H1, H2 возьмём из суффикса
+              </div>
+            </div>
+          </section>
+
+          {/* Шаг 4: Текст */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Шаг 4 — Текст объявления</h2>
+            <textarea
+              className={styles.textarea}
+              placeholder="Текст объявления (до 81 символа)"
+              value={settings.textVariants.join('\n')}
+              onChange={(e) =>
+                updateSettings({
+                  textVariants: e.target.value.split(/\r?\n/).filter(Boolean),
+                })
+              }
+              rows={4}
+            />
+            <div className={styles.hint}>Каждый вариант с новой строки (≤{LIMITS.TEXT} символов)</div>
+          </section>
+
+          {/* Кнопки генерации */}
+          <section className={styles.section}>
+            <div className={styles.buttonGroup}>
               <button
-                className="btn-small"
-                onClick={() => setSelectedPhraseIds(new Set(samplePhrases.map((p) => p.id)))}
+                className={styles.btnPrimary}
+                onClick={handleGenerate}
+                disabled={isGenerating || !keys.length}
               >
-                Выбрать все
+                {isGenerating ? 'Генерация...' : 'Сгенерировать'}
               </button>
-              <button className="btn-small" onClick={() => setSelectedPhraseIds(new Set())}>
-                Снять выбор
+              <button
+                className={styles.btnSecondary}
+                onClick={handleGenerateAI}
+                disabled={isAIGenerating || !keys.length}
+              >
+                {isAIGenerating ? 'ИИ генерирует...' : 'Сгенерировать с ИИ'}
               </button>
             </div>
-            <div className="phrases-list">
-              {samplePhrases.map((phrase) => (
-                <label key={phrase.id} className="phrase-item">
-                  <input
-                    type="checkbox"
-                    checked={selectedPhraseIds.has(phrase.id)}
-                    onChange={() => togglePhraseSelection(phrase.id)}
-                  />
-                  <span className="phrase-text">{phrase.text}</span>
-                  <span className="phrase-ws">({phrase.ws.toLocaleString()})</span>
-                </label>
-              ))}
+            <div className={styles.hint}>
+              H1≤{LIMITS.H1}, H2≤{LIMITS.H2}, Текст≤{LIMITS.TEXT}
             </div>
-          </div>
-
-          {/* Кнопка генерации */}
-          <div className="announcements-section">
-            <button
-              className="btn-generate"
-              onClick={handleGenerateAds}
-              disabled={isGenerating || selectedPhraseIds.size === 0}
-            >
-              {isGenerating
-                ? `Генерация... ${progress}/${totalToGenerate}`
-                : `Генерировать объявления (${selectedPhraseIds.size})`}
-            </button>
-          </div>
+          </section>
         </div>
 
-        {/* Правая панель - Сгенерированные объявления */}
-        <div className="announcements-main">
-          <div className="announcements-toolbar">
-            <h2>Сгенерированные объявления ({generatedAds.length})</h2>
-            <div className="toolbar-actions">
-              <button className="btn" onClick={selectAllAds}>
+        {/* Правая колонка - Таблица и предпросмотр */}
+        <div className={styles.main}>
+          {/* Toolbar */}
+          <div className={styles.toolbar}>
+            <h2 className={styles.sectionTitle}>Объявления: {rows.length}</h2>
+            <div className={styles.buttonGroup}>
+              <button className={styles.btn} onClick={selectAllRows}>
                 Выбрать все
               </button>
-              <button className="btn" onClick={deselectAllAds}>
+              <button className={styles.btn} onClick={deselectAllRows}>
                 Снять выбор
               </button>
-              <button className="btn btn-danger" onClick={handleDeleteSelected}>
-                Удалить выбранные ({selectedAdIds.size})
+              <button
+                className={styles.btnDanger}
+                onClick={handleDeleteSelected}
+                disabled={selectedRowIndices.size === 0}
+              >
+                Удалить ({selectedRowIndices.size})
               </button>
-              <button className="btn btn-primary" onClick={handleExport}>
-                Экспорт в CSV
+              <button
+                className={styles.btn}
+                onClick={addQuickLinksToAll}
+                disabled={rows.length === 0}
+              >
+                + Быстрые ссылки (4)
+              </button>
+              <button
+                className={styles.btn}
+                onClick={trimAllToLimits}
+                disabled={rows.length === 0}
+              >
+                Подрезать по лимитам
+              </button>
+              <button
+                className={styles.btnPrimary}
+                onClick={handleExportCSV}
+                disabled={rows.length === 0}
+              >
+                Экспорт CSV
+              </button>
+              <button className={styles.btn} onClick={handleCopyTSV} disabled={rows.length === 0}>
+                Копировать TSV
+              </button>
+              <button className={styles.btn} onClick={handleCopyKeys} disabled={rows.length === 0}>
+                Только ключи
               </button>
             </div>
           </div>
 
           {/* Настройки экспорта */}
-          <div className="export-settings">
-            <div className="export-field">
-              <label>Название кампании:</label>
+          <div className={styles.exportSettings}>
+            <div className={styles.field}>
+              <label className={styles.label}>Название кампании:</label>
               <input
-                type="text"
+                className={styles.input}
                 value={campaignName}
                 onChange={(e) => setCampaignName(e.target.value)}
-                className="export-input"
-              />
-            </div>
-            <div className="export-field">
-              <label>Название группы объявлений:</label>
-              <input
-                type="text"
-                value={adGroupName}
-                onChange={(e) => setAdGroupName(e.target.value)}
-                className="export-input"
               />
             </div>
           </div>
 
-          {/* Список объявлений */}
-          <div className="ads-list">
-            {generatedAds.length === 0 ? (
-              <div className="empty-state">
-                <p>Выберите фразы и нажмите "Генерировать объявления"</p>
-                <p className="empty-hint">
+          {/* Таблица + Предпросмотр */}
+          <div className={styles.tableWrapper}>
+            {rows.length === 0 ? (
+              <div className={styles.empty}>
+                <p>Введите ключи и нажмите "Сгенерировать"</p>
+                <p className={styles.hint}>
                   Система автоматически подставит ключевые фразы в шаблон и создаст готовые объявления
                 </p>
               </div>
             ) : (
-              generatedAds.map((ad) => (
-                <div
-                  key={ad.id}
-                  className={`ad-card ${selectedAdIds.has(ad.id) ? 'selected' : ''} ${
-                    ad.status === 'draft' ? 'draft' : ''
-                  }`}
-                >
-                  <div className="ad-header">
-                    <input
-                      type="checkbox"
-                      checked={selectedAdIds.has(ad.id)}
-                      onChange={() => {
-                        const newSet = new Set(selectedAdIds);
-                        if (newSet.has(ad.id)) {
-                          newSet.delete(ad.id);
-                        } else {
-                          newSet.add(ad.id);
-                        }
-                        useStore.setState({ selectedAdIds: newSet });
-                      }}
-                    />
-                    <span className="ad-phrase">{ad.phrase}</span>
-                    <span className={`ad-status status-${ad.status}`}>{ad.status}</span>
-                  </div>
-                  <div className="ad-body">
-                    <div className="ad-title1">{ad.title1}</div>
-                    {ad.title2 && <div className="ad-title2">{ad.title2}</div>}
-                    <div className="ad-text">{ad.text}</div>
-                    {ad.displayUrl && <div className="ad-url">{ad.displayUrl}</div>}
-                    {ad.quickLinks && ad.quickLinks.length > 0 && (
-                      <div className="ad-quicklinks">
-                        {ad.quickLinks.map((ql, idx) => (
-                          <span key={idx} className="quicklink">
-                            {ql.title}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {ad.warnings && ad.warnings.length > 0 && (
-                      <div className="ad-warnings">
-                        {ad.warnings.map((warning, idx) => (
-                          <div key={idx} className="warning">
-                            ⚠️ {warning}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+              <div className={styles.grid}>
+                {/* Таблица */}
+                <div className={styles.tableContainer}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th className={styles.th}>☑</th>
+                        <th className={styles.th}>Ключ</th>
+                        <th className={styles.th}>H1</th>
+                        <th className={styles.th}>H2</th>
+                        <th className={styles.th}>Текст</th>
+                        <th className={styles.th}>URL</th>
+                        <th className={styles.th}>Отобр. путь</th>
+                        <th className={styles.th}>Уточнения</th>
+                        <th className={styles.th}>SL1</th>
+                        <th className={styles.th}>SL1 URL</th>
+                        <th className={styles.th}>SL2</th>
+                        <th className={styles.th}>SL2 URL</th>
+                        <th className={styles.th}>SL3</th>
+                        <th className={styles.th}>SL3 URL</th>
+                        <th className={styles.th}>SL4</th>
+                        <th className={styles.th}>SL4 URL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, i) => (
+                        <tr
+                          key={i}
+                          className={selectedRowIndices.has(i) ? styles.selected : ''}
+                          onClick={() => setPreviewIndex(i)}
+                        >
+                          <td className={styles.td}>
+                            <input
+                              type="checkbox"
+                              checked={selectedRowIndices.has(i)}
+                              onChange={() => toggleRowSelection(i)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.key}
+                              onChange={(e) => handleEditCell(i, 'key', e.target.value)}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.h1}
+                              onChange={(e) => handleEditCell(i, 'h1', e.target.value)}
+                              maxLength={LIMITS.H1}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.h2}
+                              onChange={(e) => handleEditCell(i, 'h2', e.target.value)}
+                              maxLength={LIMITS.H2}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.txt}
+                              onChange={(e) => handleEditCell(i, 'txt', e.target.value)}
+                              maxLength={LIMITS.TEXT}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.url}
+                              onChange={(e) => handleEditCell(i, 'url', e.target.value)}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.path}
+                              onChange={(e) => handleEditCell(i, 'path', e.target.value)}
+                              placeholder="catalog/page"
+                              maxLength={LIMITS.DISPLAY_URL}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <textarea
+                              className={styles.cellTextarea}
+                              value={row.clar}
+                              onChange={(e) => handleEditCell(i, 'clar', e.target.value)}
+                              placeholder="До 4, каждая с новой строки"
+                              rows={1}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl1_text}
+                              onChange={(e) => handleEditCell(i, 'sl1_text', e.target.value)}
+                              maxLength={LIMITS.QUICKLINK_TEXT}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl1_url}
+                              onChange={(e) => handleEditCell(i, 'sl1_url', e.target.value)}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl2_text}
+                              onChange={(e) => handleEditCell(i, 'sl2_text', e.target.value)}
+                              maxLength={LIMITS.QUICKLINK_TEXT}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl2_url}
+                              onChange={(e) => handleEditCell(i, 'sl2_url', e.target.value)}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl3_text}
+                              onChange={(e) => handleEditCell(i, 'sl3_text', e.target.value)}
+                              maxLength={LIMITS.QUICKLINK_TEXT}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl3_url}
+                              onChange={(e) => handleEditCell(i, 'sl3_url', e.target.value)}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl4_text}
+                              onChange={(e) => handleEditCell(i, 'sl4_text', e.target.value)}
+                              maxLength={LIMITS.QUICKLINK_TEXT}
+                            />
+                          </td>
+                          <td className={styles.td}>
+                            <input
+                              className={styles.cellInput}
+                              value={row.sl4_url}
+                              onChange={(e) => handleEditCell(i, 'sl4_url', e.target.value)}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))
+
+                {/* Компактный предпросмотр (справа, sticky) */}
+                <div className={styles.preview}>
+                  <div className={styles.previewHeader}>
+                    <h3 className={styles.previewTitle}>Предпросмотр</h3>
+                    <span className={styles.previewCounter}>
+                      {previewIndex + 1} / {rows.length}
+                    </span>
+                  </div>
+
+                  {currentAd && (
+                    <div className={styles.previewCard}>
+                      {/* Как в выдаче Яндекса */}
+                      <div className={styles.adTitle}>
+                        <b>{currentAd.h1}</b> — {currentAd.h2}
+                      </div>
+                      <div className={styles.adUrl}>{displayUrl(currentAd.url, currentAd.path)}</div>
+                      <div className={styles.adText}>{currentAd.txt}</div>
+
+                      {/* Уточнения */}
+                      {currentAd.clar && (
+                        <div className={styles.clarifications}>
+                          {currentAd.clar
+                            .split(/\r?\n/)
+                            .filter(Boolean)
+                            .slice(0, 4)
+                            .map((c, i) => (
+                              <span key={i} className={styles.clarChip}>
+                                {c}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Быстрые ссылки */}
+                      {(currentAd.sl1_text ||
+                        currentAd.sl2_text ||
+                        currentAd.sl3_text ||
+                        currentAd.sl4_text) && (
+                        <div className={styles.quickLinks}>
+                          {[
+                            currentAd.sl1_text,
+                            currentAd.sl2_text,
+                            currentAd.sl3_text,
+                            currentAd.sl4_text,
+                          ]
+                            .filter(Boolean)
+                            .map((text, i) => (
+                              <a key={i} href="#" className={styles.quickLink}>
+                                {text}
+                              </a>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Навигация */}
+                      <div className={styles.previewNav}>
+                        <button
+                          className={styles.btn}
+                          onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))}
+                          disabled={previewIndex === 0}
+                        >
+                          ←
+                        </button>
+                        <button
+                          className={styles.btn}
+                          onClick={() => setPreviewIndex(Math.min(rows.length - 1, previewIndex + 1))}
+                          disabled={previewIndex === rows.length - 1}
+                        >
+                          →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
