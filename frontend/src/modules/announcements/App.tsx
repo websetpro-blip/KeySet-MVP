@@ -286,7 +286,7 @@ export default function AnnouncementsApp() {
               <div className="yandex-ad">
                 {generatedAds.length > 0 && selectedAd ? (
                   <>
-                    <div className="yandex-ad-row">
+                    <div className="yandex-ad-row yandex-ad-row-title">
                       <div className="yandex-ad-label"></div>
                       <div className="yandex-ad-row-main">
                         <div className="yandex-ad-title">
@@ -294,6 +294,28 @@ export default function AnnouncementsApp() {
                             {selectedAd.title1}
                             {selectedAd.title2 && ` — ${selectedAd.title2}`}
                           </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="yandex-ad-row">
+                      <div className="yandex-ad-label">
+                        Быстрые ссылки <span className="yandex-side-arrow">&gt;</span>
+                      </div>
+                      <div className="yandex-ad-row-main">
+                        <div className="yandex-ad-quick-links">
+                          <div className="active">
+                            <a href="#">Распродажа</a>
+                          </div>
+                          <div>
+                            <a href="#">скидка 30% до 15.05</a>
+                          </div>
+                          <div>
+                            <a href="#">Видео отзывы</a>
+                          </div>
+                          <div>
+                            <a href="#">Заказать</a>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -310,12 +332,102 @@ export default function AnnouncementsApp() {
                       </div>
                     </div>
 
-                    <div className="yandex-ad-row">
+                    <div className="yandex-ad-row yandex-ad-row-text">
                       <div className="yandex-ad-label">
                         Текст <span className="yandex-side-arrow">&gt;</span>
                       </div>
                       <div className="yandex-ad-row-main">
                         <span className="yandex-ad-text">{selectedAd.text}</span>
+                      </div>
+                    </div>
+
+                    <div className="yandex-ad-row yandex-ad-row-clarify">
+                      <div className="yandex-ad-label">
+                        Уточнения <span className="yandex-side-arrow">&gt;</span>
+                      </div>
+                      <div className="yandex-ad-row-main">
+                        <table className="yandex-sitelinks yandex-sitelinks-clarify">
+                          <tbody>
+                            <tr>
+                              <td>Быстрая доставка</td>
+                              <td>Гарантия</td>
+                              <td>Отзывы клиентов</td>
+                              <td>Без предоплат</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="yandex-ad-row yandex-ad-row-contacts">
+                      <div className="yandex-ad-label"></div>
+                      <div className="yandex-ad-row-main">
+                        <div className="yandex-ad-body">
+                          <div style={{ marginTop: '4px' }}>
+                            <a href="#">Контактная информация</a> · +7 (800) 0000-000 · пн-пт
+                            9:00-18:00, сб 9:30-17:00
+                          </div>
+                          <div>м. Невский Проспект · Санкт-Петербург</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="yandex-ad-row yandex-ad-row-sitelinks">
+                      <div className="yandex-ad-label yandex-ad-label-sitelinks">
+                        <div>
+                          Адреса быстрых ссылок <span className="yandex-side-arrow">&gt;</span>
+                        </div>
+                        <div>
+                          Якоря быстрых ссылок <span className="yandex-side-arrow">&gt;</span>
+                        </div>
+                        <div>
+                          Описания быстрых ссылок <span className="yandex-side-arrow">&gt;</span>
+                        </div>
+                      </div>
+                      <div className="yandex-ad-row-main">
+                        <table className="yandex-sitelinks">
+                          <tbody>
+                            <tr>
+                              <th>
+                                <a href="#">{normalizeDomain(domain)}</a>
+                              </th>
+                              <th>
+                                <a href="#">{normalizeDomain(domain)}</a>
+                              </th>
+                              <th>
+                                <a href="#">{normalizeDomain(domain)}</a>
+                              </th>
+                              <th>
+                                <a href="#">{normalizeDomain(domain)}</a>
+                              </th>
+                            </tr>
+                            <tr>
+                              <td>#1</td>
+                              <td>#2</td>
+                              <td>#3</td>
+                              <td>#4</td>
+                            </tr>
+                            <tr>
+                              <td>Бесплатная консультац</td>
+                              <td>Подбор on-line</td>
+                              <td>Монтаж за 1 день</td>
+                              <td>15 лет на рынке</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="yandex-dynamic-flag">
+                      <span className="yandex-dynamic-flag-label">
+                        Отображаемая ссылка динамическая
+                      </span>
+                      <div className="yandex-toggle-switch yandex-toggle-on">
+                        <span className="yandex-toggle-option">нет</span>
+                        <div className="yandex-toggle-track">
+                          <div className="yandex-toggle-knob"></div>
+                        </div>
+                        <span className="yandex-toggle-option yandex-active">да</span>
                       </div>
                     </div>
                   </>
