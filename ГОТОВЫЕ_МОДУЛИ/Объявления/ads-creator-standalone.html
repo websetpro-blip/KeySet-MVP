@@ -25,7 +25,7 @@
 
         /* Левая панель */
         .sidebar {
-            width: 280px;
+            width: 300px;
             background: #fafafa;
             border-right: 1px solid #e0e0e0;
             overflow-y: auto;
@@ -35,30 +35,64 @@
         .sidebar-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 12px;
+            padding: 10px;
             text-align: center;
         }
 
         .sidebar-header h1 {
-            font-size: 14px;
+            font-size: 13px;
             margin-bottom: 2px;
         }
 
         .sidebar-header p {
-            font-size: 10px;
+            font-size: 9px;
             opacity: 0.9;
         }
 
         .section {
-            padding: 12px;
             border-bottom: 1px solid #e0e0e0;
         }
 
+        .section-header {
+            padding: 8px 12px;
+            background: #f0f0f0;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header:hover {
+            background: #e8e8e8;
+        }
+
         .section-title {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
-            margin-bottom: 8px;
             color: #333;
+        }
+
+        .section-toggle {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .section-content {
+            padding: 10px 12px;
+            display: none;
+        }
+
+        .section.expanded .section-content {
+            display: block;
+        }
+
+        .section.expanded .section-toggle::before {
+            content: '▼';
+        }
+
+        .section:not(.expanded) .section-toggle::before {
+            content: '▶';
         }
 
         .field {
@@ -67,7 +101,7 @@
 
         .label {
             display: block;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 500;
             margin-bottom: 3px;
             color: #666;
@@ -75,10 +109,10 @@
 
         .input, .textarea {
             width: 100%;
-            padding: 5px 7px;
+            padding: 4px 6px;
             border: 1px solid #ddd;
-            border-radius: 3px;
-            font-size: 11px;
+            border-radius: 2px;
+            font-size: 10px;
             font-family: inherit;
         }
 
@@ -89,25 +123,25 @@
 
         .textarea {
             resize: vertical;
-            min-height: 50px;
+            min-height: 40px;
         }
 
         .hint {
-            font-size: 9px;
+            font-size: 8px;
             color: #999;
             margin-top: 2px;
         }
 
         .btn {
             width: 100%;
-            padding: 7px 10px;
+            padding: 6px 8px;
             border: none;
             border-radius: 3px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
 
         .btn-primary {
@@ -128,6 +162,15 @@
             background: #059669;
         }
 
+        .btn-ai {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-ai:hover {
+            background: #d97706;
+        }
+
         .btn-secondary {
             background: white;
             color: #666;
@@ -138,6 +181,29 @@
             background: #f5f5f5;
         }
 
+        .sl-group {
+            margin-bottom: 8px;
+            padding: 6px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+        }
+
+        .sl-label {
+            font-size: 9px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .sl-row {
+            margin-bottom: 3px;
+        }
+
+        .sl-row input {
+            margin-bottom: 2px;
+        }
+
         /* Правая панель */
         .main-content {
             flex: 1;
@@ -146,81 +212,26 @@
             overflow: hidden;
         }
 
-        /* Единые настройки - компактно по центру */
-        .unified-settings {
-            background: #fff9e6;
-            border-bottom: 2px solid #f0e68c;
-            padding: 10px 15px;
-        }
-
-        .unified-title {
-            font-size: 11px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-        }
-
-        .unified-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 6px;
-        }
-
-        .unified-group {
-            flex: 1;
-        }
-
-        .unified-group-title {
-            font-size: 9px;
-            font-weight: 600;
-            color: #666;
-            margin-bottom: 4px;
-        }
-
-        .unified-fields {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-        }
-
-        .unified-field {
-            display: flex;
-            gap: 4px;
-        }
-
-        .unified-field input {
-            padding: 3px 5px;
-            border: 1px solid #ddd;
-            border-radius: 2px;
-            font-size: 10px;
-            flex: 1;
-        }
-
-        .unified-field input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
         /* Тулбар */
         .toolbar {
-            padding: 8px 15px;
+            padding: 6px 12px;
             background: white;
             border-bottom: 1px solid #e0e0e0;
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .toolbar .btn {
             width: auto;
-            padding: 5px 10px;
+            padding: 4px 8px;
             margin: 0;
-            font-size: 10px;
+            font-size: 9px;
         }
 
         .stats {
-            font-size: 10px;
+            font-size: 9px;
             color: #666;
             margin-right: auto;
         }
@@ -235,7 +246,7 @@
         .excel-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 10px;
+            font-size: 9px;
         }
 
         .excel-table thead {
@@ -246,13 +257,13 @@
         }
 
         .excel-table th {
-            padding: 5px 3px;
+            padding: 4px 2px;
             text-align: left;
             font-weight: 600;
             border: 1px solid #ddd;
             background: #f8f9fa;
             white-space: nowrap;
-            font-size: 9px;
+            font-size: 8px;
             position: relative;
             user-select: none;
         }
@@ -287,13 +298,13 @@
 
         .cell-input {
             width: 100%;
-            padding: 3px 5px;
+            padding: 2px 4px;
             border: none;
             background: transparent;
-            font-size: 10px;
+            font-size: 9px;
             font-family: inherit;
             outline: none;
-            min-height: 22px;
+            min-height: 20px;
         }
 
         .cell-input:focus {
@@ -302,8 +313,8 @@
         }
 
         .cell-checkbox {
-            width: 13px;
-            height: 13px;
+            width: 12px;
+            height: 12px;
             cursor: pointer;
             margin: 0 auto;
             display: block;
@@ -311,9 +322,227 @@
 
         .empty-state {
             text-align: center;
-            padding: 40px 20px;
+            padding: 30px 20px;
             color: #999;
+            font-size: 10px;
+        }
+
+        /* Предпросмотр Яндекс */
+        .preview-wrapper {
+            background: white;
+            border-top: 2px solid #e0e0e0;
+            padding: 10px 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .preview-header {
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-nav {
+            display: flex;
+            gap: 4px;
+        }
+
+        .preview-nav button {
+            padding: 2px 6px;
+            font-size: 9px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .preview-nav button:hover {
+            background: #f0f0f0;
+        }
+
+        .yandex-preview {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 12px;
+            background: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        .yandex-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 10px;
+        }
+
+        .yandex-logo {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fc0;
+            background: #f00;
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+
+        .yandex-search {
+            flex: 1;
+            padding: 3px 8px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            font-size: 10px;
+        }
+
+        .yandex-nav {
+            font-size: 9px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .ad-marker {
+            font-size: 9px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .ad-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0066ff;
+            margin-bottom: 6px;
+            cursor: pointer;
+            line-height: 1.3;
+        }
+
+        .ad-title:hover {
+            text-decoration: underline;
+        }
+
+        .ad-link {
+            font-size: 12px;
+            color: #008000;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .ad-text {
+            font-size: 13px;
+            color: #000;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .ad-clarifications {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .ad-chip {
+            padding: 3px 10px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 12px;
             font-size: 11px;
+            color: #666;
+        }
+
+        .ad-sitelinks {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .ad-sitelink {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            background: #fafafa;
+        }
+
+        .ad-sitelink-url {
+            font-size: 9px;
+            color: #008000;
+            margin-bottom: 3px;
+        }
+
+        .ad-sitelink-title {
+            font-size: 11px;
+            color: #0066ff;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .ad-sitelink-desc {
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Модальное окно правил подмены */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            cursor: pointer;
+            font-size: 20px;
+            color: #999;
+        }
+
+        .rule-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            background: #f9f9f9;
+        }
+
+        .rule-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .rule-type {
+            width: 80px;
         }
     </style>
 </head>
@@ -323,103 +552,167 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <h1>🎯 Генератор объявлений</h1>
-                <p>Яндекс.Директ</p>
+                <p>Яндекс.Директ v4.14</p>
             </div>
 
             <!-- Ключевые фразы -->
-            <div class="section">
-                <div class="section-title">Ключевые фразы</div>
-                <textarea id="keys_input" class="textarea" placeholder="Введите ключи, по одному в строке" rows="5"></textarea>
-                <div class="hint">Фраз: <span id="keys_count">0</span> / 1000</div>
+            <div class="section expanded">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Ключевые фразы</div>
+                    <div class="section-toggle"></div>
+                </div>
+                <div class="section-content">
+                    <textarea id="keys_input" class="textarea" placeholder="Введите ключи, по одному в строке" rows="5"></textarea>
+                    <div class="hint">Фраз: <span id="keys_count">0</span> / 1000 | Макс. 8192 символов</div>
+                </div>
             </div>
 
             <!-- Основные настройки -->
-            <div class="section">
-                <div class="section-title">Основные настройки</div>
-                <div class="field">
-                    <label class="label">Домен</label>
-                    <input id="domain_input" class="input" placeholder="example.ru">
+            <div class="section expanded">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Основные настройки</div>
+                    <div class="section-toggle"></div>
                 </div>
-                <div class="field">
-                    <label class="label">UTM-шаблон</label>
-                    <input id="utm_template" class="input" value="utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}">
+                <div class="section-content">
+                    <div class="field">
+                        <label class="label">Домен</label>
+                        <input id="domain_input" class="input" placeholder="example.ru">
+                    </div>
+                    <div class="field">
+                        <label class="label">UTM-шаблон (опционально)</label>
+                        <input id="utm_template" class="input" value="utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}">
+                    </div>
                 </div>
             </div>
 
             <!-- Заголовки -->
-            <div class="section">
-                <div class="section-title">Заголовки</div>
-                <div class="field">
-                    <label class="label">Шаблон H1</label>
-                    <input id="h1_template" class="input" value="{key}">
+            <div class="section expanded">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Заголовки</div>
+                    <div class="section-toggle"></div>
                 </div>
-                <div class="field">
-                    <label class="label">Шаблон H2</label>
-                    <input id="h2_template" class="input" value="— Для частного!">
+                <div class="section-content">
+                    <div class="field">
+                        <label class="label">Шаблон H1 (макс. 56)</label>
+                        <input id="h1_template" class="input" value="{key}">
+                        <div class="hint">Переменные: {key}, {Key}, {PHRASE}</div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Шаблон H2 (макс. 56)</label>
+                        <input id="h2_template" class="input" value="— Для частного!">
+                    </div>
                 </div>
             </div>
 
-            <!-- Текст -->
+            <!-- Текст объявления -->
+            <div class="section expanded">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Текст объявления</div>
+                    <div class="section-toggle"></div>
+                </div>
+                <div class="section-content">
+                    <textarea id="text_template" class="textarea" rows="2">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!</textarea>
+                    <div class="hint">Максимум 81 символ</div>
+                </div>
+            </div>
+
+            <!-- Быстрые ссылки -->
             <div class="section">
-                <div class="section-title">Текст объявления</div>
-                <textarea id="text_template" class="textarea" rows="2">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!</textarea>
-                <div class="hint">Максимум 81 символ</div>
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Быстрые ссылки (для всех)</div>
+                    <div class="section-toggle"></div>
+                </div>
+                <div class="section-content">
+                    <div class="sl-group">
+                        <div class="sl-label">SL1</div>
+                        <div class="sl-row"><input type="text" id="sl1_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
+                        <div class="sl-row"><input type="text" id="sl1_url" class="input" placeholder="URL"></div>
+                        <div class="sl-row"><input type="text" id="sl1_anchor" class="input" placeholder="Якорь"></div>
+                        <div class="sl-row"><input type="text" id="sl1_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
+                    </div>
+                    <div class="sl-group">
+                        <div class="sl-label">SL2</div>
+                        <div class="sl-row"><input type="text" id="sl2_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
+                        <div class="sl-row"><input type="text" id="sl2_url" class="input" placeholder="URL"></div>
+                        <div class="sl-row"><input type="text" id="sl2_anchor" class="input" placeholder="Якорь"></div>
+                        <div class="sl-row"><input type="text" id="sl2_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
+                    </div>
+                    <div class="sl-group">
+                        <div class="sl-label">SL3</div>
+                        <div class="sl-row"><input type="text" id="sl3_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
+                        <div class="sl-row"><input type="text" id="sl3_url" class="input" placeholder="URL"></div>
+                        <div class="sl-row"><input type="text" id="sl3_anchor" class="input" placeholder="Якорь"></div>
+                        <div class="sl-row"><input type="text" id="sl3_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
+                    </div>
+                    <div class="sl-group">
+                        <div class="sl-label">SL4</div>
+                        <div class="sl-row"><input type="text" id="sl4_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
+                        <div class="sl-row"><input type="text" id="sl4_url" class="input" placeholder="URL"></div>
+                        <div class="sl-row"><input type="text" id="sl4_anchor" class="input" placeholder="Якорь"></div>
+                        <div class="sl-row"><input type="text" id="sl4_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Уточнения -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Уточнения (для всех)</div>
+                    <div class="section-toggle"></div>
+                </div>
+                <div class="section-content">
+                    <div class="field">
+                        <input type="text" id="clar1" class="input" placeholder="Уточнение 1 (макс. 66)" maxlength="66">
+                    </div>
+                    <div class="field">
+                        <input type="text" id="clar2" class="input" placeholder="Уточнение 2 (макс. 66)" maxlength="66">
+                    </div>
+                    <div class="field">
+                        <input type="text" id="clar3" class="input" placeholder="Уточнение 3 (макс. 66)" maxlength="66">
+                    </div>
+                    <div class="field">
+                        <input type="text" id="clar4" class="input" placeholder="Уточнение 4 (макс. 66)" maxlength="66">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Отображаемая ссылка -->
+            <div class="section">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Отображаемая ссылка</div>
+                    <div class="section-toggle"></div>
+                </div>
+                <div class="section-content">
+                    <div class="field">
+                        <label class="label">Префикс</label>
+                        <input type="text" id="display_prefix" class="input" placeholder="Распродажа">
+                    </div>
+                    <div class="field">
+                        <label class="label">Постфикс</label>
+                        <input type="text" id="display_postfix" class="input" placeholder="Видео отзывы | Заказать">
+                    </div>
+                </div>
             </div>
 
             <!-- Кнопки -->
-            <div class="section">
-                <button class="btn btn-primary" onclick="generateAds()">🚀 Сгенерировать</button>
-                <button class="btn btn-success" onclick="exportCSV()">💾 Экспорт CSV</button>
+            <div class="section expanded">
+                <div class="section-header" onclick="toggleSection(this)">
+                    <div class="section-title">Действия</div>
+                    <div class="section-toggle"></div>
+                </div>
+                <div class="section-content">
+                    <button class="btn btn-primary" onclick="generateAds()">🚀 Сгенерировать</button>
+                    <button class="btn btn-ai" onclick="generateWithAI()">🤖 Сгенерировать с ИИ</button>
+                    <button class="btn btn-secondary" onclick="applyUnified()">🔄 Применить ко всем</button>
+                    <button class="btn btn-secondary" onclick="openRulesModal()">📝 Правила подмены</button>
+                    <button class="btn btn-secondary" onclick="copyAsTSV()">📋 Копировать TSV</button>
+                    <button class="btn btn-success" onclick="exportCSV()">💾 Экспорт CSV</button>
+                </div>
             </div>
         </div>
 
         <!-- Правая панель -->
         <div class="main-content">
-            <!-- Единые настройки -->
-            <div class="unified-settings">
-                <div class="unified-title">Единые настройки (применяются ко всем объявлениям)</div>
-
-                <!-- Быстрые ссылки -->
-                <div class="unified-row">
-                    <div class="unified-group">
-                        <div class="unified-group-title">Быстрые ссылки</div>
-                        <div class="unified-fields">
-                            <div class="unified-field">
-                                <input type="text" id="sl1_text" placeholder="SL1" maxlength="30">
-                                <input type="text" id="sl1_url" placeholder="URL">
-                            </div>
-                            <div class="unified-field">
-                                <input type="text" id="sl2_text" placeholder="SL2" maxlength="30">
-                                <input type="text" id="sl2_url" placeholder="URL">
-                            </div>
-                            <div class="unified-field">
-                                <input type="text" id="sl3_text" placeholder="SL3" maxlength="30">
-                                <input type="text" id="sl3_url" placeholder="URL">
-                            </div>
-                            <div class="unified-field">
-                                <input type="text" id="sl4_text" placeholder="SL4" maxlength="30">
-                                <input type="text" id="sl4_url" placeholder="URL">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Уточнения -->
-                <div class="unified-row">
-                    <div class="unified-group">
-                        <div class="unified-group-title">Уточнения</div>
-                        <div class="unified-fields">
-                            <input type="text" id="clar1" placeholder="Уточнение 1" maxlength="66">
-                            <input type="text" id="clar2" placeholder="Уточнение 2" maxlength="66">
-                            <input type="text" id="clar3" placeholder="Уточнение 3" maxlength="66">
-                            <input type="text" id="clar4" placeholder="Уточнение 4" maxlength="66">
-                        </div>
-                    </div>
-                </div>
-
-                <button class="btn btn-secondary" onclick="applyUnified()" style="width: auto; padding: 4px 10px; font-size: 10px;">🔄 Применить ко всем</button>
-            </div>
-
             <!-- Тулбар -->
             <div class="toolbar">
                 <div class="stats">
@@ -435,80 +728,78 @@
                 <table class="excel-table" id="main_table">
                     <thead>
                         <tr>
-                            <th style="width: 30px;">
-                                <input type="checkbox" class="cell-checkbox" onclick="toggleAll(this)">
-                                <div class="resizer" data-col="0"></div>
-                            </th>
-                            <th style="width: 150px;">
-                                Ключ
-                                <div class="resizer" data-col="1"></div>
-                            </th>
-                            <th style="width: 130px;">
-                                H1
-                                <div class="resizer" data-col="2"></div>
-                            </th>
-                            <th style="width: 130px;">
-                                H2
-                                <div class="resizer" data-col="3"></div>
-                            </th>
-                            <th style="width: 180px;">
-                                Текст
-                                <div class="resizer" data-col="4"></div>
-                            </th>
-                            <th style="width: 200px;">
-                                URL
-                                <div class="resizer" data-col="5"></div>
-                            </th>
-                            <th style="width: 100px;">
-                                Отобр. путь
-                                <div class="resizer" data-col="6"></div>
-                            </th>
-                            <th style="width: 120px;">
-                                Уточнения
-                                <div class="resizer" data-col="7"></div>
-                            </th>
-                            <th style="width: 80px;">
-                                SL1
-                                <div class="resizer" data-col="8"></div>
-                            </th>
-                            <th style="width: 120px;">
-                                SL1 URL
-                                <div class="resizer" data-col="9"></div>
-                            </th>
-                            <th style="width: 80px;">
-                                SL2
-                                <div class="resizer" data-col="10"></div>
-                            </th>
-                            <th style="width: 120px;">
-                                SL2 URL
-                                <div class="resizer" data-col="11"></div>
-                            </th>
-                            <th style="width: 80px;">
-                                SL3
-                                <div class="resizer" data-col="12"></div>
-                            </th>
-                            <th style="width: 120px;">
-                                SL3 URL
-                                <div class="resizer" data-col="13"></div>
-                            </th>
-                            <th style="width: 80px;">
-                                SL4
-                                <div class="resizer" data-col="14"></div>
-                            </th>
-                            <th style="width: 120px;">
-                                SL4 URL
-                                <div class="resizer" data-col="15"></div>
-                            </th>
+                            <th style="width: 25px;"><input type="checkbox" class="cell-checkbox" onclick="toggleAll(this)"><div class="resizer" data-col="0"></div></th>
+                            <th style="width: 130px;">Ключ<div class="resizer" data-col="1"></div></th>
+                            <th style="width: 120px;">H1<div class="resizer" data-col="2"></div></th>
+                            <th style="width: 120px;">H2<div class="resizer" data-col="3"></div></th>
+                            <th style="width: 150px;">Текст<div class="resizer" data-col="4"></div></th>
+                            <th style="width: 180px;">URL<div class="resizer" data-col="5"></div></th>
+                            <th style="width: 90px;">Отобр. путь<div class="resizer" data-col="6"></div></th>
+                            <th style="width: 100px;">Уточнения<div class="resizer" data-col="7"></div></th>
+                            <th style="width: 70px;">SL1<div class="resizer" data-col="8"></div></th>
+                            <th style="width: 100px;">SL1 URL<div class="resizer" data-col="9"></div></th>
+                            <th style="width: 70px;">SL1 Anchor<div class="resizer" data-col="10"></div></th>
+                            <th style="width: 100px;">SL1 Desc<div class="resizer" data-col="11"></div></th>
+                            <th style="width: 70px;">SL2<div class="resizer" data-col="12"></div></th>
+                            <th style="width: 100px;">SL2 URL<div class="resizer" data-col="13"></div></th>
+                            <th style="width: 70px;">SL2 Anchor<div class="resizer" data-col="14"></div></th>
+                            <th style="width: 100px;">SL2 Desc<div class="resizer" data-col="15"></div></th>
+                            <th style="width: 70px;">SL3<div class="resizer" data-col="16"></div></th>
+                            <th style="width: 100px;">SL3 URL<div class="resizer" data-col="17"></div></th>
+                            <th style="width: 70px;">SL3 Anchor<div class="resizer" data-col="18"></div></th>
+                            <th style="width: 100px;">SL3 Desc<div class="resizer" data-col="19"></div></th>
+                            <th style="width: 70px;">SL4<div class="resizer" data-col="20"></div></th>
+                            <th style="width: 100px;">SL4 URL<div class="resizer" data-col="21"></div></th>
+                            <th style="width: 70px;">SL4 Anchor<div class="resizer" data-col="22"></div></th>
+                            <th style="width: 100px;">SL4 Desc<div class="resizer" data-col="23"></div></th>
                         </tr>
                     </thead>
                     <tbody id="table_body">
                         <tr>
-                            <td colspan="16" class="empty-state">
+                            <td colspan="24" class="empty-state">
                                 Введите ключевые фразы и нажмите "Сгенерировать"
                             </td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Предпросмотр Яндекс -->
+            <div class="preview-wrapper">
+                <div class="preview-header">
+                    <span>Предпросмотр "как в Яндексе"</span>
+                    <div class="preview-nav">
+                        <button onclick="prevPreview()">←</button>
+                        <span id="preview_index">0 / 0</span>
+                        <button onclick="nextPreview()">→</button>
+                    </div>
+                </div>
+                <div class="yandex-preview" id="yandex_preview">
+                    <div class="yandex-header">
+                        <div class="yandex-logo">Я</div>
+                        <input type="text" class="yandex-search" value="" readonly>
+                        <span style="font-size: 10px; color: #666;">Найти</span>
+                    </div>
+                    <div class="yandex-nav">ПОИСК | КАРТИНКИ | ВИДЕО | КАРТЫ | МАРКЕТ</div>
+                    <div id="preview_content" style="color: #999; font-size: 11px;">Сгенерируйте объявления для предпросмотра</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно правил подмены -->
+    <div class="modal" id="rules_modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Правила подмены</span>
+                <span class="modal-close" onclick="closeRulesModal()">×</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <button class="btn btn-secondary" onclick="addRule()" style="width: auto; padding: 5px 10px;">+ Добавить правило</button>
+            </div>
+            <div id="rules_list"></div>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-primary" onclick="applyRules()">Применить правила</button>
             </div>
         </div>
     </div>
@@ -516,6 +807,8 @@
     <script>
         let adsData = [];
         let selectedRows = new Set();
+        let previewIndex = 0;
+        let substitutionRules = [];
 
         const LIMITS = {
             H1: 56,
@@ -523,9 +816,16 @@
             TEXT: 81,
             PATH: 20,
             CLAR: 66,
-            QL_TEXT: 30
+            SL_TEXT: 30,
+            SL_DESC: 60
         };
 
+        // Переключение секций
+        function toggleSection(header) {
+            header.parentElement.classList.toggle('expanded');
+        }
+
+        // Счетчик ключей
         document.getElementById('keys_input').addEventListener('input', function() {
             const keys = getKeys();
             document.getElementById('keys_count').textContent = keys.length;
@@ -597,12 +897,20 @@
             return {
                 sl1_text: document.getElementById('sl1_text').value,
                 sl1_url: document.getElementById('sl1_url').value,
+                sl1_anchor: document.getElementById('sl1_anchor').value,
+                sl1_desc: document.getElementById('sl1_desc').value,
                 sl2_text: document.getElementById('sl2_text').value,
                 sl2_url: document.getElementById('sl2_url').value,
+                sl2_anchor: document.getElementById('sl2_anchor').value,
+                sl2_desc: document.getElementById('sl2_desc').value,
                 sl3_text: document.getElementById('sl3_text').value,
                 sl3_url: document.getElementById('sl3_url').value,
+                sl3_anchor: document.getElementById('sl3_anchor').value,
+                sl3_desc: document.getElementById('sl3_desc').value,
                 sl4_text: document.getElementById('sl4_text').value,
                 sl4_url: document.getElementById('sl4_url').value,
+                sl4_anchor: document.getElementById('sl4_anchor').value,
+                sl4_desc: document.getElementById('sl4_desc').value,
                 clar1: document.getElementById('clar1').value,
                 clar2: document.getElementById('clar2').value,
                 clar3: document.getElementById('clar3').value,
@@ -647,17 +955,30 @@
                     clarifications: [settings.clar1, settings.clar2, settings.clar3, settings.clar4].filter(Boolean).join('\n'),
                     sl1_text: settings.sl1_text,
                     sl1_url: settings.sl1_url,
+                    sl1_anchor: settings.sl1_anchor,
+                    sl1_desc: settings.sl1_desc,
                     sl2_text: settings.sl2_text,
                     sl2_url: settings.sl2_url,
+                    sl2_anchor: settings.sl2_anchor,
+                    sl2_desc: settings.sl2_desc,
                     sl3_text: settings.sl3_text,
                     sl3_url: settings.sl3_url,
+                    sl3_anchor: settings.sl3_anchor,
+                    sl3_desc: settings.sl3_desc,
                     sl4_text: settings.sl4_text,
-                    sl4_url: settings.sl4_url
+                    sl4_url: settings.sl4_url,
+                    sl4_anchor: settings.sl4_anchor,
+                    sl4_desc: settings.sl4_desc
                 };
             });
 
             renderTable();
             updateStats();
+            updatePreview();
+        }
+
+        function generateWithAI() {
+            alert('Функция ИИ-генерации требует API эндпоинт:\nPOST /api/ai/ads/generate\n\nПодключите бэкенд для использования этой функции.');
         }
 
         function applyUnified() {
@@ -673,15 +994,24 @@
                 clarifications: [settings.clar1, settings.clar2, settings.clar3, settings.clar4].filter(Boolean).join('\n'),
                 sl1_text: settings.sl1_text,
                 sl1_url: settings.sl1_url,
+                sl1_anchor: settings.sl1_anchor,
+                sl1_desc: settings.sl1_desc,
                 sl2_text: settings.sl2_text,
                 sl2_url: settings.sl2_url,
+                sl2_anchor: settings.sl2_anchor,
+                sl2_desc: settings.sl2_desc,
                 sl3_text: settings.sl3_text,
                 sl3_url: settings.sl3_url,
+                sl3_anchor: settings.sl3_anchor,
+                sl3_desc: settings.sl3_desc,
                 sl4_text: settings.sl4_text,
-                sl4_url: settings.sl4_url
+                sl4_url: settings.sl4_url,
+                sl4_anchor: settings.sl4_anchor,
+                sl4_desc: settings.sl4_desc
             }));
 
             renderTable();
+            updatePreview();
             alert('Настройки применены ко всем ' + adsData.length + ' объявлениям');
         }
 
@@ -689,7 +1019,7 @@
             const tbody = document.getElementById('table_body');
 
             if (!adsData.length) {
-                tbody.innerHTML = '<tr><td colspan="16" class="empty-state">Введите ключевые фразы и нажмите "Сгенерировать"</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="24" class="empty-state">Введите ключевые фразы и нажмите "Сгенерировать"</td></tr>';
                 return;
             }
 
@@ -705,14 +1035,22 @@
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.url)}" onchange="updateCell(${idx}, 'url', this.value)"></td>`;
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.path)}" maxlength="${LIMITS.PATH}" onchange="updateCell(${idx}, 'path', this.value)"></td>`;
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.clarifications)}" onchange="updateCell(${idx}, 'clarifications', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_text)}" maxlength="${LIMITS.QL_TEXT}" onchange="updateCell(${idx}, 'sl1_text', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl1_text', this.value)"></td>`;
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_url)}" onchange="updateCell(${idx}, 'sl1_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_text)}" maxlength="${LIMITS.QL_TEXT}" onchange="updateCell(${idx}, 'sl2_text', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_anchor)}" onchange="updateCell(${idx}, 'sl1_anchor', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl1_desc', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl2_text', this.value)"></td>`;
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_url)}" onchange="updateCell(${idx}, 'sl2_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_text)}" maxlength="${LIMITS.QL_TEXT}" onchange="updateCell(${idx}, 'sl3_text', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_anchor)}" onchange="updateCell(${idx}, 'sl2_anchor', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl2_desc', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl3_text', this.value)"></td>`;
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_url)}" onchange="updateCell(${idx}, 'sl3_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_text)}" maxlength="${LIMITS.QL_TEXT}" onchange="updateCell(${idx}, 'sl4_text', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_anchor)}" onchange="updateCell(${idx}, 'sl3_anchor', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl3_desc', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl4_text', this.value)"></td>`;
                 html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_url)}" onchange="updateCell(${idx}, 'sl4_url', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_anchor)}" onchange="updateCell(${idx}, 'sl4_anchor', this.value)"></td>`;
+                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl4_desc', this.value)"></td>`;
                 html += '</tr>';
             });
 
@@ -721,6 +1059,9 @@
 
         function updateCell(idx, field, value) {
             adsData[idx][field] = value;
+            if (idx === previewIndex) {
+                updatePreview();
+            }
         }
 
         function toggleRow(idx, checked) {
@@ -771,8 +1112,10 @@
 
             adsData = adsData.filter((_, i) => !selectedRows.has(i));
             selectedRows.clear();
+            previewIndex = 0;
             renderTable();
             updateStats();
+            updatePreview();
         }
 
         function updateStats() {
@@ -780,6 +1123,77 @@
             document.getElementById('selected_ads').textContent = selectedRows.size;
         }
 
+        // Предпросмотр Яндекс
+        function updatePreview() {
+            if (!adsData.length) {
+                document.getElementById('preview_content').innerHTML = '<div style="color: #999; font-size: 11px;">Сгенерируйте объявления для предпросмотра</div>';
+                document.getElementById('preview_index').textContent = '0 / 0';
+                return;
+            }
+
+            const ad = adsData[previewIndex];
+            const domain = document.getElementById('domain_input').value.trim().replace(/^https?:\/\//, '');
+            const prefix = document.getElementById('display_prefix').value;
+            const postfix = document.getElementById('display_postfix').value;
+
+            let displayLink = domain;
+            if (prefix) displayLink = `[${prefix}] ${displayLink}`;
+            if (ad.path) displayLink += `/${ad.path}`;
+            if (postfix) displayLink += ` | ${postfix}`;
+
+            const clars = ad.clarifications.split('\n').filter(Boolean);
+
+            let html = '';
+            html += `<div class="ad-marker">≫</div>`;
+            html += `<div class="ad-title">${esc(ad.h1)} ${esc(ad.h2)}</div>`;
+            html += `<div class="ad-link">${esc(displayLink)}</div>`;
+            html += `<div class="ad-text">${esc(ad.text)}</div>`;
+
+            if (clars.length) {
+                html += '<div class="ad-clarifications">';
+                clars.forEach(c => {
+                    html += `<div class="ad-chip">${esc(c)}</div>`;
+                });
+                html += '</div>';
+            }
+
+            const sitelinks = [
+                { text: ad.sl1_text, url: ad.sl1_url, anchor: ad.sl1_anchor, desc: ad.sl1_desc },
+                { text: ad.sl2_text, url: ad.sl2_url, anchor: ad.sl2_anchor, desc: ad.sl2_desc },
+                { text: ad.sl3_text, url: ad.sl3_url, anchor: ad.sl3_anchor, desc: ad.sl3_desc },
+                { text: ad.sl4_text, url: ad.sl4_url, anchor: ad.sl4_anchor, desc: ad.sl4_desc }
+            ].filter(sl => sl.text || sl.url);
+
+            if (sitelinks.length) {
+                html += '<div class="ad-sitelinks">';
+                sitelinks.forEach(sl => {
+                    html += '<div class="ad-sitelink">';
+                    if (sl.url) html += `<div class="ad-sitelink-url">${esc(sl.url.replace(/^https?:\/\//, ''))}</div>`;
+                    if (sl.text) html += `<div class="ad-sitelink-title">${esc(sl.text)}</div>`;
+                    if (sl.desc) html += `<div class="ad-sitelink-desc">${esc(sl.desc)}</div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            document.getElementById('preview_content').innerHTML = html;
+            document.getElementById('preview_index').textContent = `${previewIndex + 1} / ${adsData.length}`;
+            document.querySelector('.yandex-search').value = ad.key;
+        }
+
+        function prevPreview() {
+            if (!adsData.length) return;
+            previewIndex = (previewIndex - 1 + adsData.length) % adsData.length;
+            updatePreview();
+        }
+
+        function nextPreview() {
+            if (!adsData.length) return;
+            previewIndex = (previewIndex + 1) % adsData.length;
+            updatePreview();
+        }
+
+        // Экспорт CSV
         function exportCSV() {
             if (!adsData.length) {
                 alert('Нет объявлений для экспорта');
@@ -791,7 +1205,10 @@
             const headers = [
                 'Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст',
                 'Ссылка', 'Отображаемая ссылка', 'Уточнения',
-                'SL1', 'SL1 URL', 'SL2', 'SL2 URL', 'SL3', 'SL3 URL', 'SL4', 'SL4 URL'
+                'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc',
+                'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc',
+                'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc',
+                'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'
             ];
 
             const csvEsc = (val) => {
@@ -811,7 +1228,10 @@
 
                 const values = [
                     campaign, group, ad.key, ad.h1, ad.h2, ad.text, ad.url, displayLink, clars,
-                    ad.sl1_text, ad.sl1_url, ad.sl2_text, ad.sl2_url, ad.sl3_text, ad.sl3_url, ad.sl4_text, ad.sl4_url
+                    ad.sl1_text, ad.sl1_url, ad.sl1_anchor, ad.sl1_desc,
+                    ad.sl2_text, ad.sl2_url, ad.sl2_anchor, ad.sl2_desc,
+                    ad.sl3_text, ad.sl3_url, ad.sl3_anchor, ad.sl3_desc,
+                    ad.sl4_text, ad.sl4_url, ad.sl4_anchor, ad.sl4_desc
                 ].map(csvEsc);
 
                 csv += values.join(';') + '\n';
@@ -824,6 +1244,144 @@
             a.download = `yandex_ads_${Date.now()}.csv`;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        // Копирование TSV
+        function copyAsTSV() {
+            if (!adsData.length) {
+                alert('Нет объявлений для копирования');
+                return;
+            }
+
+            const headers = [
+                'Ключ', 'H1', 'H2', 'Текст', 'URL', 'Отобр. путь', 'Уточнения',
+                'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc',
+                'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc',
+                'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc',
+                'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'
+            ];
+
+            let tsv = headers.join('\t') + '\n';
+
+            adsData.forEach(ad => {
+                const values = [
+                    ad.key, ad.h1, ad.h2, ad.text, ad.url, ad.path, ad.clarifications.replace(/\n/g, ' | '),
+                    ad.sl1_text, ad.sl1_url, ad.sl1_anchor, ad.sl1_desc,
+                    ad.sl2_text, ad.sl2_url, ad.sl2_anchor, ad.sl2_desc,
+                    ad.sl3_text, ad.sl3_url, ad.sl3_anchor, ad.sl3_desc,
+                    ad.sl4_text, ad.sl4_url, ad.sl4_anchor, ad.sl4_desc
+                ];
+                tsv += values.join('\t') + '\n';
+            });
+
+            navigator.clipboard.writeText(tsv).then(() => {
+                alert('Таблица скопирована в буфер обмена (TSV формат)');
+            }).catch(() => {
+                alert('Не удалось скопировать. Используйте экспорт CSV.');
+            });
+        }
+
+        // Правила подмены
+        function openRulesModal() {
+            document.getElementById('rules_modal').classList.add('active');
+            renderRules();
+        }
+
+        function closeRulesModal() {
+            document.getElementById('rules_modal').classList.remove('active');
+        }
+
+        function addRule() {
+            substitutionRules.push({
+                type: 'plain',
+                find: '',
+                replace: '',
+                scope: ['*']
+            });
+            renderRules();
+        }
+
+        function renderRules() {
+            const list = document.getElementById('rules_list');
+            if (!substitutionRules.length) {
+                list.innerHTML = '<div style="color: #999; font-size: 11px; padding: 10px;">Нет правил. Нажмите "+ Добавить правило"</div>';
+                return;
+            }
+
+            let html = '';
+            substitutionRules.forEach((rule, idx) => {
+                html += `<div class="rule-item">`;
+                html += `<div class="rule-row">`;
+                html += `<select class="input rule-type" onchange="updateRule(${idx}, 'type', this.value)">
+                    <option value="plain" ${rule.type === 'plain' ? 'selected' : ''}>Текст</option>
+                    <option value="regex" ${rule.type === 'regex' ? 'selected' : ''}>Regex</option>
+                </select>`;
+                html += `<input type="text" class="input" placeholder="Найти" value="${esc(rule.find)}" onchange="updateRule(${idx}, 'find', this.value)" style="flex: 1;">`;
+                html += `<input type="text" class="input" placeholder="Заменить на" value="${esc(rule.replace)}" onchange="updateRule(${idx}, 'replace', this.value)" style="flex: 1;">`;
+                html += `<button onclick="deleteRule(${idx})" style="padding: 4px 8px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 2px;">×</button>`;
+                html += `</div>`;
+                html += `<div style="font-size: 9px; color: #999; margin-top: 3px;">Применяется к: ${rule.scope.join(', ')}</div>`;
+                html += `</div>`;
+            });
+
+            list.innerHTML = html;
+        }
+
+        function updateRule(idx, field, value) {
+            substitutionRules[idx][field] = value;
+        }
+
+        function deleteRule(idx) {
+            substitutionRules.splice(idx, 1);
+            renderRules();
+        }
+
+        function applyRules() {
+            if (!adsData.length) {
+                alert('Сначала сгенерируйте объявления');
+                return;
+            }
+
+            if (!substitutionRules.length) {
+                alert('Нет правил для применения');
+                return;
+            }
+
+            adsData = adsData.map(ad => {
+                let newAd = { ...ad };
+
+                substitutionRules.forEach(rule => {
+                    const fields = rule.scope.includes('*') ?
+                        ['key', 'h1', 'h2', 'text', 'url', 'path', 'clarifications',
+                         'sl1_text', 'sl1_url', 'sl1_anchor', 'sl1_desc',
+                         'sl2_text', 'sl2_url', 'sl2_anchor', 'sl2_desc',
+                         'sl3_text', 'sl3_url', 'sl3_anchor', 'sl3_desc',
+                         'sl4_text', 'sl4_url', 'sl4_anchor', 'sl4_desc'] :
+                        rule.scope;
+
+                    fields.forEach(field => {
+                        if (newAd[field]) {
+                            if (rule.type === 'regex') {
+                                try {
+                                    const regex = new RegExp(rule.find, 'g');
+                                    newAd[field] = newAd[field].replace(regex, rule.replace);
+                                } catch (e) {
+                                    console.error('Invalid regex:', rule.find);
+                                }
+                            } else {
+                                newAd[field] = newAd[field].split(rule.find).join(rule.replace);
+                            }
+                        }
+                    });
+                });
+
+                return newAd;
+            });
+
+            renderTable();
+            updatePreview();
+            closeRulesModal();
+            alert(`Применено ${substitutionRules.length} правил к ${adsData.length} объявлениям`);
         }
 
         function esc(text) {
