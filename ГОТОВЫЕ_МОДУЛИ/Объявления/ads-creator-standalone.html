@@ -283,43 +283,47 @@
         <!-- Шаг 4: Быстрые ссылки и уточнения (единые) -->
         <div class="section">
             <div class="section-title">Шаг 4. Быстрые ссылки и уточнения (для всех)</div>
-            <div class="grid grid-4">
-                <div class="field">
-                    <label>SL1 Текст</label>
-                    <input type="text" id="sl1_text" placeholder="Каталог" maxlength="30">
-                    <label>SL1 URL</label>
-                    <input type="text" id="sl1_url" placeholder="https://example.ru/catalog">
-                    <label>SL1 Описание</label>
-                    <input type="text" id="sl1_desc" placeholder="Все модели" maxlength="60">
-                </div>
-                <div class="field">
-                    <label>SL2 Текст</label>
-                    <input type="text" id="sl2_text" placeholder="Цены" maxlength="30">
-                    <label>SL2 URL</label>
-                    <input type="text" id="sl2_url" placeholder="https://example.ru/price">
-                    <label>SL2 Описание</label>
-                    <input type="text" id="sl2_desc" placeholder="Акции и скидки" maxlength="60">
-                </div>
-                <div class="field">
-                    <label>SL3 Текст</label>
-                    <input type="text" id="sl3_text" placeholder="Доставка" maxlength="30">
-                    <label>SL3 URL</label>
-                    <input type="text" id="sl3_url" placeholder="https://example.ru/ship">
-                    <label>SL3 Описание</label>
-                    <input type="text" id="sl3_desc" placeholder="За 1 день" maxlength="60">
-                </div>
-                <div class="field">
-                    <label>SL4 Текст</label>
-                    <input type="text" id="sl4_text" placeholder="Контакты" maxlength="30">
-                    <label>SL4 URL</label>
-                    <input type="text" id="sl4_url" placeholder="https://example.ru/cont">
-                    <label>SL4 Описание</label>
-                    <input type="text" id="sl4_desc" placeholder="Звонок бесплатно" maxlength="60">
+
+            <!-- Тексты быстрых ссылок -->
+            <div class="field" style="margin-bottom: 10px;">
+                <label>⊙ Быстрые ссылки (тексты, макс 30 символов)</label>
+                <div class="grid grid-4">
+                    <input type="text" id="sl1_text" placeholder="SL1 (напр. Каталог)" maxlength="30">
+                    <input type="text" id="sl2_text" placeholder="SL2 (напр. Цены)" maxlength="30">
+                    <input type="text" id="sl3_text" placeholder="SL3 (напр. Доставка)" maxlength="30">
+                    <input type="text" id="sl4_text" placeholder="SL4 (напр. Контакты)" maxlength="30">
                 </div>
             </div>
-            <div class="field" style="margin-top: 10px;">
-                <label>Уточнения (до 4, по одному в строке)</label>
-                <textarea id="clarifications" rows="3" placeholder="Быстрая доставка&#10;Гарантия&#10;Отзывы клиентов&#10;Без предоплат">Быстрая доставка&#10;Гарантия&#10;Отзывы клиентов&#10;Без предоплат</textarea>
+
+            <!-- URL быстрых ссылок -->
+            <div class="field" style="margin-bottom: 10px;">
+                <label>⊙ Адреса быстрых ссылок</label>
+                <div class="grid grid-4">
+                    <input type="text" id="sl1_url" placeholder="SL1 URL">
+                    <input type="text" id="sl2_url" placeholder="SL2 URL">
+                    <input type="text" id="sl3_url" placeholder="SL3 URL">
+                    <input type="text" id="sl4_url" placeholder="SL4 URL">
+                </div>
+            </div>
+
+            <!-- Описания быстрых ссылок -->
+            <div class="field" style="margin-bottom: 10px;">
+                <label>⊙ Описания быстрых ссылок (макс 60 символов)</label>
+                <div class="grid grid-4">
+                    <input type="text" id="sl1_desc" placeholder="SL1 Описание" maxlength="60">
+                    <input type="text" id="sl2_desc" placeholder="SL2 Описание" maxlength="60">
+                    <input type="text" id="sl3_desc" placeholder="SL3 Описание" maxlength="60">
+                    <input type="text" id="sl4_desc" placeholder="SL4 Описание" maxlength="60">
+                </div>
+            </div>
+
+            <!-- Уточнения -->
+            <div class="field">
+                <label>⊙ Уточнения (до 4, через запятую или по одному в строке)</label>
+                <textarea id="clarifications" rows="2" placeholder="Быстрая доставка, Гарантия, Отзывы клиентов, Без предоплат">Быстрая доставка
+Гарантия
+Отзывы клиентов
+Без предоплат</textarea>
                 <div class="hint">Будут склеены через " | " в экспорте</div>
             </div>
         </div>
