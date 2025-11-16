@@ -271,11 +271,11 @@
 
         <!-- Шаг 3: Варианты текста -->
         <div class="section">
-            <div class="section-title">Шаг 3. Варианты текста (ЦИКЛИЧЕСКОЕ распределение)</div>
+            <div class="section-title">Шаг 3. Варианты текста (выбор самого длинного)</div>
             <div class="field">
                 <label>Тексты объявлений (лимит 81 символ для ЯД)</label>
                 <textarea id="texts" rows="5" placeholder="Официально. Быстрая доставка. Гарантия 2 года.&#10;Ответьте на 5 вопросов и узнайте стоимость в 3-х вариантах!">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!&#10;Официально. Быстрая доставка. Гарантия 2 года.&#10;Сертифицировано. Монтаж под ключ. Есть рассрочка.</textarea>
-                <div class="hint">Варианты распределяются по кругу: текст[i % текстов.length]</div>
+                <div class="hint">Для каждого объявления выбирается самый длинный текст из вариантов, который влезает в 81 символ</div>
                 <div id="texts_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
             </div>
         </div>
@@ -356,8 +356,8 @@
                     <tr>
                         <th>№</th>
                         <th>Ключ</th>
-                        <th>H1<br>(≤35)</th>
-                        <th>H2<br>(общ≤65)</th>
+                        <th>H1<br>(≤56)</th>
+                        <th>H2<br>(≤56)</th>
                         <th>Текст<br>(≤81)</th>
                         <th>URL</th>
                         <th>Отобр. ссылка</th>
@@ -388,25 +388,15 @@
     </div>
 
     <script>
-        // КОНСТАНТЫ (как в Excel AdsCreator v4.14)
+        // КОНСТАНТЫ (Яндекс.Директ)
         const LIMITS = {
-            H1: 35,
-            H2_MAX: 30,
-            TOTAL: 65,
-            SEP_LEN: 3,
+            H1: 56,
+            H2: 56,
             TEXT: 81,
             PATH: 20,
             MAX_KEYS: 1000,
             MAX_CHARS: 8192
         };
-
-        // ПРЕДЛОГИ для переноса
-        const PREPOSITIONS = new Set([
-            'в', 'во', 'на', 'к', 'ко', 'с', 'со', 'о', 'об', 'обо',
-            'от', 'из', 'изо', 'до', 'за', 'по', 'под', 'подо', 'при',
-            'для', 'через', 'про', 'над', 'без', 'между', 'перед',
-            'передо', 'у', 'меж', 'среди'
-        ]);
 
         // ПРАВИЛА ПОДМЕНЫ (расширенные из Excel)
         const SUBSTITUTION_RULES = [
@@ -529,6 +519,11 @@
             return text.charAt(0).toUpperCase() + text.slice(1);
         }
 
+        function clip(text, maxLen) {
+            if (!text || text.length <= maxLen) return text || '';
+            return text.substring(0, maxLen);
+        }
+
         function clipByWords(text, maxLen) {
             if (text.length <= maxLen) return text;
             const words = text.split(' ');
@@ -541,87 +536,74 @@
             return result || text.substring(0, maxLen);
         }
 
-        // ФОРМИРОВАНИЕ ЗАГОЛОВКОВ
+        // ВЫБОР ТЕКСТА: самый длинный из вариантов, который влезает в лимит
+        function chooseBodyText(variants) {
+            const list = variants.filter(t => t.trim().length > 0);
+            if (!list.length) return '';
+
+            let best = '';
+            list.forEach(t => {
+                if (t.length <= LIMITS.TEXT && t.length > best.length) {
+                    best = t;
+                }
+            });
+
+            if (best) return best;
+            return clip(list[0], LIMITS.TEXT);
+        }
+
+        // ФОРМИРОВАНИЕ ЗАГОЛОВКОВ (упрощенная логика как в ChatGPT)
         function makeTitles(key, additions) {
             const normalized = normalizeKey(key);
 
-            if (normalized.length <= LIMITS.H1) {
-                let h1 = capitalize(normalized);
-                const h1Words = h1.split(' ');
-                const lastWord = h1Words[h1Words.length - 1];
-                if (lastWord && PREPOSITIONS.has(lastWord.toLowerCase())) {
-                    h1Words.pop();
-                    h1 = h1Words.join(' ');
-                }
-                const h2 = findLongestFittingAddition(additions, h1.length);
-                return { h1, h2 };
-            }
+            // Разбиваем ключ на H1 и остаток
+            const { h1Base, h2Base } = splitKeyToBaseH1H2(normalized);
 
-            return splitKeyToH1H2(normalized, additions);
+            // Выбираем addon для H2
+            const h2 = chooseAddonForH2(h2Base, additions);
+
+            return {
+                h1: capitalize(h1Base),
+                h2: capitalize(h2)
+            };
         }
 
-        function splitKeyToH1H2(key, additions) {
-            const words = key.split(' ');
-            let h1Parts = [];
-            let h2Parts = [];
-            let currentLen = 0;
+        function splitKeyToBaseH1H2(key) {
+            const words = (key || '').trim().split(/\s+/).filter(Boolean);
+            let h1 = '';
+            let idx = 0;
 
-            for (let i = 0; i < words.length; i++) {
-                const word = words[i];
-                const testLen = currentLen + (currentLen > 0 ? 1 : 0) + word.length;
-
-                if (testLen <= LIMITS.H1) {
-                    h1Parts.push(word);
-                    currentLen = testLen;
+            // Собираем H1 по словам, пока влезает
+            for (; idx < words.length; idx++) {
+                const candidate = h1 ? `${h1} ${words[idx]}` : words[idx];
+                if (candidate.length <= LIMITS.H1) {
+                    h1 = candidate;
                 } else {
-                    h2Parts = words.slice(i);
                     break;
                 }
             }
 
-            let h1 = h1Parts.join(' ');
-            let h2 = h2Parts.join(' ');
-
-            if (h1Parts.length > 0 && h2Parts.length > 0) {
-                const lastWord = h1Parts[h1Parts.length - 1];
-                if (PREPOSITIONS.has(lastWord.toLowerCase())) {
-                    h1Parts.pop();
-                    h2Parts.unshift(lastWord);
-                    h1 = h1Parts.join(' ');
-                    h2 = h2Parts.join(' ');
-                }
-            }
-
-            h1 = capitalize(h1);
-            h2 = capitalize(h2);
-
-            const currentTotal = h1.length + LIMITS.SEP_LEN + h2.length;
-            const roomLeft = LIMITS.TOTAL - currentTotal;
-
-            if (roomLeft > 3 && additions.length > 0) {
-                const addition = additions.find(a => a.length + 3 <= roomLeft);
-                if (addition) {
-                    h2 = h2 + ' - ' + addition;
-                }
-            }
-
-            const finalTotal = h1.length + LIMITS.SEP_LEN + h2.length;
-            if (finalTotal > LIMITS.TOTAL) {
-                const maxH2 = LIMITS.TOTAL - h1.length - LIMITS.SEP_LEN;
-                h2 = clipByWords(h2, Math.max(0, maxH2));
-            }
-
-            return { h1, h2 };
+            const rest = words.slice(idx).join(' ');
+            return {
+                h1Base: clip(h1 || key, LIMITS.H1),
+                h2Base: rest
+            };
         }
 
-        function findLongestFittingAddition(additions, h1Len) {
-            const maxH2Len = LIMITS.TOTAL - h1Len - LIMITS.SEP_LEN;
-            for (let addition of additions) {
-                if (addition.length <= maxH2Len) {
-                    return addition;
-                }
-            }
-            return '';
+        function chooseAddonForH2(h2Base, addons) {
+            const base = (h2Base || '').trim();
+            const list = (addons || []).map(s => s.trim()).filter(Boolean);
+
+            // Если нет addons, но есть base - вернуть base
+            if (!list.length && base) return clip(base, LIMITS.H2);
+            if (!list.length) return '';
+
+            // Если есть base - не используем addons, только base
+            if (base) return clip(base, LIMITS.H2);
+
+            // Если base пустой - берем первый addon который влезает, или обрезаем первый
+            const candidate = list.find(a => a.length <= LIMITS.H2) || list[0];
+            return clip(candidate, LIMITS.H2);
         }
 
         function transliterate(text) {
@@ -692,10 +674,10 @@
 
             const unified = getUnifiedSettings();
 
-            // ЦИКЛИЧЕСКОЕ РАСПРЕДЕЛЕНИЕ ТЕКСТОВ
+            // ВЫБОР САМОГО ДЛИННОГО ТЕКСТА ИЗ ВАРИАНТОВ
             adsData = keys.map((key, i) => {
                 const { h1, h2 } = makeTitles(key, additions);
-                const text = texts[i % texts.length]; // ЦИКЛИЧЕСКОЕ!
+                const text = chooseBodyText(texts); // Самый длинный, который влезает в лимит
                 const url = buildUrl(domain, utm, key);
                 const path = transliterate(key);
 
@@ -724,7 +706,7 @@
             });
 
             renderTable();
-            alert(`✅ Сгенерировано ${adsData.length} объявлений с циклическим распределением текстов!`);
+            alert(`✅ Сгенерировано ${adsData.length} объявлений! Для каждого выбран самый длинный текст из вариантов.`);
         }
 
         // ОТРИСОВКА ТАБЛИЦЫ
@@ -739,15 +721,14 @@
             let html = '';
             adsData.forEach((ad, i) => {
                 const h1Class = ad.h1.length > LIMITS.H1 ? 'limits-error' : '';
-                const totalLen = ad.h1.length + LIMITS.SEP_LEN + ad.h2.length;
-                const h2Class = totalLen > LIMITS.TOTAL ? 'limits-error' : '';
+                const h2Class = ad.h2.length > LIMITS.H2 ? 'limits-error' : '';
                 const textClass = ad.text.length > LIMITS.TEXT ? 'limits-error' : '';
 
                 html += `<tr>
                     <td>${i + 1}</td>
                     <td><input type="text" value="${esc(ad.key)}" onchange="updateAd(${i}, 'key', this.value)"></td>
-                    <td class="${h1Class}"><input type="text" value="${esc(ad.h1)}" onchange="updateAd(${i}, 'h1', this.value)"><div class="counter">${ad.h1.length}/35</div></td>
-                    <td class="${h2Class}"><input type="text" value="${esc(ad.h2)}" onchange="updateAd(${i}, 'h2', this.value)"><div class="counter">${totalLen}/65</div></td>
+                    <td class="${h1Class}"><input type="text" value="${esc(ad.h1)}" onchange="updateAd(${i}, 'h1', this.value)"><div class="counter">${ad.h1.length}/56</div></td>
+                    <td class="${h2Class}"><input type="text" value="${esc(ad.h2)}" onchange="updateAd(${i}, 'h2', this.value)"><div class="counter">${ad.h2.length}/56</div></td>
                     <td class="${textClass}"><input type="text" value="${esc(ad.text)}" onchange="updateAd(${i}, 'text', this.value)"><div class="counter">${ad.text.length}/81</div></td>
                     <td><input type="text" value="${esc(ad.url)}" onchange="updateAd(${i}, 'url', this.value)"></td>
                     <td><input type="text" value="${esc(ad.displayUrl)}" onchange="updateAd(${i}, 'displayUrl', this.value)"></td>
@@ -794,7 +775,6 @@
             if (adsData.length === 0) return;
 
             const ad = adsData[previewIndex];
-            const totalLen = ad.h1.length + LIMITS.SEP_LEN + ad.h2.length;
 
             let html = `
                 <div class="ad-preview">
@@ -802,7 +782,7 @@
                     <div class="ad-url">${esc(ad.displayUrl)}</div>
                     <div class="ad-text">${esc(ad.text)}</div>
                     <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 11px; color: #666;">
-                        <div>H1: ${ad.h1.length}/35 • H2: ${ad.h2.length} • Всего: ${totalLen}/65</div>
+                        <div>H1: ${ad.h1.length}/56 • H2: ${ad.h2.length}/56</div>
                         <div>Текст: ${ad.text.length}/81</div>
                     </div>
                 </div>
