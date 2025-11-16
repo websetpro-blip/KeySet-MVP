@@ -53,6 +53,7 @@
 
         .grid-2 { grid-template-columns: 1fr 1fr; }
         .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
 
         .field {
             display: flex;
@@ -117,6 +118,15 @@
             background: #5568d3;
         }
 
+        .btn-ai {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-ai:hover {
+            background: #d97706;
+        }
+
         .btn-success {
             background: #10b981;
             color: white;
@@ -146,11 +156,11 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         th, td {
-            padding: 8px;
+            padding: 6px;
             border: 1px solid #e0e0e0;
             text-align: left;
         }
@@ -161,13 +171,14 @@
             position: sticky;
             top: 0;
             z-index: 10;
+            font-size: 10px;
         }
 
         td input {
             width: 100%;
-            padding: 4px;
+            padding: 3px;
             border: 1px solid transparent;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         td input:focus {
@@ -198,12 +209,6 @@
             margin-bottom: 4px;
         }
 
-        .ad-title2 {
-            color: #0066ff;
-            font-size: 14px;
-            margin-bottom: 6px;
-        }
-
         .ad-url {
             color: #006621;
             font-size: 13px;
@@ -222,7 +227,7 @@
         }
 
         .counter {
-            font-size: 11px;
+            font-size: 10px;
             color: #666;
             margin-top: 2px;
         }
@@ -239,7 +244,7 @@
                 <div class="field">
                     <label>Ключевые фразы (по одной в строке, макс 1000)</label>
                     <textarea id="keys" rows="10" placeholder="система очистки воды&#10;фильтр для воды от железа&#10;обезжелезиватель воды"></textarea>
-                    <div class="counter" id="keys_counter">Фраз: 0 / 1000</div>
+                    <div class="counter" id="keys_counter">Фраз: 0 / 1000 • Символов: 0 / 8192</div>
                 </div>
                 <div class="field">
                     <label>Домен</label>
@@ -259,23 +264,67 @@
             <div class="field">
                 <label>Список прибавок (по одной в строке, от длинных к коротким)</label>
                 <textarea id="h2_additions" rows="6" placeholder="система под ключ за 70 190р!&#10;обезжелезиватели от 16 990р!&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано">Скидка 30% до 15.05&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано</textarea>
-                <div class="hint">Подставляется самая длинная прибавка, которая влезает в лимит H2. Показываются длины каждой.</div>
+                <div class="hint">Подставляется самая длинная прибавка, которая влезает в лимит H2</div>
                 <div id="additions_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
             </div>
         </div>
 
         <!-- Шаг 3: Варианты текста -->
         <div class="section">
-            <div class="section-title">Шаг 3. Варианты текста (по одному в строке)</div>
+            <div class="section-title">Шаг 3. Варианты текста (ЦИКЛИЧЕСКОЕ распределение)</div>
             <div class="field">
                 <label>Тексты объявлений (лимит 81 символ для ЯД)</label>
                 <textarea id="texts" rows="5" placeholder="Официально. Быстрая доставка. Гарантия 2 года.&#10;Ответьте на 5 вопросов и узнайте стоимость в 3-х вариантах!">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!&#10;Официально. Быстрая доставка. Гарантия 2 года.&#10;Сертифицировано. Монтаж под ключ. Есть рассрочка.</textarea>
-                <div class="hint">Выбирается текст по остаточной длине (81 - длина H1 - длина H2)</div>
+                <div class="hint">Варианты распределяются по кругу: текст[i % текстов.length]</div>
                 <div id="texts_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
             </div>
         </div>
 
-        <!-- Кнопка обработать -->
+        <!-- Шаг 4: Быстрые ссылки и уточнения (единые) -->
+        <div class="section">
+            <div class="section-title">Шаг 4. Быстрые ссылки и уточнения (для всех)</div>
+            <div class="grid grid-4">
+                <div class="field">
+                    <label>SL1 Текст</label>
+                    <input type="text" id="sl1_text" placeholder="Каталог" maxlength="30">
+                    <label>SL1 URL</label>
+                    <input type="text" id="sl1_url" placeholder="https://example.ru/catalog">
+                    <label>SL1 Описание</label>
+                    <input type="text" id="sl1_desc" placeholder="Все модели" maxlength="60">
+                </div>
+                <div class="field">
+                    <label>SL2 Текст</label>
+                    <input type="text" id="sl2_text" placeholder="Цены" maxlength="30">
+                    <label>SL2 URL</label>
+                    <input type="text" id="sl2_url" placeholder="https://example.ru/price">
+                    <label>SL2 Описание</label>
+                    <input type="text" id="sl2_desc" placeholder="Акции и скидки" maxlength="60">
+                </div>
+                <div class="field">
+                    <label>SL3 Текст</label>
+                    <input type="text" id="sl3_text" placeholder="Доставка" maxlength="30">
+                    <label>SL3 URL</label>
+                    <input type="text" id="sl3_url" placeholder="https://example.ru/ship">
+                    <label>SL3 Описание</label>
+                    <input type="text" id="sl3_desc" placeholder="За 1 день" maxlength="60">
+                </div>
+                <div class="field">
+                    <label>SL4 Текст</label>
+                    <input type="text" id="sl4_text" placeholder="Контакты" maxlength="30">
+                    <label>SL4 URL</label>
+                    <input type="text" id="sl4_url" placeholder="https://example.ru/cont">
+                    <label>SL4 Описание</label>
+                    <input type="text" id="sl4_desc" placeholder="Звонок бесплатно" maxlength="60">
+                </div>
+            </div>
+            <div class="field" style="margin-top: 10px;">
+                <label>Уточнения (до 4, по одному в строке)</label>
+                <textarea id="clarifications" rows="3" placeholder="Быстрая доставка&#10;Гарантия&#10;Отзывы клиентов&#10;Без предоплат">Быстрая доставка&#10;Гарантия&#10;Отзывы клиентов&#10;Без предоплат</textarea>
+                <div class="hint">Будут склеены через " | " в экспорте</div>
+            </div>
+        </div>
+
+        <!-- Кнопки обработать -->
         <div class="section">
             <div class="buttons">
                 <button class="btn-primary" onclick="generateAds()">🚀 Обработать</button>
@@ -303,16 +352,29 @@
                     <tr>
                         <th>№</th>
                         <th>Ключ</th>
-                        <th>Заголовок 1<br>(≤35)</th>
-                        <th>Заголовок 2<br>(общий≤65)</th>
+                        <th>H1<br>(≤35)</th>
+                        <th>H2<br>(общ≤65)</th>
                         <th>Текст<br>(≤81)</th>
                         <th>URL</th>
                         <th>Отобр. ссылка</th>
+                        <th>Уточнения</th>
+                        <th>SL1</th>
+                        <th>SL1 URL</th>
+                        <th>SL1 Desc</th>
+                        <th>SL2</th>
+                        <th>SL2 URL</th>
+                        <th>SL2 Desc</th>
+                        <th>SL3</th>
+                        <th>SL3 URL</th>
+                        <th>SL3 Desc</th>
+                        <th>SL4</th>
+                        <th>SL4 URL</th>
+                        <th>SL4 Desc</th>
                     </tr>
                 </thead>
                 <tbody id="table_body">
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                        <td colspan="20" style="text-align: center; padding: 40px; color: #999;">
                             Введите данные и нажмите "Обработать"
                         </td>
                     </tr>
@@ -324,17 +386,17 @@
     <script>
         // КОНСТАНТЫ (как в Excel AdsCreator v4.14)
         const LIMITS = {
-            H1: 35,           // Максимальная длина заголовка 1
-            H2_MAX: 30,       // Максимальная длина заголовка 2
-            TOTAL: 65,        // Общая длина H1 + " — " + H2
-            SEP_LEN: 3,       // Длина разделителя " — "
-            TEXT: 81,         // Максимальная длина текста для ЯД
-            PATH: 20,         // Максимальная длина пути
-            MAX_KEYS: 1000,   // Максимум ключей
-            MAX_CHARS: 8192   // Максимум символов в поле ключей
+            H1: 35,
+            H2_MAX: 30,
+            TOTAL: 65,
+            SEP_LEN: 3,
+            TEXT: 81,
+            PATH: 20,
+            MAX_KEYS: 1000,
+            MAX_CHARS: 8192
         };
 
-        // СПИСОК ПРЕДЛОГОВ (для переноса из конца H1 в начало H2)
+        // ПРЕДЛОГИ для переноса
         const PREPOSITIONS = new Set([
             'в', 'во', 'на', 'к', 'ко', 'с', 'со', 'о', 'об', 'обо',
             'от', 'из', 'изо', 'до', 'за', 'по', 'под', 'подо', 'при',
@@ -342,7 +404,7 @@
             'передо', 'у', 'меж', 'среди'
         ]);
 
-        // ПРАВИЛА ПОДМЕНЫ (из Excel "Правила подмены.xlsb")
+        // ПРАВИЛА ПОДМЕНЫ (расширенные из Excel)
         const SUBSTITUTION_RULES = [
             // Города
             { find: /\bмск\b/gi, replace: 'МСК' },
@@ -351,6 +413,7 @@
             { find: /\bмоскве\b/gi, replace: 'Москве' },
             { find: /\bпитер\b/gi, replace: 'СПб' },
             { find: /\bпетербург\b/gi, replace: 'СПб' },
+            { find: /\bсанкт\b/gi, replace: 'Санкт-' },
 
             // Аббревиатуры
             { find: /\bрф\b/gi, replace: 'РФ' },
@@ -360,8 +423,8 @@
             { find: /\bквартир\b/gi, replace: 'квартиры' },
 
             // Технические
-            { find: /\s+/g, replace: ' ' },  // Множественные пробелы
-            { find: /\s+([,.!?])/g, replace: '$1' },  // Пробелы перед знаками
+            { find: /\s+/g, replace: ' ' },
+            { find: /\s+([,.!?])/g, replace: '$1' },
         ];
 
         // Глобальные переменные
@@ -381,7 +444,6 @@
             }
         });
 
-        // Обновление длин прибавок
         document.getElementById('h2_additions').addEventListener('input', updateAdditionsLengths);
         document.getElementById('texts').addEventListener('input', updateTextsLengths);
 
@@ -401,16 +463,14 @@
             document.getElementById('texts_lengths').innerHTML = html || 'Нет текстов';
         }
 
-        // Получение данных из полей
+        // Получение данных
         function getKeys() {
             const text = document.getElementById('keys').value;
             if (text.length > LIMITS.MAX_CHARS) {
                 alert(`Превышен лимит символов! Максимум ${LIMITS.MAX_CHARS}, у вас ${text.length}`);
                 return [];
             }
-            const keys = text.split('\n')
-                .map(k => k.trim())
-                .filter(k => k.length > 0);
+            const keys = text.split('\n').map(k => k.trim()).filter(k => k.length > 0);
             return [...new Set(keys)].slice(0, LIMITS.MAX_KEYS);
         }
 
@@ -419,7 +479,7 @@
                 .split('\n')
                 .map(a => a.trim())
                 .filter(a => a.length > 0)
-                .sort((a, b) => b.length - a.length); // От длинных к коротким
+                .sort((a, b) => b.length - a.length);
         }
 
         function getTexts() {
@@ -429,7 +489,25 @@
                 .filter(t => t.length > 0);
         }
 
-        // ПРИМЕНЕНИЕ ПРАВИЛ ПОДМЕНЫ
+        function getUnifiedSettings() {
+            return {
+                sl1_text: document.getElementById('sl1_text').value,
+                sl1_url: document.getElementById('sl1_url').value,
+                sl1_desc: document.getElementById('sl1_desc').value,
+                sl2_text: document.getElementById('sl2_text').value,
+                sl2_url: document.getElementById('sl2_url').value,
+                sl2_desc: document.getElementById('sl2_desc').value,
+                sl3_text: document.getElementById('sl3_text').value,
+                sl3_url: document.getElementById('sl3_url').value,
+                sl3_desc: document.getElementById('sl3_desc').value,
+                sl4_text: document.getElementById('sl4_text').value,
+                sl4_url: document.getElementById('sl4_url').value,
+                sl4_desc: document.getElementById('sl4_desc').value,
+                clarifications: document.getElementById('clarifications').value
+            };
+        }
+
+        // Правила подмены
         function applySubstitutionRules(text) {
             let result = text;
             SUBSTITUTION_RULES.forEach(rule => {
@@ -438,18 +516,15 @@
             return result.trim();
         }
 
-        // НОРМАЛИЗАЦИЯ КЛЮЧА (применяем правила подмены)
         function normalizeKey(key) {
             return applySubstitutionRules(key);
         }
 
-        // КАПИТАЛИЗАЦИЯ ПЕРВОЙ БУКВЫ
         function capitalize(text) {
             if (!text) return '';
             return text.charAt(0).toUpperCase() + text.slice(1);
         }
 
-        // ПОДРЕЗКА ПО СЛОВАМ
         function clipByWords(text, maxLen) {
             if (text.length <= maxLen) return text;
             const words = text.split(' ');
@@ -462,40 +537,31 @@
             return result || text.substring(0, maxLen);
         }
 
-        // ФОРМИРОВАНИЕ ЗАГОЛОВКОВ (ГЛАВНАЯ ЛОГИКА как в Excel)
+        // ФОРМИРОВАНИЕ ЗАГОЛОВКОВ
         function makeTitles(key, additions) {
             const normalized = normalizeKey(key);
 
-            // Если ключ короткий (≤35) - весь идет в H1, H2 из прибавок
             if (normalized.length <= LIMITS.H1) {
                 let h1 = capitalize(normalized);
-
-                // Убираем висящий предлог с конца H1
                 const h1Words = h1.split(' ');
                 const lastWord = h1Words[h1Words.length - 1];
                 if (lastWord && PREPOSITIONS.has(lastWord.toLowerCase())) {
                     h1Words.pop();
                     h1 = h1Words.join(' ');
                 }
-
-                // Подбираем прибавку к H2
                 const h2 = findLongestFittingAddition(additions, h1.length);
-
                 return { h1, h2 };
             }
 
-            // Если ключ длинный (>35) - режем на H1 и H2
             return splitKeyToH1H2(normalized, additions);
         }
 
-        // РАЗБИЕНИЕ ДЛИННОГО КЛЮЧА НА H1 И H2
         function splitKeyToH1H2(key, additions) {
             const words = key.split(' ');
             let h1Parts = [];
             let h2Parts = [];
             let currentLen = 0;
 
-            // Собираем H1 до лимита
             for (let i = 0; i < words.length; i++) {
                 const word = words[i];
                 const testLen = currentLen + (currentLen > 0 ? 1 : 0) + word.length;
@@ -512,7 +578,6 @@
             let h1 = h1Parts.join(' ');
             let h2 = h2Parts.join(' ');
 
-            // Переносим предлог из конца H1 в начало H2
             if (h1Parts.length > 0 && h2Parts.length > 0) {
                 const lastWord = h1Parts[h1Parts.length - 1];
                 if (PREPOSITIONS.has(lastWord.toLowerCase())) {
@@ -526,19 +591,16 @@
             h1 = capitalize(h1);
             h2 = capitalize(h2);
 
-            // Пытаемся добавить прибавку к H2, если есть место
             const currentTotal = h1.length + LIMITS.SEP_LEN + h2.length;
             const roomLeft = LIMITS.TOTAL - currentTotal;
 
             if (roomLeft > 3 && additions.length > 0) {
-                // Ищем прибавку, которая влезет через " - "
-                const addition = additions.find(a => a.length + 3 <= roomLeft); // 3 = " - "
+                const addition = additions.find(a => a.length + 3 <= roomLeft);
                 if (addition) {
                     h2 = h2 + ' - ' + addition;
                 }
             }
 
-            // Финальная подрезка H2 под общий лимит
             const finalTotal = h1.length + LIMITS.SEP_LEN + h2.length;
             if (finalTotal > LIMITS.TOTAL) {
                 const maxH2 = LIMITS.TOTAL - h1.length - LIMITS.SEP_LEN;
@@ -548,43 +610,16 @@
             return { h1, h2 };
         }
 
-        // ПОДБОР ПРИБАВКИ К H2 (самая длинная, которая влезает)
         function findLongestFittingAddition(additions, h1Len) {
             const maxH2Len = LIMITS.TOTAL - h1Len - LIMITS.SEP_LEN;
-
-            // Additions уже отсортированы от длинных к коротким
             for (let addition of additions) {
                 if (addition.length <= maxH2Len) {
                     return addition;
                 }
             }
-
-            return ''; // Если ничего не влезло
-        }
-
-        // ВЫБОР ТЕКСТА ПО ОСТАТОЧНОЙ ДЛИНЕ
-        function findFittingText(texts, h1, h2) {
-            const usedLen = h1.length + (h2 ? LIMITS.SEP_LEN : 0) + h2.length;
-            const roomLeft = LIMITS.TEXT - usedLen;
-
-            // Выбираем самый длинный текст, который влезает
-            const sorted = [...texts].sort((a, b) => b.length - a.length);
-            for (let text of sorted) {
-                if (text.length <= roomLeft) {
-                    return text;
-                }
-            }
-
-            // Если ничего не влезло, берем самый короткий и подрезаем
-            if (texts.length > 0) {
-                const shortest = sorted[sorted.length - 1];
-                return shortest.length <= LIMITS.TEXT ? shortest : shortest.substring(0, LIMITS.TEXT);
-            }
-
             return '';
         }
 
-        // ТРАНСЛИТЕРАЦИЯ для динамического поддомена
         function transliterate(text) {
             const map = {
                 'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
@@ -604,7 +639,6 @@
                 .substring(0, LIMITS.PATH);
         }
 
-        // ФОРМИРОВАНИЕ URL
         function buildUrl(domain, utm, key) {
             const base = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
             let url = `https://${base}`;
@@ -619,7 +653,6 @@
             return url;
         }
 
-        // ОТОБРАЖАЕМАЯ ССЫЛКА (только домен/путь, без UTM)
         function displayUrl(url, path) {
             const domain = url.split('?')[0].replace(/^https?:\/\//, '');
             return path ? `${domain}/${path}` : domain;
@@ -653,10 +686,12 @@
                 return;
             }
 
-            // Генерируем объявления
-            adsData = keys.map(key => {
+            const unified = getUnifiedSettings();
+
+            // ЦИКЛИЧЕСКОЕ РАСПРЕДЕЛЕНИЕ ТЕКСТОВ
+            adsData = keys.map((key, i) => {
                 const { h1, h2 } = makeTitles(key, additions);
-                const text = findFittingText(texts, h1, h2);
+                const text = texts[i % texts.length]; // ЦИКЛИЧЕСКОЕ!
                 const url = buildUrl(domain, utm, key);
                 const path = transliterate(key);
 
@@ -667,12 +702,25 @@
                     text,
                     url,
                     displayUrl: displayUrl(url, path),
-                    path
+                    path,
+                    clarifications: unified.clarifications,
+                    sl1_text: unified.sl1_text,
+                    sl1_url: unified.sl1_url,
+                    sl1_desc: unified.sl1_desc,
+                    sl2_text: unified.sl2_text,
+                    sl2_url: unified.sl2_url,
+                    sl2_desc: unified.sl2_desc,
+                    sl3_text: unified.sl3_text,
+                    sl3_url: unified.sl3_url,
+                    sl3_desc: unified.sl3_desc,
+                    sl4_text: unified.sl4_text,
+                    sl4_url: unified.sl4_url,
+                    sl4_desc: unified.sl4_desc
                 };
             });
 
             renderTable();
-            alert(`✅ Сгенерировано ${adsData.length} объявлений!`);
+            alert(`✅ Сгенерировано ${adsData.length} объявлений с циклическим распределением текстов!`);
         }
 
         // ОТРИСОВКА ТАБЛИЦЫ
@@ -680,7 +728,7 @@
             const tbody = document.getElementById('table_body');
 
             if (adsData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Введите данные и нажмите "Обработать"</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="20" style="text-align: center; padding: 40px; color: #999;">Введите данные и нажмите "Обработать"</td></tr>';
                 return;
             }
 
@@ -699,6 +747,19 @@
                     <td class="${textClass}"><input type="text" value="${esc(ad.text)}" onchange="updateAd(${i}, 'text', this.value)"><div class="counter">${ad.text.length}/81</div></td>
                     <td><input type="text" value="${esc(ad.url)}" onchange="updateAd(${i}, 'url', this.value)"></td>
                     <td><input type="text" value="${esc(ad.displayUrl)}" onchange="updateAd(${i}, 'displayUrl', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.clarifications)}" onchange="updateAd(${i}, 'clarifications', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl1_text)}" onchange="updateAd(${i}, 'sl1_text', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl1_url)}" onchange="updateAd(${i}, 'sl1_url', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl1_desc)}" onchange="updateAd(${i}, 'sl1_desc', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl2_text)}" onchange="updateAd(${i}, 'sl2_text', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl2_url)}" onchange="updateAd(${i}, 'sl2_url', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl2_desc)}" onchange="updateAd(${i}, 'sl2_desc', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl3_text)}" onchange="updateAd(${i}, 'sl3_text', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl3_url)}" onchange="updateAd(${i}, 'sl3_url', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl3_desc)}" onchange="updateAd(${i}, 'sl3_desc', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl4_text)}" onchange="updateAd(${i}, 'sl4_text', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl4_url)}" onchange="updateAd(${i}, 'sl4_url', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.sl4_desc)}" onchange="updateAd(${i}, 'sl4_desc', this.value)"></td>
                 </tr>`;
             });
 
@@ -713,7 +774,7 @@
             return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        // ПРЕДПРОСМОТР ЯНДЕКСА
+        // ПРЕДПРОСМОТР
         function showPreview() {
             if (adsData.length === 0) {
                 alert('Сначала сгенерируйте объявления!');
@@ -768,12 +829,13 @@
                 return;
             }
 
-            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка'];
+            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 URL', 'SL1 Desc', 'SL2', 'SL2 URL', 'SL2 Desc', 'SL3', 'SL3 URL', 'SL3 Desc', 'SL4', 'SL4 URL', 'SL4 Desc'];
             const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
 
             let tsv = headers.join('\t') + '\n';
 
             adsData.forEach(ad => {
+                const clars = (ad.clarifications || '').replace(/\r?\n/g, ' | ');
                 const row = [
                     campaign,
                     ad.key.substring(0, 80),
@@ -782,7 +844,12 @@
                     ad.h2,
                     ad.text,
                     ad.url,
-                    ad.displayUrl
+                    ad.displayUrl,
+                    clars,
+                    ad.sl1_text, ad.sl1_url, ad.sl1_desc,
+                    ad.sl2_text, ad.sl2_url, ad.sl2_desc,
+                    ad.sl3_text, ad.sl3_url, ad.sl3_desc,
+                    ad.sl4_text, ad.sl4_url, ad.sl4_desc
                 ];
                 tsv += row.join('\t') + '\n';
             });
@@ -801,13 +868,14 @@
                 return;
             }
 
-            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка'];
+            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc', 'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc', 'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc', 'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'];
             const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
 
-            let csv = '\ufeff'; // BOM для UTF-8
+            let csv = '\ufeff';
             csv += headers.join(';') + '\n';
 
             adsData.forEach(ad => {
+                const clars = (ad.clarifications || '').replace(/\r?\n/g, ' | ');
                 const row = [
                     campaign,
                     ad.key.substring(0, 80),
@@ -816,7 +884,12 @@
                     ad.h2,
                     ad.text,
                     ad.url,
-                    ad.displayUrl
+                    ad.displayUrl,
+                    clars,
+                    ad.sl1_text, ad.sl1_url, '', ad.sl1_desc,
+                    ad.sl2_text, ad.sl2_url, '', ad.sl2_desc,
+                    ad.sl3_text, ad.sl3_url, '', ad.sl3_desc,
+                    ad.sl4_text, ad.sl4_url, '', ad.sl4_desc
                 ];
                 csv += row.map(escCsv).join(';') + '\n';
             });
@@ -827,7 +900,7 @@
             link.download = `yandex_ads_${new Date().toISOString().slice(0, 10)}.csv`;
             link.click();
 
-            alert('✅ CSV файл загружен!');
+            alert('✅ CSV файл загружен для Direct Commander!');
         }
 
         function escCsv(str) {
