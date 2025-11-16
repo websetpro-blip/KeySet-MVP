@@ -598,10 +598,7 @@
             if (!list.length && base) return clip(base, LIMITS.H2);
             if (!list.length) return '';
 
-            // Если есть base - не используем addons, только base
-            if (base) return clip(base, LIMITS.H2);
-
-            // Если base пустой - берем первый addon который влезает, или обрезаем первый
+            // Берем первый addon который влезает, или обрезаем первый
             const candidate = list.find(a => a.length <= LIMITS.H2) || list[0];
             return clip(candidate, LIMITS.H2);
         }
