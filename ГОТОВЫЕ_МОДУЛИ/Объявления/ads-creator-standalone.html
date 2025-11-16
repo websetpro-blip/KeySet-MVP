@@ -141,178 +141,219 @@
       cursor: not-allowed;
     }
 
-    /* Правая панель */
-    .ads-main {
+    /* Яндекс превью */
+    .page {
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-    }
-
-    .ads-toolbar {
-      padding: 15px 20px;
-      border-bottom: 1px solid #e0e0e0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .ads-toolbar h2 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .toolbar-actions {
-      display: flex;
-      gap: 10px;
-    }
-
-    .btn {
-      padding: 8px 16px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: white;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn:hover:not(:disabled) {
-      background: #f5f5f5;
-      border-color: #999;
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-primary {
-      background: #667eea;
-      color: white;
-      border-color: #667eea;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #5568d3;
-      border-color: #5568d3;
-    }
-
-    /* Список объявлений */
-    .ads-list {
-      flex: 1;
+      background: #ffffff;
+      border: 1px solid #d4d4d4;
+      padding: 10px 18px 25px;
       overflow-y: auto;
-      padding: 20px;
     }
 
-    .empty-state {
+    .top-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .logo {
+      margin-right: 20px;
       text-align: center;
-      padding: 60px 20px;
-      color: #999;
+      line-height: 1.1;
     }
 
-    .empty-state p {
-      margin: 10px 0;
-      font-size: 16px;
+    .logo-main {
+      font-size: 24px;
+      font-weight: bold;
+      color: #000;
     }
 
-    .empty-hint {
-      font-size: 14px !important;
-      color: #bbb;
+    .logo-main span {
+      color: #d41313;
     }
 
-    /* Карточка объявления */
-    .ad-card {
-      background: white;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 15px;
-      transition: all 0.2s;
-      cursor: pointer;
+    .logo-sub {
+      font-size: 11px;
+      color: #666;
     }
 
-    .ad-card:hover {
-      border-color: #667eea;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    .search-area {
+      flex: 1;
     }
 
-    .ad-card.selected {
-      border-color: #667eea;
-      background: #f8f9ff;
+    .search-top {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
     }
 
-    .ad-header {
+    .search-input {
+      flex: 1;
+      padding: 5px 7px;
+      border: 1px solid #b7b7b7;
+      font-size: 13px;
+    }
+
+    .search-controls {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 12px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #f0f0f0;
+      margin-left: 8px;
     }
 
-    .ad-phrase {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 600;
-      color: #667eea;
+    .icon-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid #c0c0c0;
+      background: #fafafa;
+      font-size: 11px;
+      text-align: center;
+      line-height: 16px;
+      cursor: pointer;
     }
 
-    .ad-body {
+    .search-button {
+      padding: 7px 18px;
+      background: #ffcc00;
+      border: 1px solid #ddb100;
+      border-radius: 2px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .search-nav {
+      margin-top: 2px;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .search-nav a {
+      margin-right: 14px;
+      text-decoration: none;
+      color: #000;
+    }
+
+    .search-nav a.active {
+      font-weight: bold;
+    }
+
+    .search-nav a.active span {
+      border-bottom: 2px solid #000;
+      padding-bottom: 1px;
+    }
+
+    .main {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      margin-top: 14px;
     }
 
-    .ad-title1 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1a73e8;
+    .content {
+      flex: 1;
     }
 
-    .ad-title2 {
+    .ad {
+      border-top: 1px solid #d9d9d9;
+      padding-top: 8px;
+    }
+
+    .ad-title {
+      font-size: 22px;
+      color: #0033cc;
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      padding-left: 0;
+    }
+
+    .ad-title::before {
+      content: "»»»";
+      position: absolute;
+      left: -50px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 24px;
+      color: #d41313;
+    }
+
+    .ad-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .ad-row {
+      display: flex;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .ad-row-main {
+      flex: 1;
+    }
+
+    .ad-label {
+      width: 210px;
+      font-size: 12px;
+      line-height: 1.3;
+      color: #333333;
+      padding-right: 10px;
+      box-sizing: border-box;
+    }
+
+    .side-arrow {
+      color: #cc0000;
+      font-weight: bold;
       font-size: 14px;
-      font-weight: 500;
-      color: #5f6368;
+    }
+
+    .ad-url-row {
+      display: grid;
+      grid-template-columns: 1.3fr 2.7fr;
+      border: 1px solid #e0e0e0;
+      border-top: none;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .ad-url-domain {
+      padding: 4px 6px;
+      font-weight: bold;
+      color: #0a8a00;
+      text-align: center;
+    }
+
+    .ad-url-text {
+      padding: 4px 6px;
     }
 
     .ad-text {
-      font-size: 13px;
-      color: #333;
-      line-height: 1.5;
-    }
-
-    .ad-url {
       font-size: 12px;
-      color: #188038;
-      font-weight: 500;
+      white-space: nowrap;
+      display: inline-block;
     }
 
     /* Scrollbar styles */
     .ads-sidebar::-webkit-scrollbar,
-    .ads-list::-webkit-scrollbar {
+    .page::-webkit-scrollbar {
       width: 8px;
     }
 
     .ads-sidebar::-webkit-scrollbar-track,
-    .ads-list::-webkit-scrollbar-track {
+    .page::-webkit-scrollbar-track {
       background: #f1f1f1;
       border-radius: 4px;
     }
 
     .ads-sidebar::-webkit-scrollbar-thumb,
-    .ads-list::-webkit-scrollbar-thumb {
+    .page::-webkit-scrollbar-thumb {
       background: #888;
       border-radius: 4px;
     }
 
     .ads-sidebar::-webkit-scrollbar-thumb:hover,
-    .ads-list::-webkit-scrollbar-thumb:hover {
+    .page::-webkit-scrollbar-thumb:hover {
       background: #555;
     }
   </style>
@@ -679,60 +720,85 @@
               </button>
             </div>
 
-            {/* Правая панель с результатами */}
-            <div className="ads-main">
-              <div className="ads-toolbar">
-                <h2>Объявления ({rows.length})</h2>
-                <div className="toolbar-actions">
-                  <button
-                    className="btn"
-                    onClick={handleCopyTSV}
-                    disabled={!rows.length}
-                  >
-                    📋 Копировать TSV
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => exportCsv(rows)}
-                    disabled={!rows.length}
-                  >
-                    💾 Экспорт CSV
-                  </button>
+            {/* Яндекс превью */}
+            <div className="page">
+              <div className="top-row">
+                <div className="logo">
+                  <div className="logo-main"><span>Я</span>ндекс</div>
+                  <div className="logo-sub">Поиск №1 в России*</div>
+                </div>
+                <div className="search-area">
+                  <div className="search-top">
+                    <input
+                      className="search-input"
+                      type="text"
+                      value={rows.length > 0 ? rows[selectedIndex]?.key : "ключевая фраза"}
+                      readOnly
+                    />
+                    <div className="search-controls">
+                      <div className="icon-btn">🔍</div>
+                      <div className="icon-btn">★</div>
+                      <div className="icon-btn">⚙</div>
+                      <button className="search-button">Найти</button>
+                    </div>
+                  </div>
+                  <div className="search-nav">
+                    <a href="#" className="active"><span>поиск</span></a>
+                    <a href="#">картинки</a>
+                    <a href="#">видео</a>
+                    <a href="#">карты</a>
+                    <a href="#">маркет</a>
+                    <a href="#">новости</a>
+                    <a href="#">переводчик</a>
+                    <a href="#">ещё</a>
+                  </div>
                 </div>
               </div>
 
-              <div className="ads-list">
-                {rows.length === 0 ? (
-                  <div className="empty-state">
-                    <p>📝 Объявления ещё не созданы</p>
-                    <p className="empty-hint">
-                      Заполните настройки слева и нажмите "Сгенерировать объявления"
-                    </p>
+              <div className="main">
+                <section className="content">
+                  <div className="ad">
+                    {rows.length > 0 ? (
+                      <>
+                        <div className="ad-row">
+                          <div className="ad-label"></div>
+                          <div className="ad-row-main">
+                            <div className="ad-title">
+                              <a href="#">
+                                {rows[selectedIndex]?.h1}
+                                {rows[selectedIndex]?.h2 && ` — ${rows[selectedIndex].h2}`}
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="ad-row">
+                          <div className="ad-label">Отображаемая ссылка <span className="side-arrow">&gt;</span></div>
+                          <div className="ad-row-main">
+                            <div className="ad-url-row">
+                              <div className="ad-url-domain">{normalizeDomain(domain)}/</div>
+                              <div className="ad-url-text">{rows[selectedIndex]?.key}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="ad-row">
+                          <div className="ad-label">Текст <span className="side-arrow">&gt;</span></div>
+                          <div className="ad-row-main">
+                            <span className="ad-text">{rows[selectedIndex]?.text}</span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ padding: "40px", textAlign: "center", color: "#999" }}>
+                        <p>📝 Сгенерируйте объявления</p>
+                        <p style={{ fontSize: "14px", marginTop: "10px" }}>
+                          Заполните настройки слева и нажмите кнопку генерации
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  rows.map((r, idx) => (
-                    <div
-                      key={idx}
-                      className={`ad-card ${idx === selectedIndex ? "selected" : ""}`}
-                      onClick={() => setSelectedIndex(idx)}
-                    >
-                      <div className="ad-header">
-                        <div className="ad-phrase">{r.key}</div>
-                      </div>
-                      <div className="ad-body">
-                        <div className="ad-title1">
-                          {r.h1}
-                          {r.h2 && ` — ${r.h2}`}
-                        </div>
-                        <div className="ad-url">
-                          {normalizeDomain(r.url.split("?")[0])}
-                          {r.path && `/${r.path.replace(/^\/+/, "")}`}
-                        </div>
-                        <div className="ad-text">{r.text}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
+                </section>
               </div>
             </div>
           </div>
