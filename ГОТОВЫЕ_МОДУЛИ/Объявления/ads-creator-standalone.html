@@ -293,47 +293,6 @@
       font-weight: 500;
     }
 
-    .ad-quicklinks {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 4px;
-    }
-
-    .quicklink {
-      padding: 4px 10px;
-      background: #f1f3f4;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #1a73e8;
-    }
-
-    .fastlink-inputs {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .fastlink-row {
-      display: grid;
-      grid-template-columns: 40px 1fr 1fr;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .fastlink-num {
-      font-size: 11px;
-      color: #999;
-    }
-
-    .fastlink-input {
-      padding: 6px 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-
     /* Scrollbar styles */
     .ads-sidebar::-webkit-scrollbar,
     .ads-list::-webkit-scrollbar {
@@ -486,7 +445,6 @@
         "Текст",
         "Ссылка",
         "Отображаемая ссылка",
-        "Уточнения",
       ];
 
       const camp = "AUTO-" + new Date().toISOString().slice(0, 10);
@@ -500,7 +458,6 @@
 
       rows.forEach((r) => {
         const display = normalizeDomain(r.url.split("?")[0]) + (r.path ? `/${r.path.replace(/^\/+/, "")}` : "");
-        const clar = (r.clar || "").replace(/\r?\n/g, " | ");
 
         const vals = [
           camp,
@@ -511,7 +468,6 @@
           r.text,
           r.url,
           display,
-          clar,
         ].map(csvEsc);
 
         lines.push(vals.join(sep));
@@ -543,17 +499,6 @@
       );
       const [bodyVariantsInput, setBodyVariantsInput] = useState(
         "Ответьте на 5 вопросов и узнайте стоимость системы очистки воды!"
-      );
-
-      // Быстрые ссылки/уточнения
-      const [fastLinks, setFastLinks] = useState([
-        { text: "Распродажа", desc: "Скидка 30% до 15.05" },
-        { text: "Видео отзывы", desc: "Посмотрите рекламу" },
-        { text: "Заказать", desc: "Заявка за 1 минуту" },
-        { text: "Консультация", desc: "Подбор системы" },
-      ]);
-      const [clarifications, setClarifications] = useState(
-        "Быстрая доставка\nГарантия\nОтзывы клиентов\nБез предоплат"
       );
 
       const [rows, setRows] = useState([]);
@@ -610,7 +555,6 @@
             text,
             url,
             path: "",
-            clar: clarifications,
           };
         });
 
@@ -623,27 +567,19 @@
           alert("Нет строк для копирования");
           return;
         }
-        const header = ["Ключ", "H1", "H2", "Текст", "URL", "Путь", "Уточнения"];
+        const header = ["Ключ", "H1", "H2", "Текст", "URL", "Путь"];
         const esc = (s) =>
           (s ?? "").toString().replace(/\t/g, " ").replace(/\r?\n/g, " ");
 
         const lines = [header.join("\t")];
         rows.forEach((r) => {
           lines.push(
-            [r.key, r.h1, r.h2, r.text, r.url, r.path, r.clar]
+            [r.key, r.h1, r.h2, r.text, r.url, r.path]
               .map(esc)
               .join("\t")
           );
         });
         copyToClipboard(lines.join("\n"));
-      };
-
-      const handleFastLinkChange = (index, field, value) => {
-        setFastLinks((prev) => {
-          const next = [...prev];
-          next[index] = { ...next[index], [field]: value };
-          return next;
-        });
       };
 
       return (
@@ -658,33 +594,9 @@
           <div className="ads-content">
             {/* Левая панель с настройками */}
             <div className="ads-sidebar">
-              {/* Ключевые фразы */}
-              <div className="ads-section">
-                <h2>Ключевые фразы</h2>
-                <label>Вставьте фразы (по одной на строку)</label>
-                <textarea
-                  className="ads-textarea"
-                  style={{ minHeight: "120px" }}
-                  placeholder="фильтр для воды купить&#10;система очистки воды&#10;обезжелезиватель воды"
-                  value={keysInput}
-                  onChange={(e) => setKeysInput(e.target.value)}
-                />
-                <div className="ads-hint">
-                  Фраз: {keyList.length}. Дубликаты будут удалены.
-                </div>
-              </div>
-
               {/* Базовые настройки */}
               <div className="ads-section">
-                <h2>Базовые настройки</h2>
-                <label>ID группы (опционально)</label>
-                <input
-                  className="ads-input"
-                  placeholder="grp-1, grp-2 ..."
-                  value={groupId}
-                  onChange={(e) => setGroupId(e.target.value)}
-                />
-
+                <h2>Настройки URL</h2>
                 <label>Домен / лендинг</label>
                 <input
                   className="ads-input"
@@ -703,6 +615,14 @@
                 <div className="ads-hint">
                   Используйте {"{key}"} и {"{group}"} для подстановки
                 </div>
+
+                <label>ID группы (опционально)</label>
+                <input
+                  className="ads-input"
+                  placeholder="grp-1, grp-2 ..."
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                />
               </div>
 
               {/* Прибавки к H2 */}
@@ -733,40 +653,20 @@
                 </div>
               </div>
 
-              {/* Быстрые ссылки */}
+              {/* Ключевые фразы */}
               <div className="ads-section">
-                <h2>Быстрые ссылки</h2>
-                <div className="fastlink-inputs">
-                  {fastLinks.map((fl, idx) => (
-                    <div key={idx} className="fastlink-row">
-                      <div className="fastlink-num">#{idx + 1}</div>
-                      <input
-                        className="fastlink-input"
-                        placeholder="Текст"
-                        value={fl.text}
-                        onChange={(e) =>
-                          handleFastLinkChange(idx, "text", e.target.value)
-                        }
-                      />
-                      <input
-                        className="fastlink-input"
-                        placeholder="Описание"
-                        value={fl.desc}
-                        onChange={(e) =>
-                          handleFastLinkChange(idx, "desc", e.target.value)
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <label>Уточнения (по одному на строку)</label>
+                <h2>Ключевые фразы</h2>
+                <label>Вставьте фразы (по одной на строку)</label>
                 <textarea
                   className="ads-textarea"
-                  placeholder="Быстрая доставка&#10;Гарантия&#10;Без предоплат"
-                  value={clarifications}
-                  onChange={(e) => setClarifications(e.target.value)}
+                  style={{ minHeight: "120px" }}
+                  placeholder="фильтр для воды купить&#10;система очистки воды&#10;обезжелезиватель воды"
+                  value={keysInput}
+                  onChange={(e) => setKeysInput(e.target.value)}
                 />
+                <div className="ads-hint">
+                  Фраз: {keyList.length}. Дубликаты будут удалены.
+                </div>
               </div>
 
               {/* Кнопка генерации */}
@@ -829,15 +729,6 @@
                           {r.path && `/${r.path.replace(/^\/+/, "")}`}
                         </div>
                         <div className="ad-text">{r.text}</div>
-                        {fastLinks.filter(fl => fl.text).length > 0 && (
-                          <div className="ad-quicklinks">
-                            {fastLinks.filter(fl => fl.text).map((fl, i) => (
-                              <span key={i} className="quicklink">
-                                {fl.text}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))
