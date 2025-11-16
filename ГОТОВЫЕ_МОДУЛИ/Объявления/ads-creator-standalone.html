@@ -264,7 +264,7 @@
             <div class="field">
                 <label>Список прибавок (по одной в строке, от длинных к коротким)</label>
                 <textarea id="h2_additions" rows="6" placeholder="система под ключ за 70 190р!&#10;обезжелезиватели от 16 990р!&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано">Скидка 30% до 15.05&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано</textarea>
-                <div class="hint">Подставляется самая длинная прибавка, которая влезает в лимит H2</div>
+                <div class="hint">Если ключ целиком влез в H1 → берется прибавка. Если не влез → остаток ключа идет в H2</div>
                 <div id="additions_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
             </div>
         </div>
@@ -388,17 +388,21 @@
     </div>
 
     <script>
-        // КОНСТАНТЫ (Яндекс.Директ)
+        // ===========================================
+        // КОНСТАНТЫ (как у ChatGPT)
+        // ===========================================
         const LIMITS = {
-            H1: 56,
-            H2: 56,
-            TEXT: 81,
-            PATH: 20,
-            MAX_KEYS: 1000,
-            MAX_CHARS: 8192
+            h1: 56,
+            h2: 56,
+            body: 81,
+            path: 20,
+            maxKeys: 1000,
+            maxChars: 8192
         };
 
-        // ПРАВИЛА ПОДМЕНЫ (расширенные из Excel)
+        // ===========================================
+        // ПРАВИЛА ПОДМЕНЫ (то, чего у ChatGPT нет)
+        // ===========================================
         const SUBSTITUTION_RULES = [
             // Города
             { find: /\bмск\b/gi, replace: 'МСК' },
@@ -408,64 +412,169 @@
             { find: /\bпитер\b/gi, replace: 'СПб' },
             { find: /\bпетербург\b/gi, replace: 'СПб' },
             { find: /\bсанкт\b/gi, replace: 'Санкт-' },
-
             // Аббревиатуры
             { find: /\bрф\b/gi, replace: 'РФ' },
             { find: /\bжкх\b/gi, replace: 'ЖКХ' },
-            { find: /\bкоттедж\b/gi, replace: 'коттеджа' },
-            { find: /\bдом\b/gi, replace: 'дома' },
-            { find: /\bквартир\b/gi, replace: 'квартиры' },
-
             // Технические
             { find: /\s+/g, replace: ' ' },
-            { find: /\s+([,.!?])/g, replace: '$1' },
+            { find: /\s+([,.!?])/g, replace: '$1' }
         ];
 
-        // Глобальные переменные
+        // ===========================================
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ===========================================
         let adsData = [];
         let previewIndex = 0;
 
-        // Обновление счетчиков
-        document.getElementById('keys').addEventListener('input', function() {
-            const keys = getKeys();
-            const chars = this.value.length;
-            const counter = document.getElementById('keys_counter');
-            counter.textContent = `Фраз: ${keys.length} / ${LIMITS.MAX_KEYS} • Символов: ${chars} / ${LIMITS.MAX_CHARS}`;
-            if (keys.length > LIMITS.MAX_KEYS || chars > LIMITS.MAX_CHARS) {
-                counter.style.color = '#dc2626';
-            } else {
-                counter.style.color = '#666';
+        // ===========================================
+        // УТИЛИТЫ (клип, капитализация, подмены)
+        // ===========================================
+        function clip(text, maxLen) {
+            if (!text || text.length <= maxLen) return text || '';
+            return text.substring(0, maxLen);
+        }
+
+        function applySubstitutions(text) {
+            let result = text;
+            SUBSTITUTION_RULES.forEach(rule => {
+                result = result.replace(rule.find, rule.replace);
+            });
+            return result.trim();
+        }
+
+        function capitalize(text) {
+            if (!text) return '';
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        }
+
+        // ===========================================
+        // CORE ЛОГИКА ИЗ CHATGPT (1:1)
+        // ===========================================
+
+        // 1) Разбиваем ключ на H1 и остаток
+        function splitKeyToBaseH1H2(key) {
+            const words = (key || '').trim().split(/\s+/).filter(Boolean);
+            let h1 = '';
+            let idx = 0;
+
+            for (; idx < words.length; idx++) {
+                const candidate = h1 ? `${h1} ${words[idx]}` : words[idx];
+                if (candidate.length <= LIMITS.h1) {
+                    h1 = candidate;
+                } else {
+                    break;
+                }
             }
-        });
 
-        document.getElementById('h2_additions').addEventListener('input', updateAdditionsLengths);
-        document.getElementById('texts').addEventListener('input', updateTextsLengths);
-
-        function updateAdditionsLengths() {
-            const additions = getAdditions();
-            const html = additions.map(a => `<span style="margin-right: 10px;">• ${a} <b>(${a.length})</b></span>`).join('');
-            document.getElementById('additions_lengths').innerHTML = html || 'Нет прибавок';
+            const rest = words.slice(idx).join(' ');
+            return {
+                h1Base: clip(h1 || key, LIMITS.h1),
+                h2Base: rest
+            };
         }
 
-        function updateTextsLengths() {
-            const texts = getTexts();
-            const html = texts.map(t => {
-                const len = t.length;
-                const color = len > LIMITS.TEXT ? '#dc2626' : '#10b981';
-                return `<span style="margin-right: 10px;">• <b style="color: ${color}">${len}/81</b>: ${t.substring(0, 40)}${t.length > 40 ? '...' : ''}</span>`;
-            }).join('<br>');
-            document.getElementById('texts_lengths').innerHTML = html || 'Нет текстов';
+        // 2) Выбираем addon для H2
+        function chooseAddonForH2(h2Base, addons) {
+            const base = (h2Base || '').trim();
+            const list = (addons || []).map(s => s.trim()).filter(Boolean);
+
+            // Если нет addons, но есть base → вернуть base
+            if (!list.length && base) return clip(base, LIMITS.h2);
+            if (!list.length) return '';
+
+            // Если есть base (ключ длинный) → используем base, игнорируем addons
+            if (base) return clip(base, LIMITS.h2);
+
+            // Если base пустой (ключ влез в H1) → берем первый addon, который влезает
+            const candidate = list.find(a => a.length <= LIMITS.h2) || list[0];
+            return clip(candidate, LIMITS.h2);
         }
 
-        // Получение данных
+        // 3) Формирование заголовков (H1 + H2)
+        function makeTitles(key, additions) {
+            // Применяем подмены ПЕРЕД разбиением
+            const normalized = applySubstitutions(key);
+
+            const { h1Base, h2Base } = splitKeyToBaseH1H2(normalized);
+            const h2 = chooseAddonForH2(h2Base, additions);
+
+            return {
+                h1: capitalize(h1Base),
+                h2: capitalize(h2)
+            };
+        }
+
+        // 4) Выбор самого длинного текста из вариантов
+        function chooseBodyText(variants) {
+            const list = (variants || []).map(s => s.trim()).filter(Boolean);
+            if (!list.length) return '';
+
+            let best = '';
+            list.forEach(t => {
+                if (t.length <= LIMITS.body && t.length > best.length) {
+                    best = t;
+                }
+            });
+
+            if (best) return best;
+            return clip(list[0], LIMITS.body);
+        }
+
+        // ===========================================
+        // ТРАНСЛИТЕРАЦИЯ (чего у ChatGPT нет)
+        // ===========================================
+        function transliterate(text) {
+            const map = {
+                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+                'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+                'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+                'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+                'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+            };
+
+            return text.toLowerCase()
+                .split('')
+                .map(char => map[char] || char)
+                .join('')
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .substring(0, LIMITS.path);
+        }
+
+        // ===========================================
+        // URL BUILDER (чего у ChatGPT нет)
+        // ===========================================
+        function buildUrl(domain, utm, key) {
+            const base = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+            let url = `https://${base}`;
+
+            if (utm && utm.trim()) {
+                const utmParams = utm
+                    .replace(/{key}/g, encodeURIComponent(key))
+                    .replace(/{group}/g, encodeURIComponent(key.substring(0, 40)));
+                url += '?' + utmParams;
+            }
+
+            return url;
+        }
+
+        function displayUrl(url, path) {
+            const domain = url.split('?')[0].replace(/^https?:\/\//, '');
+            return path ? `${domain}/${path}` : domain;
+        }
+
+        // ===========================================
+        // ПОЛУЧЕНИЕ ДАННЫХ ИЗ ФОРМЫ
+        // ===========================================
         function getKeys() {
             const text = document.getElementById('keys').value;
-            if (text.length > LIMITS.MAX_CHARS) {
-                alert(`Превышен лимит символов! Максимум ${LIMITS.MAX_CHARS}, у вас ${text.length}`);
+            if (text.length > LIMITS.maxChars) {
+                alert(`Превышен лимит символов! Максимум ${LIMITS.maxChars}, у вас ${text.length}`);
                 return [];
             }
             const keys = text.split('\n').map(k => k.trim()).filter(k => k.length > 0);
-            return [...new Set(keys)].slice(0, LIMITS.MAX_KEYS);
+            return [...new Set(keys)].slice(0, LIMITS.maxKeys);
         }
 
         function getAdditions() {
@@ -473,7 +582,7 @@
                 .split('\n')
                 .map(a => a.trim())
                 .filter(a => a.length > 0)
-                .sort((a, b) => b.length - a.length);
+                .sort((a, b) => b.length - a.length); // От длинных к коротким
         }
 
         function getTexts() {
@@ -501,147 +610,9 @@
             };
         }
 
-        // Правила подмены
-        function applySubstitutionRules(text) {
-            let result = text;
-            SUBSTITUTION_RULES.forEach(rule => {
-                result = result.replace(rule.find, rule.replace);
-            });
-            return result.trim();
-        }
-
-        function normalizeKey(key) {
-            return applySubstitutionRules(key);
-        }
-
-        function capitalize(text) {
-            if (!text) return '';
-            return text.charAt(0).toUpperCase() + text.slice(1);
-        }
-
-        function clip(text, maxLen) {
-            if (!text || text.length <= maxLen) return text || '';
-            return text.substring(0, maxLen);
-        }
-
-        function clipByWords(text, maxLen) {
-            if (text.length <= maxLen) return text;
-            const words = text.split(' ');
-            let result = '';
-            for (let word of words) {
-                const test = result ? result + ' ' + word : word;
-                if (test.length > maxLen) break;
-                result = test;
-            }
-            return result || text.substring(0, maxLen);
-        }
-
-        // ВЫБОР ТЕКСТА: самый длинный из вариантов, который влезает в лимит
-        function chooseBodyText(variants) {
-            const list = variants.filter(t => t.trim().length > 0);
-            if (!list.length) return '';
-
-            let best = '';
-            list.forEach(t => {
-                if (t.length <= LIMITS.TEXT && t.length > best.length) {
-                    best = t;
-                }
-            });
-
-            if (best) return best;
-            return clip(list[0], LIMITS.TEXT);
-        }
-
-        // ФОРМИРОВАНИЕ ЗАГОЛОВКОВ (упрощенная логика как в ChatGPT)
-        function makeTitles(key, additions) {
-            const normalized = normalizeKey(key);
-
-            // Разбиваем ключ на H1 и остаток
-            const { h1Base, h2Base } = splitKeyToBaseH1H2(normalized);
-
-            // Выбираем addon для H2
-            const h2 = chooseAddonForH2(h2Base, additions);
-
-            return {
-                h1: capitalize(h1Base),
-                h2: capitalize(h2)
-            };
-        }
-
-        function splitKeyToBaseH1H2(key) {
-            const words = (key || '').trim().split(/\s+/).filter(Boolean);
-            let h1 = '';
-            let idx = 0;
-
-            // Собираем H1 по словам, пока влезает
-            for (; idx < words.length; idx++) {
-                const candidate = h1 ? `${h1} ${words[idx]}` : words[idx];
-                if (candidate.length <= LIMITS.H1) {
-                    h1 = candidate;
-                } else {
-                    break;
-                }
-            }
-
-            const rest = words.slice(idx).join(' ');
-            return {
-                h1Base: clip(h1 || key, LIMITS.H1),
-                h2Base: rest
-            };
-        }
-
-        function chooseAddonForH2(h2Base, addons) {
-            const base = (h2Base || '').trim();
-            const list = (addons || []).map(s => s.trim()).filter(Boolean);
-
-            // Если нет addons, но есть base - вернуть base
-            if (!list.length && base) return clip(base, LIMITS.H2);
-            if (!list.length) return '';
-
-            // Берем первый addon который влезает, или обрезаем первый
-            const candidate = list.find(a => a.length <= LIMITS.H2) || list[0];
-            return clip(candidate, LIMITS.H2);
-        }
-
-        function transliterate(text) {
-            const map = {
-                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-                'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-                'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-                'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-                'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
-            };
-
-            return text.toLowerCase()
-                .split('')
-                .map(char => map[char] || char)
-                .join('')
-                .replace(/[^a-z0-9\s-]/g, '')
-                .replace(/\s+/g, '-')
-                .replace(/-+/g, '-')
-                .substring(0, LIMITS.PATH);
-        }
-
-        function buildUrl(domain, utm, key) {
-            const base = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
-            let url = `https://${base}`;
-
-            if (utm && utm.trim()) {
-                const utmParams = utm
-                    .replace('{key}', encodeURIComponent(key))
-                    .replace('{group}', encodeURIComponent(key.substring(0, 40)));
-                url += '?' + utmParams;
-            }
-
-            return url;
-        }
-
-        function displayUrl(url, path) {
-            const domain = url.split('?')[0].replace(/^https?:\/\//, '');
-            return path ? `${domain}/${path}` : domain;
-        }
-
-        // ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ
+        // ===========================================
+        // ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ
+        // ===========================================
         function generateAds() {
             const keys = getKeys();
             if (keys.length === 0) {
@@ -671,10 +642,10 @@
 
             const unified = getUnifiedSettings();
 
-            // ВЫБОР САМОГО ДЛИННОГО ТЕКСТА ИЗ ВАРИАНТОВ
-            adsData = keys.map((key, i) => {
+            // Генерируем объявления
+            adsData = keys.map((key) => {
                 const { h1, h2 } = makeTitles(key, additions);
-                const text = chooseBodyText(texts); // Самый длинный, который влезает в лимит
+                const text = chooseBodyText(texts);
                 const url = buildUrl(domain, utm, key);
                 const path = transliterate(key);
 
@@ -703,10 +674,12 @@
             });
 
             renderTable();
-            alert(`✅ Сгенерировано ${adsData.length} объявлений! Для каждого выбран самый длинный текст из вариантов.`);
+            alert(`✅ Сгенерировано ${adsData.length} объявлений!`);
         }
 
+        // ===========================================
         // ОТРИСОВКА ТАБЛИЦЫ
+        // ===========================================
         function renderTable() {
             const tbody = document.getElementById('table_body');
 
@@ -717,9 +690,9 @@
 
             let html = '';
             adsData.forEach((ad, i) => {
-                const h1Class = ad.h1.length > LIMITS.H1 ? 'limits-error' : '';
-                const h2Class = ad.h2.length > LIMITS.H2 ? 'limits-error' : '';
-                const textClass = ad.text.length > LIMITS.TEXT ? 'limits-error' : '';
+                const h1Class = ad.h1.length > LIMITS.h1 ? 'limits-error' : '';
+                const h2Class = ad.h2.length > LIMITS.h2 ? 'limits-error' : '';
+                const textClass = ad.text.length > LIMITS.body ? 'limits-error' : '';
 
                 html += `<tr>
                     <td>${i + 1}</td>
@@ -756,7 +729,9 @@
             return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        // ПРЕДПРОСМОТР
+        // ===========================================
+        // ПРЕДПРОСМОТР ЯНДЕКСА
+        // ===========================================
         function showPreview() {
             if (adsData.length === 0) {
                 alert('Сначала сгенерируйте объявления!');
@@ -803,7 +778,9 @@
             }
         }
 
+        // ===========================================
         // КОПИРОВАНИЕ TSV
+        // ===========================================
         function copyTSV() {
             if (adsData.length === 0) {
                 alert('Нет данных для копирования!');
@@ -842,7 +819,9 @@
             });
         }
 
-        // ЭКСПОРТ CSV
+        // ===========================================
+        // ЭКСПОРТ CSV ДЛЯ DIRECT COMMANDER
+        // ===========================================
         function exportCSV() {
             if (adsData.length === 0) {
                 alert('Нет данных для экспорта!');
@@ -852,7 +831,7 @@
             const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc', 'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc', 'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc', 'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'];
             const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
 
-            let csv = '\ufeff';
+            let csv = '\ufeff'; // UTF-8 BOM
             csv += headers.join(';') + '\n';
 
             adsData.forEach(ad => {
@@ -890,6 +869,40 @@
                 return '"' + str.replace(/"/g, '""') + '"';
             }
             return str;
+        }
+
+        // ===========================================
+        // СЧЕТЧИКИ И ИНИЦИАЛИЗАЦИЯ
+        // ===========================================
+        document.getElementById('keys').addEventListener('input', function() {
+            const keys = getKeys();
+            const chars = this.value.length;
+            const counter = document.getElementById('keys_counter');
+            counter.textContent = `Фраз: ${keys.length} / ${LIMITS.maxKeys} • Символов: ${chars} / ${LIMITS.maxChars}`;
+            if (keys.length > LIMITS.maxKeys || chars > LIMITS.maxChars) {
+                counter.style.color = '#dc2626';
+            } else {
+                counter.style.color = '#666';
+            }
+        });
+
+        document.getElementById('h2_additions').addEventListener('input', updateAdditionsLengths);
+        document.getElementById('texts').addEventListener('input', updateTextsLengths);
+
+        function updateAdditionsLengths() {
+            const additions = getAdditions();
+            const html = additions.map(a => `<span style="margin-right: 10px;">• ${a} <b>(${a.length})</b></span>`).join('');
+            document.getElementById('additions_lengths').innerHTML = html || 'Нет прибавок';
+        }
+
+        function updateTextsLengths() {
+            const texts = getTexts();
+            const html = texts.map(t => {
+                const len = t.length;
+                const color = len > LIMITS.body ? '#dc2626' : '#10b981';
+                return `<span style="margin-right: 10px;">• <b style="color: ${color}">${len}/81</b>: ${t.substring(0, 40)}${t.length > 40 ? '...' : ''}</span>`;
+            }).join('<br>');
+            document.getElementById('texts_lengths').innerHTML = html || 'Нет текстов';
         }
 
         // Инициализация
