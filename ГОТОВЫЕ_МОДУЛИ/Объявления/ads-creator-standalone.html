@@ -3,145 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Генератор объявлений Яндекс.Директ</title>
+    <title>Генератор объявлений Яндекс.Директ - AdsCreator v4.14</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
+            padding: 20px;
             line-height: 1.4;
-            overflow: hidden;
         }
 
         .container {
-            display: flex;
-            height: 100vh;
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
         }
 
-        /* Левая панель */
-        .sidebar {
-            width: 300px;
-            background: #fafafa;
-            border-right: 1px solid #e0e0e0;
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-
-        .sidebar-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 10px;
-            text-align: center;
-        }
-
-        .sidebar-header h1 {
-            font-size: 13px;
-            margin-bottom: 2px;
-        }
-
-        .sidebar-header p {
-            font-size: 9px;
-            opacity: 0.9;
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
         }
 
         .section {
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .section-header {
-            padding: 8px 12px;
-            background: #f0f0f0;
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .section-header:hover {
-            background: #e8e8e8;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
         }
 
         .section-title {
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 600;
-            color: #333;
+            margin-bottom: 10px;
+            color: #667eea;
         }
 
-        .section-toggle {
-            font-size: 10px;
-            color: #666;
+        .grid {
+            display: grid;
+            gap: 15px;
         }
 
-        .section-content {
-            padding: 10px 12px;
-            display: none;
-        }
-
-        .section.expanded .section-content {
-            display: block;
-        }
-
-        .section.expanded .section-toggle::before {
-            content: '▼';
-        }
-
-        .section:not(.expanded) .section-toggle::before {
-            content: '▶';
-        }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
 
         .field {
-            margin-bottom: 8px;
+            display: flex;
+            flex-direction: column;
         }
 
-        .label {
-            display: block;
-            font-size: 9px;
+        label {
+            font-size: 12px;
             font-weight: 500;
-            margin-bottom: 3px;
-            color: #666;
+            margin-bottom: 5px;
+            color: #555;
         }
 
-        .input, .textarea {
-            width: 100%;
-            padding: 4px 6px;
+        input[type="text"],
+        textarea {
+            padding: 8px;
             border: 1px solid #ddd;
-            border-radius: 2px;
-            font-size: 10px;
+            border-radius: 4px;
+            font-size: 13px;
             font-family: inherit;
         }
 
-        .input:focus, .textarea:focus {
+        input:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
         }
 
-        .textarea {
+        textarea {
             resize: vertical;
-            min-height: 40px;
+            min-height: 60px;
+            font-family: monospace;
         }
 
         .hint {
-            font-size: 8px;
+            font-size: 11px;
             color: #999;
-            margin-top: 2px;
+            margin-top: 3px;
         }
 
-        .btn {
-            width: 100%;
-            padding: 6px 8px;
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
             border: none;
-            border-radius: 3px;
-            font-size: 10px;
+            border-radius: 4px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
-            margin-bottom: 5px;
         }
 
         .btn-primary {
@@ -162,15 +126,6 @@
             background: #059669;
         }
 
-        .btn-ai {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .btn-ai:hover {
-            background: #d97706;
-        }
-
         .btn-secondary {
             background: white;
             color: #666;
@@ -181,1247 +136,711 @@
             background: #f5f5f5;
         }
 
-        .sl-group {
-            margin-bottom: 8px;
-            padding: 6px;
-            background: #f9f9f9;
-            border: 1px solid #e0e0e0;
-            border-radius: 3px;
-        }
-
-        .sl-label {
-            font-size: 9px;
-            font-weight: 600;
-            color: #667eea;
-            margin-bottom: 4px;
-        }
-
-        .sl-row {
-            margin-bottom: 3px;
-        }
-
-        .sl-row input {
-            margin-bottom: 2px;
-        }
-
-        /* Правая панель */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* Тулбар */
-        .toolbar {
-            padding: 6px 12px;
-            background: white;
-            border-bottom: 1px solid #e0e0e0;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .toolbar .btn {
-            width: auto;
-            padding: 4px 8px;
-            margin: 0;
-            font-size: 9px;
-        }
-
-        .stats {
-            font-size: 9px;
-            color: #666;
-            margin-right: auto;
-        }
-
-        /* Excel таблица */
         .table-wrapper {
-            flex: 1;
-            overflow: auto;
-            background: white;
+            overflow-x: auto;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
         }
 
-        .excel-table {
+        table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9px;
+            font-size: 12px;
         }
 
-        .excel-table thead {
+        th, td {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            text-align: left;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
             position: sticky;
             top: 0;
-            background: #f8f9fa;
             z-index: 10;
         }
 
-        .excel-table th {
-            padding: 4px 2px;
-            text-align: left;
-            font-weight: 600;
-            border: 1px solid #ddd;
-            background: #f8f9fa;
-            white-space: nowrap;
-            font-size: 8px;
-            position: relative;
-            user-select: none;
-        }
-
-        .excel-table th .resizer {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 4px;
-            height: 100%;
-            cursor: col-resize;
-            user-select: none;
-        }
-
-        .excel-table th .resizer:hover {
-            background: #667eea;
-        }
-
-        .excel-table td {
-            padding: 0;
-            border: 1px solid #e0e0e0;
-            background: white;
-        }
-
-        .excel-table tbody tr:hover {
-            background: #f9f9f9;
-        }
-
-        .excel-table tbody tr.selected {
-            background: #e8eefe;
-        }
-
-        .cell-input {
+        td input {
             width: 100%;
-            padding: 2px 4px;
-            border: none;
-            background: transparent;
-            font-size: 9px;
-            font-family: inherit;
-            outline: none;
-            min-height: 20px;
+            padding: 4px;
+            border: 1px solid transparent;
+            font-size: 12px;
         }
 
-        .cell-input:focus {
-            background: #fffef0;
-            box-shadow: inset 0 0 0 2px #667eea;
+        td input:focus {
+            border-color: #667eea;
         }
 
-        .cell-checkbox {
-            width: 12px;
-            height: 12px;
-            cursor: pointer;
-            margin: 0 auto;
-            display: block;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 30px 20px;
-            color: #999;
-            font-size: 10px;
-        }
-
-        /* Предпросмотр Яндекс */
-        .preview-wrapper {
+        .preview-box {
+            margin-top: 20px;
+            padding: 15px;
             background: white;
-            border-top: 2px solid #e0e0e0;
-            padding: 10px 15px;
-            max-height: 300px;
-            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
         }
 
-        .preview-header {
-            font-size: 10px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .preview-nav {
-            display: flex;
-            gap: 4px;
-        }
-
-        .preview-nav button {
-            padding: 2px 6px;
-            font-size: 9px;
-            border: 1px solid #ddd;
-            background: white;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-
-        .preview-nav button:hover {
-            background: #f0f0f0;
-        }
-
-        .yandex-preview {
+        .ad-preview {
+            max-width: 600px;
+            margin: 10px 0;
+            padding: 12px;
             border: 1px solid #e0e0e0;
             border-radius: 4px;
-            padding: 12px;
-            background: #fff;
-            font-family: Arial, sans-serif;
-        }
-
-        .yandex-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #e0e0e0;
-            margin-bottom: 10px;
-        }
-
-        .yandex-logo {
-            font-size: 16px;
-            font-weight: bold;
-            color: #fc0;
-            background: #f00;
-            padding: 2px 6px;
-            border-radius: 2px;
-        }
-
-        .yandex-search {
-            flex: 1;
-            padding: 3px 8px;
-            border: 1px solid #ddd;
-            border-radius: 2px;
-            font-size: 10px;
-        }
-
-        .yandex-nav {
-            font-size: 9px;
-            color: #999;
-            margin-bottom: 8px;
-        }
-
-        .ad-marker {
-            font-size: 9px;
-            color: #999;
-            margin-bottom: 4px;
-        }
-
-        .ad-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #0066ff;
-            margin-bottom: 6px;
-            cursor: pointer;
-            line-height: 1.3;
-        }
-
-        .ad-title:hover {
-            text-decoration: underline;
-        }
-
-        .ad-link {
-            font-size: 12px;
-            color: #008000;
-            margin-bottom: 6px;
-            line-height: 1.4;
-        }
-
-        .ad-text {
-            font-size: 13px;
-            color: #000;
-            margin-bottom: 8px;
-            line-height: 1.4;
-        }
-
-        .ad-clarifications {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 8px;
-        }
-
-        .ad-chip {
-            padding: 3px 10px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            font-size: 11px;
-            color: #666;
-        }
-
-        .ad-sitelinks {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .ad-sitelink {
-            padding: 8px;
-            border: 1px solid #e0e0e0;
-            border-radius: 3px;
             background: #fafafa;
         }
 
-        .ad-sitelink-url {
-            font-size: 9px;
-            color: #008000;
-            margin-bottom: 3px;
-        }
-
-        .ad-sitelink-title {
-            font-size: 11px;
+        .ad-title {
             color: #0066ff;
-            font-weight: 500;
-            margin-bottom: 2px;
-        }
-
-        .ad-sitelink-desc {
-            font-size: 10px;
-            color: #666;
-        }
-
-        /* Модальное окно правил подмены */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 20px;
-            border-radius: 6px;
-            width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            margin-bottom: 4px;
         }
 
-        .modal-close {
-            cursor: pointer;
-            font-size: 20px;
-            color: #999;
-        }
-
-        .rule-item {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            margin-bottom: 8px;
-            background: #f9f9f9;
-        }
-
-        .rule-row {
-            display: flex;
-            gap: 6px;
+        .ad-title2 {
+            color: #0066ff;
+            font-size: 14px;
             margin-bottom: 6px;
         }
 
-        .rule-type {
-            width: 80px;
+        .ad-url {
+            color: #006621;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .ad-text {
+            color: #333;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .limits-error {
+            color: #dc2626;
+            background: #fee2e2;
+        }
+
+        .counter {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Левая панель -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <h1>🎯 Генератор объявлений</h1>
-                <p>Яндекс.Директ v4.14</p>
-            </div>
+        <h1>📢 Генератор объявлений Яндекс.Директ - AdsCreator v4.14</h1>
 
-            <!-- Ключевые фразы -->
-            <div class="section expanded">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Ключевые фразы</div>
-                    <div class="section-toggle"></div>
+        <!-- Шаг 1: Ввод ключей -->
+        <div class="section">
+            <div class="section-title">Шаг 1. Ключевые фразы и домен</div>
+            <div class="grid grid-2">
+                <div class="field">
+                    <label>Ключевые фразы (по одной в строке, макс 1000)</label>
+                    <textarea id="keys" rows="10" placeholder="система очистки воды&#10;фильтр для воды от железа&#10;обезжелезиватель воды"></textarea>
+                    <div class="counter" id="keys_counter">Фраз: 0 / 1000</div>
                 </div>
-                <div class="section-content">
-                    <textarea id="keys_input" class="textarea" placeholder="Введите ключи, по одному в строке" rows="5"></textarea>
-                    <div class="hint">Фраз: <span id="keys_count">0</span> / 1000 | Макс. 8192 символов</div>
-                </div>
-            </div>
+                <div class="field">
+                    <label>Домен</label>
+                    <input type="text" id="domain" placeholder="example.ru" value="nordkor.ru">
+                    <div class="hint">Без http:// и www</div>
 
-            <!-- Основные настройки -->
-            <div class="section expanded">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Основные настройки</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <div class="field">
-                        <label class="label">Домен</label>
-                        <input id="domain_input" class="input" placeholder="example.ru">
-                    </div>
-                    <div class="field">
-                        <label class="label">UTM-шаблон (опционально)</label>
-                        <input id="utm_template" class="input" value="utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Заголовки -->
-            <div class="section expanded">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Заголовки</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <div class="field">
-                        <label class="label">Шаблон H1 (макс. 56)</label>
-                        <input id="h1_template" class="input" value="{key}">
-                        <div class="hint">Переменные: {key}, {Key}, {PHRASE}</div>
-                    </div>
-                    <div class="field">
-                        <label class="label">Шаблон H2 (макс. 56)</label>
-                        <input id="h2_template" class="input" value="— Для частного!">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Текст объявления -->
-            <div class="section expanded">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Текст объявления</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <textarea id="text_template" class="textarea" rows="2">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!</textarea>
-                    <div class="hint">Максимум 81 символ</div>
-                </div>
-            </div>
-
-            <!-- Быстрые ссылки -->
-            <div class="section">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Быстрые ссылки (для всех)</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <div class="sl-group">
-                        <div class="sl-label">SL1</div>
-                        <div class="sl-row"><input type="text" id="sl1_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
-                        <div class="sl-row"><input type="text" id="sl1_url" class="input" placeholder="URL"></div>
-                        <div class="sl-row"><input type="text" id="sl1_anchor" class="input" placeholder="Якорь"></div>
-                        <div class="sl-row"><input type="text" id="sl1_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
-                    </div>
-                    <div class="sl-group">
-                        <div class="sl-label">SL2</div>
-                        <div class="sl-row"><input type="text" id="sl2_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
-                        <div class="sl-row"><input type="text" id="sl2_url" class="input" placeholder="URL"></div>
-                        <div class="sl-row"><input type="text" id="sl2_anchor" class="input" placeholder="Якорь"></div>
-                        <div class="sl-row"><input type="text" id="sl2_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
-                    </div>
-                    <div class="sl-group">
-                        <div class="sl-label">SL3</div>
-                        <div class="sl-row"><input type="text" id="sl3_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
-                        <div class="sl-row"><input type="text" id="sl3_url" class="input" placeholder="URL"></div>
-                        <div class="sl-row"><input type="text" id="sl3_anchor" class="input" placeholder="Якорь"></div>
-                        <div class="sl-row"><input type="text" id="sl3_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
-                    </div>
-                    <div class="sl-group">
-                        <div class="sl-label">SL4</div>
-                        <div class="sl-row"><input type="text" id="sl4_text" class="input" placeholder="Текст (макс. 30)" maxlength="30"></div>
-                        <div class="sl-row"><input type="text" id="sl4_url" class="input" placeholder="URL"></div>
-                        <div class="sl-row"><input type="text" id="sl4_anchor" class="input" placeholder="Якорь"></div>
-                        <div class="sl-row"><input type="text" id="sl4_desc" class="input" placeholder="Описание (макс. 60)" maxlength="60"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Уточнения -->
-            <div class="section">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Уточнения (для всех)</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <div class="field">
-                        <input type="text" id="clar1" class="input" placeholder="Уточнение 1 (макс. 66)" maxlength="66">
-                    </div>
-                    <div class="field">
-                        <input type="text" id="clar2" class="input" placeholder="Уточнение 2 (макс. 66)" maxlength="66">
-                    </div>
-                    <div class="field">
-                        <input type="text" id="clar3" class="input" placeholder="Уточнение 3 (макс. 66)" maxlength="66">
-                    </div>
-                    <div class="field">
-                        <input type="text" id="clar4" class="input" placeholder="Уточнение 4 (макс. 66)" maxlength="66">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Отображаемая ссылка -->
-            <div class="section">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Отображаемая ссылка</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <div class="field">
-                        <label class="label">Префикс</label>
-                        <input type="text" id="display_prefix" class="input" placeholder="Распродажа">
-                    </div>
-                    <div class="field">
-                        <label class="label">Постфикс</label>
-                        <input type="text" id="display_postfix" class="input" placeholder="Видео отзывы | Заказать">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Кнопки -->
-            <div class="section expanded">
-                <div class="section-header" onclick="toggleSection(this)">
-                    <div class="section-title">Действия</div>
-                    <div class="section-toggle"></div>
-                </div>
-                <div class="section-content">
-                    <button class="btn btn-primary" onclick="generateAds()">🚀 Сгенерировать</button>
-                    <button class="btn btn-ai" onclick="generateWithAI()">🤖 Сгенерировать с ИИ</button>
-                    <button class="btn btn-secondary" onclick="applyUnified()">🔄 Применить ко всем</button>
-                    <button class="btn btn-secondary" onclick="openRulesModal()">📝 Правила подмены</button>
-                    <button class="btn btn-secondary" onclick="copyAsTSV()">📋 Копировать TSV</button>
-                    <button class="btn btn-success" onclick="exportCSV()">💾 Экспорт CSV</button>
+                    <label style="margin-top: 10px;">UTM-шаблон (опционально)</label>
+                    <input type="text" id="utm" value="utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}" placeholder="utm_source=yandex&utm_term={key}">
+                    <div class="hint">Подстановки: {key}, {group}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Правая панель -->
-        <div class="main-content">
-            <!-- Тулбар -->
-            <div class="toolbar">
-                <div class="stats">
-                    Объявлений: <strong id="total_ads">0</strong> | Выбрано: <strong id="selected_ads">0</strong>
-                </div>
-                <button class="btn btn-secondary" onclick="selectAll()">Выбрать все</button>
-                <button class="btn btn-secondary" onclick="deselectAll()">Снять</button>
-                <button class="btn btn-secondary" onclick="deleteSelected()">Удалить</button>
-            </div>
-
-            <!-- Таблица -->
-            <div class="table-wrapper">
-                <table class="excel-table" id="main_table">
-                    <thead>
-                        <tr>
-                            <th style="width: 25px;"><input type="checkbox" class="cell-checkbox" onclick="toggleAll(this)"><div class="resizer" data-col="0"></div></th>
-                            <th style="width: 130px;">Ключ<div class="resizer" data-col="1"></div></th>
-                            <th style="width: 120px;">H1<div class="resizer" data-col="2"></div></th>
-                            <th style="width: 120px;">H2<div class="resizer" data-col="3"></div></th>
-                            <th style="width: 150px;">Текст<div class="resizer" data-col="4"></div></th>
-                            <th style="width: 180px;">URL<div class="resizer" data-col="5"></div></th>
-                            <th style="width: 90px;">Отобр. путь<div class="resizer" data-col="6"></div></th>
-                            <th style="width: 100px;">Уточнения<div class="resizer" data-col="7"></div></th>
-                            <th style="width: 70px;">SL1<div class="resizer" data-col="8"></div></th>
-                            <th style="width: 100px;">SL1 URL<div class="resizer" data-col="9"></div></th>
-                            <th style="width: 70px;">SL1 Anchor<div class="resizer" data-col="10"></div></th>
-                            <th style="width: 100px;">SL1 Desc<div class="resizer" data-col="11"></div></th>
-                            <th style="width: 70px;">SL2<div class="resizer" data-col="12"></div></th>
-                            <th style="width: 100px;">SL2 URL<div class="resizer" data-col="13"></div></th>
-                            <th style="width: 70px;">SL2 Anchor<div class="resizer" data-col="14"></div></th>
-                            <th style="width: 100px;">SL2 Desc<div class="resizer" data-col="15"></div></th>
-                            <th style="width: 70px;">SL3<div class="resizer" data-col="16"></div></th>
-                            <th style="width: 100px;">SL3 URL<div class="resizer" data-col="17"></div></th>
-                            <th style="width: 70px;">SL3 Anchor<div class="resizer" data-col="18"></div></th>
-                            <th style="width: 100px;">SL3 Desc<div class="resizer" data-col="19"></div></th>
-                            <th style="width: 70px;">SL4<div class="resizer" data-col="20"></div></th>
-                            <th style="width: 100px;">SL4 URL<div class="resizer" data-col="21"></div></th>
-                            <th style="width: 70px;">SL4 Anchor<div class="resizer" data-col="22"></div></th>
-                            <th style="width: 100px;">SL4 Desc<div class="resizer" data-col="23"></div></th>
-                        </tr>
-                    </thead>
-                    <tbody id="table_body">
-                        <tr>
-                            <td colspan="24" class="empty-state">
-                                Введите ключевые фразы и нажмите "Сгенерировать"
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Предпросмотр Яндекс -->
-            <div class="preview-wrapper">
-                <div class="preview-header">
-                    <span>Предпросмотр "как в Яндексе"</span>
-                    <div class="preview-nav">
-                        <button onclick="prevPreview()">←</button>
-                        <span id="preview_index">0 / 0</span>
-                        <button onclick="nextPreview()">→</button>
-                    </div>
-                </div>
-                <div class="yandex-preview" id="yandex_preview">
-                    <div class="yandex-header">
-                        <div class="yandex-logo">Я</div>
-                        <input type="text" class="yandex-search" value="" readonly>
-                        <span style="font-size: 10px; color: #666;">Найти</span>
-                    </div>
-                    <div class="yandex-nav">ПОИСК | КАРТИНКИ | ВИДЕО | КАРТЫ | МАРКЕТ</div>
-                    <div id="preview_content" style="color: #999; font-size: 11px;">Сгенерируйте объявления для предпросмотра</div>
-                </div>
+        <!-- Шаг 2: Прибавки к заголовку №2 -->
+        <div class="section">
+            <div class="section-title">Шаг 2. Прибавки к заголовку №2 (приоритет)</div>
+            <div class="field">
+                <label>Список прибавок (по одной в строке, от длинных к коротким)</label>
+                <textarea id="h2_additions" rows="6" placeholder="система под ключ за 70 190р!&#10;обезжелезиватели от 16 990р!&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано">Скидка 30% до 15.05&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано</textarea>
+                <div class="hint">Подставляется самая длинная прибавка, которая влезает в лимит H2. Показываются длины каждой.</div>
+                <div id="additions_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
             </div>
         </div>
-    </div>
 
-    <!-- Модальное окно правил подмены -->
-    <div class="modal" id="rules_modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span>Правила подмены</span>
-                <span class="modal-close" onclick="closeRulesModal()">×</span>
+        <!-- Шаг 3: Варианты текста -->
+        <div class="section">
+            <div class="section-title">Шаг 3. Варианты текста (по одному в строке)</div>
+            <div class="field">
+                <label>Тексты объявлений (лимит 81 символ для ЯД)</label>
+                <textarea id="texts" rows="5" placeholder="Официально. Быстрая доставка. Гарантия 2 года.&#10;Ответьте на 5 вопросов и узнайте стоимость в 3-х вариантах!">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!&#10;Официально. Быстрая доставка. Гарантия 2 года.&#10;Сертифицировано. Монтаж под ключ. Есть рассрочка.</textarea>
+                <div class="hint">Выбирается текст по остаточной длине (81 - длина H1 - длина H2)</div>
+                <div id="texts_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
             </div>
-            <div style="margin-bottom: 10px;">
-                <button class="btn btn-secondary" onclick="addRule()" style="width: auto; padding: 5px 10px;">+ Добавить правило</button>
+        </div>
+
+        <!-- Кнопка обработать -->
+        <div class="section">
+            <div class="buttons">
+                <button class="btn-primary" onclick="generateAds()">🚀 Обработать</button>
+                <button class="btn-secondary" onclick="showPreview()">👁️ Предпросмотр Яндекса</button>
+                <button class="btn-secondary" onclick="copyTSV()">📋 Копировать TSV</button>
+                <button class="btn-success" onclick="exportCSV()">💾 Экспорт CSV для Direct Commander</button>
             </div>
-            <div id="rules_list"></div>
-            <div style="margin-top: 15px;">
-                <button class="btn btn-primary" onclick="applyRules()">Применить правила</button>
+        </div>
+
+        <!-- Предпросмотр как в Яндексе -->
+        <div class="preview-box" id="preview_box" style="display: none;">
+            <div class="section-title">Предпросмотр Яндекс.Директ</div>
+            <div class="buttons" style="margin-bottom: 10px;">
+                <button onclick="prevPreview()">← Пред.</button>
+                <span id="preview_nav" style="padding: 0 10px;">1 / 1</span>
+                <button onclick="nextPreview()">След. →</button>
             </div>
+            <div id="preview_content"></div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Ключ</th>
+                        <th>Заголовок 1<br>(≤35)</th>
+                        <th>Заголовок 2<br>(общий≤65)</th>
+                        <th>Текст<br>(≤81)</th>
+                        <th>URL</th>
+                        <th>Отобр. ссылка</th>
+                    </tr>
+                </thead>
+                <tbody id="table_body">
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                            Введите данные и нажмите "Обработать"
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        let adsData = [];
-        let selectedRows = new Set();
-        let previewIndex = 0;
-        let substitutionRules = [];
-
+        // КОНСТАНТЫ (как в Excel AdsCreator v4.14)
         const LIMITS = {
-            H1: 56,
-            H2: 56,
-            TEXT: 81,
-            PATH: 20,
-            CLAR: 66,
-            SL_TEXT: 30,
-            SL_DESC: 60
+            H1: 35,           // Максимальная длина заголовка 1
+            H2_MAX: 30,       // Максимальная длина заголовка 2
+            TOTAL: 65,        // Общая длина H1 + " — " + H2
+            SEP_LEN: 3,       // Длина разделителя " — "
+            TEXT: 81,         // Максимальная длина текста для ЯД
+            PATH: 20,         // Максимальная длина пути
+            MAX_KEYS: 1000,   // Максимум ключей
+            MAX_CHARS: 8192   // Максимум символов в поле ключей
         };
 
-        // Переключение секций
-        function toggleSection(header) {
-            header.parentElement.classList.toggle('expanded');
-        }
+        // СПИСОК ПРЕДЛОГОВ (для переноса из конца H1 в начало H2)
+        const PREPOSITIONS = new Set([
+            'в', 'во', 'на', 'к', 'ко', 'с', 'со', 'о', 'об', 'обо',
+            'от', 'из', 'изо', 'до', 'за', 'по', 'под', 'подо', 'при',
+            'для', 'через', 'про', 'над', 'без', 'между', 'перед',
+            'передо', 'у', 'меж', 'среди'
+        ]);
 
-        // Счетчик ключей
-        document.getElementById('keys_input').addEventListener('input', function() {
+        // ПРАВИЛА ПОДМЕНЫ (из Excel "Правила подмены.xlsb")
+        const SUBSTITUTION_RULES = [
+            // Города
+            { find: /\bмск\b/gi, replace: 'МСК' },
+            { find: /\bспб\b/gi, replace: 'СПб' },
+            { find: /\bмосквы\b/gi, replace: 'Москвы' },
+            { find: /\bмоскве\b/gi, replace: 'Москве' },
+            { find: /\bпитер\b/gi, replace: 'СПб' },
+            { find: /\bпетербург\b/gi, replace: 'СПб' },
+
+            // Аббревиатуры
+            { find: /\bрф\b/gi, replace: 'РФ' },
+            { find: /\bжкх\b/gi, replace: 'ЖКХ' },
+            { find: /\bкоттедж\b/gi, replace: 'коттеджа' },
+            { find: /\bдом\b/gi, replace: 'дома' },
+            { find: /\bквартир\b/gi, replace: 'квартиры' },
+
+            // Технические
+            { find: /\s+/g, replace: ' ' },  // Множественные пробелы
+            { find: /\s+([,.!?])/g, replace: '$1' },  // Пробелы перед знаками
+        ];
+
+        // Глобальные переменные
+        let adsData = [];
+        let previewIndex = 0;
+
+        // Обновление счетчиков
+        document.getElementById('keys').addEventListener('input', function() {
             const keys = getKeys();
-            document.getElementById('keys_count').textContent = keys.length;
+            const chars = this.value.length;
+            const counter = document.getElementById('keys_counter');
+            counter.textContent = `Фраз: ${keys.length} / ${LIMITS.MAX_KEYS} • Символов: ${chars} / ${LIMITS.MAX_CHARS}`;
+            if (keys.length > LIMITS.MAX_KEYS || chars > LIMITS.MAX_CHARS) {
+                counter.style.color = '#dc2626';
+            } else {
+                counter.style.color = '#666';
+            }
         });
 
+        // Обновление длин прибавок
+        document.getElementById('h2_additions').addEventListener('input', updateAdditionsLengths);
+        document.getElementById('texts').addEventListener('input', updateTextsLengths);
+
+        function updateAdditionsLengths() {
+            const additions = getAdditions();
+            const html = additions.map(a => `<span style="margin-right: 10px;">• ${a} <b>(${a.length})</b></span>`).join('');
+            document.getElementById('additions_lengths').innerHTML = html || 'Нет прибавок';
+        }
+
+        function updateTextsLengths() {
+            const texts = getTexts();
+            const html = texts.map(t => {
+                const len = t.length;
+                const color = len > LIMITS.TEXT ? '#dc2626' : '#10b981';
+                return `<span style="margin-right: 10px;">• <b style="color: ${color}">${len}/81</b>: ${t.substring(0, 40)}${t.length > 40 ? '...' : ''}</span>`;
+            }).join('<br>');
+            document.getElementById('texts_lengths').innerHTML = html || 'Нет текстов';
+        }
+
+        // Получение данных из полей
         function getKeys() {
-            const input = document.getElementById('keys_input').value;
-            return [...new Set(input.split('\n').map(s => s.trim()).filter(Boolean))].slice(0, 1000);
+            const text = document.getElementById('keys').value;
+            if (text.length > LIMITS.MAX_CHARS) {
+                alert(`Превышен лимит символов! Максимум ${LIMITS.MAX_CHARS}, у вас ${text.length}`);
+                return [];
+            }
+            const keys = text.split('\n')
+                .map(k => k.trim())
+                .filter(k => k.length > 0);
+            return [...new Set(keys)].slice(0, LIMITS.MAX_KEYS);
         }
 
-        function clip(str, max) {
-            str = (str || '').trim();
-            return str.length <= max ? str : str.slice(0, max - 1) + '…';
+        function getAdditions() {
+            return document.getElementById('h2_additions').value
+                .split('\n')
+                .map(a => a.trim())
+                .filter(a => a.length > 0)
+                .sort((a, b) => b.length - a.length); // От длинных к коротким
         }
 
-        function capitalize(str) {
-            if (!str) return '';
-            return str.charAt(0).toUpperCase() + str.slice(1);
+        function getTexts() {
+            return document.getElementById('texts').value
+                .split('\n')
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
         }
 
-        function substituteKey(template, key) {
-            let result = template;
-            result = result.replace(/\{key\}/g, key);
-            result = result.replace(/\{Phrase\}/g, capitalize(key));
-            result = result.replace(/\{PHRASE\}/g, key.toUpperCase());
-            result = result.replace(/\{Key\}/g, capitalize(key));
-            return result;
+        // ПРИМЕНЕНИЕ ПРАВИЛ ПОДМЕНЫ
+        function applySubstitutionRules(text) {
+            let result = text;
+            SUBSTITUTION_RULES.forEach(rule => {
+                result = result.replace(rule.find, rule.replace);
+            });
+            return result.trim();
         }
 
-        function splitH1(h1, h2Template) {
-            const words = h1.trim().split(/\s+/);
-            let fitted = '';
-            let i = 0;
+        // НОРМАЛИЗАЦИЯ КЛЮЧА (применяем правила подмены)
+        function normalizeKey(key) {
+            return applySubstitutionRules(key);
+        }
 
-            for (; i < words.length; i++) {
-                const candidate = (fitted ? fitted + ' ' : '') + words[i];
-                if (candidate.length <= LIMITS.H1) {
-                    fitted = candidate;
+        // КАПИТАЛИЗАЦИЯ ПЕРВОЙ БУКВЫ
+        function capitalize(text) {
+            if (!text) return '';
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        }
+
+        // ПОДРЕЗКА ПО СЛОВАМ
+        function clipByWords(text, maxLen) {
+            if (text.length <= maxLen) return text;
+            const words = text.split(' ');
+            let result = '';
+            for (let word of words) {
+                const test = result ? result + ' ' + word : word;
+                if (test.length > maxLen) break;
+                result = test;
+            }
+            return result || text.substring(0, maxLen);
+        }
+
+        // ФОРМИРОВАНИЕ ЗАГОЛОВКОВ (ГЛАВНАЯ ЛОГИКА как в Excel)
+        function makeTitles(key, additions) {
+            const normalized = normalizeKey(key);
+
+            // Если ключ короткий (≤35) - весь идет в H1, H2 из прибавок
+            if (normalized.length <= LIMITS.H1) {
+                let h1 = capitalize(normalized);
+
+                // Убираем висящий предлог с конца H1
+                const h1Words = h1.split(' ');
+                const lastWord = h1Words[h1Words.length - 1];
+                if (lastWord && PREPOSITIONS.has(lastWord.toLowerCase())) {
+                    h1Words.pop();
+                    h1 = h1Words.join(' ');
+                }
+
+                // Подбираем прибавку к H2
+                const h2 = findLongestFittingAddition(additions, h1.length);
+
+                return { h1, h2 };
+            }
+
+            // Если ключ длинный (>35) - режем на H1 и H2
+            return splitKeyToH1H2(normalized, additions);
+        }
+
+        // РАЗБИЕНИЕ ДЛИННОГО КЛЮЧА НА H1 И H2
+        function splitKeyToH1H2(key, additions) {
+            const words = key.split(' ');
+            let h1Parts = [];
+            let h2Parts = [];
+            let currentLen = 0;
+
+            // Собираем H1 до лимита
+            for (let i = 0; i < words.length; i++) {
+                const word = words[i];
+                const testLen = currentLen + (currentLen > 0 ? 1 : 0) + word.length;
+
+                if (testLen <= LIMITS.H1) {
+                    h1Parts.push(word);
+                    currentLen = testLen;
                 } else {
+                    h2Parts = words.slice(i);
                     break;
                 }
             }
 
-            const rest = words.slice(i).join(' ');
-            const h2 = rest ? rest + ' ' + h2Template : h2Template;
+            let h1 = h1Parts.join(' ');
+            let h2 = h2Parts.join(' ');
 
-            return {
-                h1: fitted || clip(h1, LIMITS.H1),
-                h2: clip(h2, LIMITS.H2)
-            };
+            // Переносим предлог из конца H1 в начало H2
+            if (h1Parts.length > 0 && h2Parts.length > 0) {
+                const lastWord = h1Parts[h1Parts.length - 1];
+                if (PREPOSITIONS.has(lastWord.toLowerCase())) {
+                    h1Parts.pop();
+                    h2Parts.unshift(lastWord);
+                    h1 = h1Parts.join(' ');
+                    h2 = h2Parts.join(' ');
+                }
+            }
+
+            h1 = capitalize(h1);
+            h2 = capitalize(h2);
+
+            // Пытаемся добавить прибавку к H2, если есть место
+            const currentTotal = h1.length + LIMITS.SEP_LEN + h2.length;
+            const roomLeft = LIMITS.TOTAL - currentTotal;
+
+            if (roomLeft > 3 && additions.length > 0) {
+                // Ищем прибавку, которая влезет через " - "
+                const addition = additions.find(a => a.length + 3 <= roomLeft); // 3 = " - "
+                if (addition) {
+                    h2 = h2 + ' - ' + addition;
+                }
+            }
+
+            // Финальная подрезка H2 под общий лимит
+            const finalTotal = h1.length + LIMITS.SEP_LEN + h2.length;
+            if (finalTotal > LIMITS.TOTAL) {
+                const maxH2 = LIMITS.TOTAL - h1.length - LIMITS.SEP_LEN;
+                h2 = clipByWords(h2, Math.max(0, maxH2));
+            }
+
+            return { h1, h2 };
         }
 
-        function buildUrl(domain, utm, key) {
-            domain = domain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-            let url = `https://${domain}`;
+        // ПОДБОР ПРИБАВКИ К H2 (самая длинная, которая влезает)
+        function findLongestFittingAddition(additions, h1Len) {
+            const maxH2Len = LIMITS.TOTAL - h1Len - LIMITS.SEP_LEN;
 
-            if (utm) {
-                const group = key.slice(0, 80);
-                const query = utm
-                    .replace(/\{key\}/g, encodeURIComponent(key))
-                    .replace(/\{group\}/g, encodeURIComponent(group));
-                url += '?' + query;
+            // Additions уже отсортированы от длинных к коротким
+            for (let addition of additions) {
+                if (addition.length <= maxH2Len) {
+                    return addition;
+                }
+            }
+
+            return ''; // Если ничего не влезло
+        }
+
+        // ВЫБОР ТЕКСТА ПО ОСТАТОЧНОЙ ДЛИНЕ
+        function findFittingText(texts, h1, h2) {
+            const usedLen = h1.length + (h2 ? LIMITS.SEP_LEN : 0) + h2.length;
+            const roomLeft = LIMITS.TEXT - usedLen;
+
+            // Выбираем самый длинный текст, который влезает
+            const sorted = [...texts].sort((a, b) => b.length - a.length);
+            for (let text of sorted) {
+                if (text.length <= roomLeft) {
+                    return text;
+                }
+            }
+
+            // Если ничего не влезло, берем самый короткий и подрезаем
+            if (texts.length > 0) {
+                const shortest = sorted[sorted.length - 1];
+                return shortest.length <= LIMITS.TEXT ? shortest : shortest.substring(0, LIMITS.TEXT);
+            }
+
+            return '';
+        }
+
+        // ТРАНСЛИТЕРАЦИЯ для динамического поддомена
+        function transliterate(text) {
+            const map = {
+                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+                'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+                'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+                'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+                'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+            };
+
+            return text.toLowerCase()
+                .split('')
+                .map(char => map[char] || char)
+                .join('')
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .substring(0, LIMITS.PATH);
+        }
+
+        // ФОРМИРОВАНИЕ URL
+        function buildUrl(domain, utm, key) {
+            const base = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+            let url = `https://${base}`;
+
+            if (utm && utm.trim()) {
+                const utmParams = utm
+                    .replace('{key}', encodeURIComponent(key))
+                    .replace('{group}', encodeURIComponent(key.substring(0, 40)));
+                url += '?' + utmParams;
             }
 
             return url;
         }
 
-        function getUnifiedSettings() {
-            return {
-                sl1_text: document.getElementById('sl1_text').value,
-                sl1_url: document.getElementById('sl1_url').value,
-                sl1_anchor: document.getElementById('sl1_anchor').value,
-                sl1_desc: document.getElementById('sl1_desc').value,
-                sl2_text: document.getElementById('sl2_text').value,
-                sl2_url: document.getElementById('sl2_url').value,
-                sl2_anchor: document.getElementById('sl2_anchor').value,
-                sl2_desc: document.getElementById('sl2_desc').value,
-                sl3_text: document.getElementById('sl3_text').value,
-                sl3_url: document.getElementById('sl3_url').value,
-                sl3_anchor: document.getElementById('sl3_anchor').value,
-                sl3_desc: document.getElementById('sl3_desc').value,
-                sl4_text: document.getElementById('sl4_text').value,
-                sl4_url: document.getElementById('sl4_url').value,
-                sl4_anchor: document.getElementById('sl4_anchor').value,
-                sl4_desc: document.getElementById('sl4_desc').value,
-                clar1: document.getElementById('clar1').value,
-                clar2: document.getElementById('clar2').value,
-                clar3: document.getElementById('clar3').value,
-                clar4: document.getElementById('clar4').value
-            };
+        // ОТОБРАЖАЕМАЯ ССЫЛКА (только домен/путь, без UTM)
+        function displayUrl(url, path) {
+            const domain = url.split('?')[0].replace(/^https?:\/\//, '');
+            return path ? `${domain}/${path}` : domain;
         }
 
+        // ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ
         function generateAds() {
             const keys = getKeys();
-            if (!keys.length) {
-                alert('Введите ключевые фразы');
+            if (keys.length === 0) {
+                alert('Введите ключевые фразы!');
                 return;
             }
 
-            const domain = document.getElementById('domain_input').value.trim();
+            const domain = document.getElementById('domain').value.trim();
             if (!domain) {
-                alert('Укажите домен');
+                alert('Укажите домен!');
                 return;
             }
 
-            const h1Template = document.getElementById('h1_template').value;
-            const h2Template = document.getElementById('h2_template').value;
-            const textTemplate = document.getElementById('text_template').value;
-            const utmTemplate = document.getElementById('utm_template').value;
+            const utm = document.getElementById('utm').value.trim();
+            const additions = getAdditions();
+            const texts = getTexts();
 
-            const settings = getUnifiedSettings();
+            if (additions.length === 0) {
+                alert('Добавьте хотя бы одну прибавку к заголовку №2!');
+                return;
+            }
 
+            if (texts.length === 0) {
+                alert('Добавьте хотя бы один вариант текста!');
+                return;
+            }
+
+            // Генерируем объявления
             adsData = keys.map(key => {
-                const h1Full = substituteKey(h1Template, key);
-                const { h1, h2 } = splitH1(h1Full, h2Template);
-                const text = substituteKey(textTemplate, key);
-                const url = buildUrl(domain, utmTemplate, key);
+                const { h1, h2 } = makeTitles(key, additions);
+                const text = findFittingText(texts, h1, h2);
+                const url = buildUrl(domain, utm, key);
+                const path = transliterate(key);
 
                 return {
-                    selected: false,
-                    key: key,
-                    h1: clip(h1, LIMITS.H1),
-                    h2: clip(h2, LIMITS.H2),
-                    text: clip(text, LIMITS.TEXT),
-                    url: url,
-                    path: '',
-                    clarifications: [settings.clar1, settings.clar2, settings.clar3, settings.clar4].filter(Boolean).join('\n'),
-                    sl1_text: settings.sl1_text,
-                    sl1_url: settings.sl1_url,
-                    sl1_anchor: settings.sl1_anchor,
-                    sl1_desc: settings.sl1_desc,
-                    sl2_text: settings.sl2_text,
-                    sl2_url: settings.sl2_url,
-                    sl2_anchor: settings.sl2_anchor,
-                    sl2_desc: settings.sl2_desc,
-                    sl3_text: settings.sl3_text,
-                    sl3_url: settings.sl3_url,
-                    sl3_anchor: settings.sl3_anchor,
-                    sl3_desc: settings.sl3_desc,
-                    sl4_text: settings.sl4_text,
-                    sl4_url: settings.sl4_url,
-                    sl4_anchor: settings.sl4_anchor,
-                    sl4_desc: settings.sl4_desc
+                    key,
+                    h1,
+                    h2,
+                    text,
+                    url,
+                    displayUrl: displayUrl(url, path),
+                    path
                 };
             });
 
             renderTable();
-            updateStats();
-            updatePreview();
+            alert(`✅ Сгенерировано ${adsData.length} объявлений!`);
         }
 
-        function generateWithAI() {
-            alert('Функция ИИ-генерации требует API эндпоинт:\nPOST /api/ai/ads/generate\n\nПодключите бэкенд для использования этой функции.');
-        }
-
-        function applyUnified() {
-            if (!adsData.length) {
-                alert('Сначала сгенерируйте объявления');
-                return;
-            }
-
-            const settings = getUnifiedSettings();
-
-            adsData = adsData.map(ad => ({
-                ...ad,
-                clarifications: [settings.clar1, settings.clar2, settings.clar3, settings.clar4].filter(Boolean).join('\n'),
-                sl1_text: settings.sl1_text,
-                sl1_url: settings.sl1_url,
-                sl1_anchor: settings.sl1_anchor,
-                sl1_desc: settings.sl1_desc,
-                sl2_text: settings.sl2_text,
-                sl2_url: settings.sl2_url,
-                sl2_anchor: settings.sl2_anchor,
-                sl2_desc: settings.sl2_desc,
-                sl3_text: settings.sl3_text,
-                sl3_url: settings.sl3_url,
-                sl3_anchor: settings.sl3_anchor,
-                sl3_desc: settings.sl3_desc,
-                sl4_text: settings.sl4_text,
-                sl4_url: settings.sl4_url,
-                sl4_anchor: settings.sl4_anchor,
-                sl4_desc: settings.sl4_desc
-            }));
-
-            renderTable();
-            updatePreview();
-            alert('Настройки применены ко всем ' + adsData.length + ' объявлениям');
-        }
-
+        // ОТРИСОВКА ТАБЛИЦЫ
         function renderTable() {
             const tbody = document.getElementById('table_body');
 
-            if (!adsData.length) {
-                tbody.innerHTML = '<tr><td colspan="24" class="empty-state">Введите ключевые фразы и нажмите "Сгенерировать"</td></tr>';
+            if (adsData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Введите данные и нажмите "Обработать"</td></tr>';
                 return;
             }
 
             let html = '';
-            adsData.forEach((ad, idx) => {
-                const rowClass = ad.selected ? ' class="selected"' : '';
-                html += `<tr${rowClass}>`;
-                html += `<td><input type="checkbox" class="cell-checkbox" ${ad.selected ? 'checked' : ''} onchange="toggleRow(${idx}, this.checked)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.key)}" onchange="updateCell(${idx}, 'key', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.h1)}" maxlength="${LIMITS.H1}" onchange="updateCell(${idx}, 'h1', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.h2)}" maxlength="${LIMITS.H2}" onchange="updateCell(${idx}, 'h2', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.text)}" maxlength="${LIMITS.TEXT}" onchange="updateCell(${idx}, 'text', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.url)}" onchange="updateCell(${idx}, 'url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.path)}" maxlength="${LIMITS.PATH}" onchange="updateCell(${idx}, 'path', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.clarifications)}" onchange="updateCell(${idx}, 'clarifications', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl1_text', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_url)}" onchange="updateCell(${idx}, 'sl1_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_anchor)}" onchange="updateCell(${idx}, 'sl1_anchor', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl1_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl1_desc', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl2_text', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_url)}" onchange="updateCell(${idx}, 'sl2_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_anchor)}" onchange="updateCell(${idx}, 'sl2_anchor', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl2_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl2_desc', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl3_text', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_url)}" onchange="updateCell(${idx}, 'sl3_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_anchor)}" onchange="updateCell(${idx}, 'sl3_anchor', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl3_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl3_desc', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_text)}" maxlength="${LIMITS.SL_TEXT}" onchange="updateCell(${idx}, 'sl4_text', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_url)}" onchange="updateCell(${idx}, 'sl4_url', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_anchor)}" onchange="updateCell(${idx}, 'sl4_anchor', this.value)"></td>`;
-                html += `<td><input type="text" class="cell-input" value="${esc(ad.sl4_desc)}" maxlength="${LIMITS.SL_DESC}" onchange="updateCell(${idx}, 'sl4_desc', this.value)"></td>`;
-                html += '</tr>';
+            adsData.forEach((ad, i) => {
+                const h1Class = ad.h1.length > LIMITS.H1 ? 'limits-error' : '';
+                const totalLen = ad.h1.length + LIMITS.SEP_LEN + ad.h2.length;
+                const h2Class = totalLen > LIMITS.TOTAL ? 'limits-error' : '';
+                const textClass = ad.text.length > LIMITS.TEXT ? 'limits-error' : '';
+
+                html += `<tr>
+                    <td>${i + 1}</td>
+                    <td><input type="text" value="${esc(ad.key)}" onchange="updateAd(${i}, 'key', this.value)"></td>
+                    <td class="${h1Class}"><input type="text" value="${esc(ad.h1)}" onchange="updateAd(${i}, 'h1', this.value)"><div class="counter">${ad.h1.length}/35</div></td>
+                    <td class="${h2Class}"><input type="text" value="${esc(ad.h2)}" onchange="updateAd(${i}, 'h2', this.value)"><div class="counter">${totalLen}/65</div></td>
+                    <td class="${textClass}"><input type="text" value="${esc(ad.text)}" onchange="updateAd(${i}, 'text', this.value)"><div class="counter">${ad.text.length}/81</div></td>
+                    <td><input type="text" value="${esc(ad.url)}" onchange="updateAd(${i}, 'url', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.displayUrl)}" onchange="updateAd(${i}, 'displayUrl', this.value)"></td>
+                </tr>`;
             });
 
             tbody.innerHTML = html;
         }
 
-        function updateCell(idx, field, value) {
-            adsData[idx][field] = value;
-            if (idx === previewIndex) {
-                updatePreview();
-            }
+        function updateAd(index, field, value) {
+            adsData[index][field] = value;
         }
 
-        function toggleRow(idx, checked) {
-            adsData[idx].selected = checked;
-            if (checked) {
-                selectedRows.add(idx);
-            } else {
-                selectedRows.delete(idx);
-            }
-            updateStats();
+        function esc(str) {
+            return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        function toggleAll(checkbox) {
-            const checked = checkbox.checked;
-            adsData.forEach((ad, idx) => {
-                ad.selected = checked;
-                if (checked) {
-                    selectedRows.add(idx);
-                } else {
-                    selectedRows.delete(idx);
-                }
-            });
-            renderTable();
-            updateStats();
-        }
-
-        function selectAll() {
-            selectedRows = new Set(adsData.map((_, i) => i));
-            adsData.forEach(ad => ad.selected = true);
-            renderTable();
-            updateStats();
-        }
-
-        function deselectAll() {
-            selectedRows.clear();
-            adsData.forEach(ad => ad.selected = false);
-            renderTable();
-            updateStats();
-        }
-
-        function deleteSelected() {
-            if (!selectedRows.size) {
-                alert('Выберите строки для удаления');
+        // ПРЕДПРОСМОТР ЯНДЕКСА
+        function showPreview() {
+            if (adsData.length === 0) {
+                alert('Сначала сгенерируйте объявления!');
                 return;
             }
 
-            if (!confirm(`Удалить ${selectedRows.size} строк?`)) return;
-
-            adsData = adsData.filter((_, i) => !selectedRows.has(i));
-            selectedRows.clear();
+            document.getElementById('preview_box').style.display = 'block';
             previewIndex = 0;
-            renderTable();
-            updateStats();
-            updatePreview();
+            renderPreview();
         }
 
-        function updateStats() {
-            document.getElementById('total_ads').textContent = adsData.length;
-            document.getElementById('selected_ads').textContent = selectedRows.size;
-        }
-
-        // Предпросмотр Яндекс
-        function updatePreview() {
-            if (!adsData.length) {
-                document.getElementById('preview_content').innerHTML = '<div style="color: #999; font-size: 11px;">Сгенерируйте объявления для предпросмотра</div>';
-                document.getElementById('preview_index').textContent = '0 / 0';
-                return;
-            }
+        function renderPreview() {
+            if (adsData.length === 0) return;
 
             const ad = adsData[previewIndex];
-            const domain = document.getElementById('domain_input').value.trim().replace(/^https?:\/\//, '');
-            const prefix = document.getElementById('display_prefix').value;
-            const postfix = document.getElementById('display_postfix').value;
+            const totalLen = ad.h1.length + LIMITS.SEP_LEN + ad.h2.length;
 
-            let displayLink = domain;
-            if (prefix) displayLink = `[${prefix}] ${displayLink}`;
-            if (ad.path) displayLink += `/${ad.path}`;
-            if (postfix) displayLink += ` | ${postfix}`;
-
-            const clars = ad.clarifications.split('\n').filter(Boolean);
-
-            let html = '';
-            html += `<div class="ad-marker">≫</div>`;
-            html += `<div class="ad-title">${esc(ad.h1)} ${esc(ad.h2)}</div>`;
-            html += `<div class="ad-link">${esc(displayLink)}</div>`;
-            html += `<div class="ad-text">${esc(ad.text)}</div>`;
-
-            if (clars.length) {
-                html += '<div class="ad-clarifications">';
-                clars.forEach(c => {
-                    html += `<div class="ad-chip">${esc(c)}</div>`;
-                });
-                html += '</div>';
-            }
-
-            const sitelinks = [
-                { text: ad.sl1_text, url: ad.sl1_url, anchor: ad.sl1_anchor, desc: ad.sl1_desc },
-                { text: ad.sl2_text, url: ad.sl2_url, anchor: ad.sl2_anchor, desc: ad.sl2_desc },
-                { text: ad.sl3_text, url: ad.sl3_url, anchor: ad.sl3_anchor, desc: ad.sl3_desc },
-                { text: ad.sl4_text, url: ad.sl4_url, anchor: ad.sl4_anchor, desc: ad.sl4_desc }
-            ].filter(sl => sl.text || sl.url);
-
-            if (sitelinks.length) {
-                html += '<div class="ad-sitelinks">';
-                sitelinks.forEach(sl => {
-                    html += '<div class="ad-sitelink">';
-                    if (sl.url) html += `<div class="ad-sitelink-url">${esc(sl.url.replace(/^https?:\/\//, ''))}</div>`;
-                    if (sl.text) html += `<div class="ad-sitelink-title">${esc(sl.text)}</div>`;
-                    if (sl.desc) html += `<div class="ad-sitelink-desc">${esc(sl.desc)}</div>`;
-                    html += '</div>';
-                });
-                html += '</div>';
-            }
+            let html = `
+                <div class="ad-preview">
+                    <div class="ad-title">${esc(ad.h1)}${ad.h2 ? ' — ' + esc(ad.h2) : ''}</div>
+                    <div class="ad-url">${esc(ad.displayUrl)}</div>
+                    <div class="ad-text">${esc(ad.text)}</div>
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 11px; color: #666;">
+                        <div>H1: ${ad.h1.length}/35 • H2: ${ad.h2.length} • Всего: ${totalLen}/65</div>
+                        <div>Текст: ${ad.text.length}/81</div>
+                    </div>
+                </div>
+            `;
 
             document.getElementById('preview_content').innerHTML = html;
-            document.getElementById('preview_index').textContent = `${previewIndex + 1} / ${adsData.length}`;
-            document.querySelector('.yandex-search').value = ad.key;
+            document.getElementById('preview_nav').textContent = `${previewIndex + 1} / ${adsData.length}`;
         }
 
         function prevPreview() {
-            if (!adsData.length) return;
-            previewIndex = (previewIndex - 1 + adsData.length) % adsData.length;
-            updatePreview();
+            if (previewIndex > 0) {
+                previewIndex--;
+                renderPreview();
+            }
         }
 
         function nextPreview() {
-            if (!adsData.length) return;
-            previewIndex = (previewIndex + 1) % adsData.length;
-            updatePreview();
+            if (previewIndex < adsData.length - 1) {
+                previewIndex++;
+                renderPreview();
+            }
         }
 
-        // Экспорт CSV
-        function exportCSV() {
-            if (!adsData.length) {
-                alert('Нет объявлений для экспорта');
+        // КОПИРОВАНИЕ TSV
+        function copyTSV() {
+            if (adsData.length === 0) {
+                alert('Нет данных для копирования!');
                 return;
             }
 
-            const campaign = `AUTO-${new Date().toISOString().slice(0, 10)}`;
-
-            const headers = [
-                'Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст',
-                'Ссылка', 'Отображаемая ссылка', 'Уточнения',
-                'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc',
-                'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc',
-                'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc',
-                'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'
-            ];
-
-            const csvEsc = (val) => {
-                val = (val || '').toString();
-                if (/[;"\n]/.test(val)) {
-                    return `"${val.replace(/"/g, '""')}"`;
-                }
-                return val;
-            };
-
-            let csv = '\uFEFF' + headers.join(';') + '\n';
-
-            adsData.forEach(ad => {
-                const group = ad.key.slice(0, 80);
-                const displayLink = ad.path ? ad.url.split('?')[0].replace(/^https?:\/\//, '') + '/' + ad.path : ad.url.split('?')[0].replace(/^https?:\/\//, '');
-                const clars = ad.clarifications.replace(/\r?\n/g, ' | ');
-
-                const values = [
-                    campaign, group, ad.key, ad.h1, ad.h2, ad.text, ad.url, displayLink, clars,
-                    ad.sl1_text, ad.sl1_url, ad.sl1_anchor, ad.sl1_desc,
-                    ad.sl2_text, ad.sl2_url, ad.sl2_anchor, ad.sl2_desc,
-                    ad.sl3_text, ad.sl3_url, ad.sl3_anchor, ad.sl3_desc,
-                    ad.sl4_text, ad.sl4_url, ad.sl4_anchor, ad.sl4_desc
-                ].map(csvEsc);
-
-                csv += values.join(';') + '\n';
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `yandex_ads_${Date.now()}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        // Копирование TSV
-        function copyAsTSV() {
-            if (!adsData.length) {
-                alert('Нет объявлений для копирования');
-                return;
-            }
-
-            const headers = [
-                'Ключ', 'H1', 'H2', 'Текст', 'URL', 'Отобр. путь', 'Уточнения',
-                'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc',
-                'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc',
-                'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc',
-                'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'
-            ];
+            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка'];
+            const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
 
             let tsv = headers.join('\t') + '\n';
 
             adsData.forEach(ad => {
-                const values = [
-                    ad.key, ad.h1, ad.h2, ad.text, ad.url, ad.path, ad.clarifications.replace(/\n/g, ' | '),
-                    ad.sl1_text, ad.sl1_url, ad.sl1_anchor, ad.sl1_desc,
-                    ad.sl2_text, ad.sl2_url, ad.sl2_anchor, ad.sl2_desc,
-                    ad.sl3_text, ad.sl3_url, ad.sl3_anchor, ad.sl3_desc,
-                    ad.sl4_text, ad.sl4_url, ad.sl4_anchor, ad.sl4_desc
+                const row = [
+                    campaign,
+                    ad.key.substring(0, 80),
+                    ad.key,
+                    ad.h1,
+                    ad.h2,
+                    ad.text,
+                    ad.url,
+                    ad.displayUrl
                 ];
-                tsv += values.join('\t') + '\n';
+                tsv += row.join('\t') + '\n';
             });
 
             navigator.clipboard.writeText(tsv).then(() => {
-                alert('Таблица скопирована в буфер обмена (TSV формат)');
+                alert('✅ Данные скопированы в буфер обмена (TSV формат)');
             }).catch(() => {
-                alert('Не удалось скопировать. Используйте экспорт CSV.');
+                alert('❌ Ошибка копирования. Скопируйте таблицу вручную.');
             });
         }
 
-        // Правила подмены
-        function openRulesModal() {
-            document.getElementById('rules_modal').classList.add('active');
-            renderRules();
-        }
-
-        function closeRulesModal() {
-            document.getElementById('rules_modal').classList.remove('active');
-        }
-
-        function addRule() {
-            substitutionRules.push({
-                type: 'plain',
-                find: '',
-                replace: '',
-                scope: ['*']
-            });
-            renderRules();
-        }
-
-        function renderRules() {
-            const list = document.getElementById('rules_list');
-            if (!substitutionRules.length) {
-                list.innerHTML = '<div style="color: #999; font-size: 11px; padding: 10px;">Нет правил. Нажмите "+ Добавить правило"</div>';
+        // ЭКСПОРТ CSV
+        function exportCSV() {
+            if (adsData.length === 0) {
+                alert('Нет данных для экспорта!');
                 return;
             }
 
-            let html = '';
-            substitutionRules.forEach((rule, idx) => {
-                html += `<div class="rule-item">`;
-                html += `<div class="rule-row">`;
-                html += `<select class="input rule-type" onchange="updateRule(${idx}, 'type', this.value)">
-                    <option value="plain" ${rule.type === 'plain' ? 'selected' : ''}>Текст</option>
-                    <option value="regex" ${rule.type === 'regex' ? 'selected' : ''}>Regex</option>
-                </select>`;
-                html += `<input type="text" class="input" placeholder="Найти" value="${esc(rule.find)}" onchange="updateRule(${idx}, 'find', this.value)" style="flex: 1;">`;
-                html += `<input type="text" class="input" placeholder="Заменить на" value="${esc(rule.replace)}" onchange="updateRule(${idx}, 'replace', this.value)" style="flex: 1;">`;
-                html += `<button onclick="deleteRule(${idx})" style="padding: 4px 8px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 2px;">×</button>`;
-                html += `</div>`;
-                html += `<div style="font-size: 9px; color: #999; margin-top: 3px;">Применяется к: ${rule.scope.join(', ')}</div>`;
-                html += `</div>`;
+            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка'];
+            const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
+
+            let csv = '\ufeff'; // BOM для UTF-8
+            csv += headers.join(';') + '\n';
+
+            adsData.forEach(ad => {
+                const row = [
+                    campaign,
+                    ad.key.substring(0, 80),
+                    ad.key,
+                    ad.h1,
+                    ad.h2,
+                    ad.text,
+                    ad.url,
+                    ad.displayUrl
+                ];
+                csv += row.map(escCsv).join(';') + '\n';
             });
 
-            list.innerHTML = html;
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `yandex_ads_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+
+            alert('✅ CSV файл загружен!');
         }
 
-        function updateRule(idx, field, value) {
-            substitutionRules[idx][field] = value;
-        }
-
-        function deleteRule(idx) {
-            substitutionRules.splice(idx, 1);
-            renderRules();
-        }
-
-        function applyRules() {
-            if (!adsData.length) {
-                alert('Сначала сгенерируйте объявления');
-                return;
+        function escCsv(str) {
+            str = (str || '').toString();
+            if (str.includes(';') || str.includes('"') || str.includes('\n')) {
+                return '"' + str.replace(/"/g, '""') + '"';
             }
-
-            if (!substitutionRules.length) {
-                alert('Нет правил для применения');
-                return;
-            }
-
-            adsData = adsData.map(ad => {
-                let newAd = { ...ad };
-
-                substitutionRules.forEach(rule => {
-                    const fields = rule.scope.includes('*') ?
-                        ['key', 'h1', 'h2', 'text', 'url', 'path', 'clarifications',
-                         'sl1_text', 'sl1_url', 'sl1_anchor', 'sl1_desc',
-                         'sl2_text', 'sl2_url', 'sl2_anchor', 'sl2_desc',
-                         'sl3_text', 'sl3_url', 'sl3_anchor', 'sl3_desc',
-                         'sl4_text', 'sl4_url', 'sl4_anchor', 'sl4_desc'] :
-                        rule.scope;
-
-                    fields.forEach(field => {
-                        if (newAd[field]) {
-                            if (rule.type === 'regex') {
-                                try {
-                                    const regex = new RegExp(rule.find, 'g');
-                                    newAd[field] = newAd[field].replace(regex, rule.replace);
-                                } catch (e) {
-                                    console.error('Invalid regex:', rule.find);
-                                }
-                            } else {
-                                newAd[field] = newAd[field].split(rule.find).join(rule.replace);
-                            }
-                        }
-                    });
-                });
-
-                return newAd;
-            });
-
-            renderTable();
-            updatePreview();
-            closeRulesModal();
-            alert(`Применено ${substitutionRules.length} правил к ${adsData.length} объявлениям`);
+            return str;
         }
 
-        function esc(text) {
-            const div = document.createElement('div');
-            div.textContent = text || '';
-            return div.innerHTML;
-        }
-
-        // Изменение ширины столбцов
-        let resizing = null;
-
-        document.addEventListener('mousedown', function(e) {
-            if (e.target.classList.contains('resizer')) {
-                resizing = {
-                    col: parseInt(e.target.dataset.col),
-                    startX: e.pageX,
-                    startWidth: e.target.parentElement.offsetWidth
-                };
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('mousemove', function(e) {
-            if (resizing) {
-                const diff = e.pageX - resizing.startX;
-                const newWidth = Math.max(40, resizing.startWidth + diff);
-
-                const table = document.getElementById('main_table');
-                const headers = table.querySelectorAll('th');
-                headers[resizing.col].style.width = newWidth + 'px';
-
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('mouseup', function() {
-            resizing = null;
-        });
-
-        updateStats();
+        // Инициализация
+        updateAdditionsLengths();
+        updateTextsLengths();
     </script>
 </body>
 </html>
