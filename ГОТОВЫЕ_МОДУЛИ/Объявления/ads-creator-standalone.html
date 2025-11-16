@@ -10,147 +10,481 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
-            padding: 20px;
-            line-height: 1.4;
+            overflow: hidden;
         }
 
-        .container {
-            max-width: 1800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px;
+        .ads-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
 
-        h1 {
+        /* HEADER */
+        .ads-header {
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .ads-header h1 {
+            margin: 0;
             font-size: 24px;
-            margin-bottom: 20px;
-            color: #333;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-        }
-
-        .section {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #fafafa;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .section-title {
-            font-size: 14px;
             font-weight: 600;
-            margin-bottom: 10px;
-            color: #667eea;
         }
 
-        .grid {
-            display: grid;
+        .ads-subtitle {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        /* CONTENT */
+        .ads-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ЛЕВАЯ ПАНЕЛЬ */
+        .ads-sidebar {
+            width: 350px;
+            background: #fafafa;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
             gap: 15px;
         }
 
-        .grid-2 { grid-template-columns: 1fr 1fr; }
-        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-        .grid-4 { grid-template-columns: repeat(4, 1fr); }
-
-        .field {
-            display: flex;
-            flex-direction: column;
+        .ads-section {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
-        label {
+        .ads-section h2 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .ads-section label {
+            display: block;
             font-size: 12px;
-            font-weight: 500;
-            margin-bottom: 5px;
-            color: #555;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 4px;
         }
 
-        input[type="text"],
-        textarea {
-            padding: 8px;
+        .ads-input,
+        .ads-textarea {
+            width: 100%;
+            padding: 10px;
             border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
+            border-radius: 6px;
+            font-size: 14px;
             font-family: inherit;
+            background-color: white;
+            margin-bottom: 10px;
         }
 
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        textarea {
+        .ads-textarea {
             resize: vertical;
-            min-height: 60px;
-            font-family: monospace;
+            min-height: 80px;
         }
 
-        .hint {
+        .ads-hint {
             font-size: 11px;
             color: #999;
-            margin-top: 3px;
+            margin-top: -5px;
+            margin-bottom: 10px;
         }
 
-        .buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 10px 20px;
+        .btn-generate {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
-            border-radius: 4px;
-            font-size: 13px;
-            font-weight: 500;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            margin-bottom: 10px;
         }
 
-        .btn-primary {
-            background: #667eea;
-            color: white;
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-primary:hover {
-            background: #5568d3;
-        }
-
-        .btn-ai {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .btn-ai:hover {
-            background: #d97706;
-        }
-
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #059669;
-        }
-
-        .btn-secondary {
+        .btn-export {
+            width: 100%;
+            padding: 10px;
             background: white;
-            color: #666;
-            border: 1px solid #ddd;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 5px;
         }
 
-        .btn-secondary:hover {
-            background: #f5f5f5;
+        .btn-export:hover {
+            background: #f0f0ff;
+        }
+
+        /* ЦЕНТРАЛЬНАЯ ЧАСТЬ */
+        .ads-main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ЯНДЕКС ПРЕВЬЮ */
+        .yandex-preview {
+            background: #ffffff;
+            border: 1px solid #d4d4d4;
+            border-radius: 8px;
+            padding: 10px 18px 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .top-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .logo {
+            margin-right: 20px;
+            text-align: center;
+            line-height: 1.1;
+        }
+
+        .logo-main {
+            font-size: 24px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .logo-main span {
+            color: #d41313;
+        }
+
+        .logo-sub {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .search-area {
+            flex: 1;
+        }
+
+        .search-top {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 5px 7px;
+            border: 1px solid #b7b7b7;
+            font-size: 13px;
+        }
+
+        .search-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: 8px;
+        }
+
+        .icon-btn {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid #c0c0c0;
+            background: #fafafa;
+            font-size: 11px;
+            text-align: center;
+            line-height: 16px;
+            cursor: pointer;
+        }
+
+        .search-button {
+            padding: 7px 18px;
+            background: #ffcc00;
+            border: 1px solid #ddb100;
+            border-radius: 2px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .search-nav {
+            margin-top: 2px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .search-nav a {
+            margin-right: 14px;
+            text-decoration: none;
+            color: #000;
+        }
+
+        .search-nav a.active {
+            font-weight: bold;
+        }
+
+        .search-nav a.active span {
+            border-bottom: 2px solid #000;
+            padding-bottom: 1px;
+        }
+
+        .main {
+            margin-top: 14px;
+        }
+
+        .ad {
+            border-top: 1px solid #d9d9d9;
+            padding-top: 8px;
+        }
+
+        .ad-title {
+            font-size: 22px;
+            color: #0033cc;
+            font-weight: bold;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding-left: 0;
+        }
+
+        .ad-title::before {
+            content: "»»»";
+            position: absolute;
+            left: -50px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #d41313;
+        }
+
+        .ad-title a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .ad-row {
+            display: flex;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .ad-row-main {
+            flex: 1;
+        }
+
+        .ad-label {
+            width: 210px;
+            font-size: 12px;
+            line-height: 1.3;
+            color: #333333;
+            padding-right: 10px;
+            box-sizing: border-box;
+        }
+
+        .side-arrow {
+            color: #cc0000;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .ad-quick-links {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border-collapse: collapse;
+            margin-bottom: 4px;
+            margin-top: 0;
+            font-size: 12px;
+        }
+
+        .ad-quick-links div {
+            border: 1px solid #e0e0e0;
+            padding: 4px 6px;
+            text-align: center;
+            white-space: nowrap;
+            cursor: text;
+            outline: none;
+        }
+
+        .ad-quick-links a {
+            text-decoration: none;
+            color: #0033cc;
+        }
+
+        .ad-quick-links .active {
+            border: 2px solid #0a8a00;
+        }
+
+        .ad-url-row {
+            display: grid;
+            grid-template-columns: 1.3fr 2.7fr;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+
+        .ad-url-domain {
+            padding: 4px 6px;
+            font-weight: bold;
+            color: #0a8a00;
+            text-align: center;
+        }
+
+        .ad-url-text {
+            padding: 4px 6px;
+        }
+
+        .ad-text {
+            font-size: 12px;
+            white-space: nowrap;
+            display: inline-block;
+        }
+
+        .sitelinks {
+            margin-top: 0;
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 12px;
+            table-layout: fixed;
+        }
+
+        .sitelinks th,
+        .sitelinks td {
+            border: 1px solid #e0e0e0;
+            padding: 2px 4px;
+            text-align: center;
+            white-space: nowrap;
+            cursor: text;
+            outline: none;
+        }
+
+        .sitelinks th {
+            font-weight: normal;
+        }
+
+        .sitelinks a {
+            text-decoration: none;
+            color: #0033cc;
+        }
+
+        .ad-label-sitelinks div {
+            height: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        .dynamic-flag {
+            margin-top: 6px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dynamic-flag-label {
+            white-space: nowrap;
+        }
+
+        .toggle-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .toggle-option {
+            text-transform: lowercase;
+            color: #666;
+        }
+
+        .toggle-option.active {
+            font-weight: bold;
+            color: #0a8a00;
+        }
+
+        .toggle-track {
+            width: 34px;
+            height: 16px;
+            border-radius: 999px;
+            border: 1px solid #c2c2c2;
+            background: linear-gradient(135deg, #ffffff, #f4f4f4);
+            padding: 1px;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) inset;
+            transition: justify-content 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .toggle-knob {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ffffff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        .toggle-switch.toggle-on .toggle-track {
+            justify-content: flex-end;
+            border-color: #0a8a00;
+            background: linear-gradient(135deg, #ffffff, #e9ffe9);
+        }
+
+        /* ТАБЛИЦА */
+        .table-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 15px 20px;
+            background: #f8f8f8;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
         }
 
         .table-wrapper {
             overflow-x: auto;
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            max-height: 400px;
+            overflow-y: auto;
         }
 
         table {
@@ -183,42 +517,7 @@
 
         td input:focus {
             border-color: #667eea;
-        }
-
-        .preview-box {
-            margin-top: 20px;
-            padding: 15px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-        }
-
-        .ad-preview {
-            max-width: 600px;
-            margin: 10px 0;
-            padding: 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            background: #fafafa;
-        }
-
-        .ad-title {
-            color: #0066ff;
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .ad-url {
-            color: #006621;
-            font-size: 13px;
-            margin-bottom: 6px;
-        }
-
-        .ad-text {
-            color: #333;
-            font-size: 13px;
-            line-height: 1.4;
+            outline: none;
         }
 
         .limits-error {
@@ -231,165 +530,217 @@
             color: #666;
             margin-top: 2px;
         }
+
+        /* Scrollbar */
+        .ads-sidebar::-webkit-scrollbar,
+        .ads-main::-webkit-scrollbar,
+        .table-wrapper::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .ads-sidebar::-webkit-scrollbar-track,
+        .ads-main::-webkit-scrollbar-track,
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .ads-sidebar::-webkit-scrollbar-thumb,
+        .ads-main::-webkit-scrollbar-thumb,
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .ads-sidebar::-webkit-scrollbar-thumb:hover,
+        .ads-main::-webkit-scrollbar-thumb:hover,
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .empty-state p {
+            margin: 10px 0;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📢 Генератор объявлений Яндекс.Директ - AdsCreator v4.14</h1>
+    <div class="ads-app">
+        <!-- HEADER -->
+        <div class="ads-header">
+            <h1>📢 Генератор объявлений Яндекс.Директ - AdsCreator v4.14</h1>
+            <div class="ads-subtitle">Автоматическое создание объявлений из ключевых фраз</div>
+        </div>
 
-        <!-- Шаг 1: Ввод ключей -->
-        <div class="section">
-            <div class="section-title">Шаг 1. Ключевые фразы и домен</div>
-            <div class="grid grid-2">
-                <div class="field">
-                    <label>Ключевые фразы (по одной в строке, макс 1000)</label>
-                    <textarea id="keys" rows="10" placeholder="система очистки воды&#10;фильтр для воды от железа&#10;обезжелезиватель воды"></textarea>
-                    <div class="counter" id="keys_counter">Фраз: 0 / 1000 • Символов: 0 / 8192</div>
-                </div>
-                <div class="field">
+        <!-- CONTENT -->
+        <div class="ads-content">
+            <!-- ЛЕВАЯ ПАНЕЛЬ -->
+            <div class="ads-sidebar">
+                <!-- Настройки URL -->
+                <div class="ads-section">
+                    <h2>Настройки URL</h2>
                     <label>Домен</label>
-                    <input type="text" id="domain" placeholder="example.ru" value="nordkor.ru">
-                    <div class="hint">Без http:// и www</div>
+                    <input class="ads-input" id="domain" placeholder="example.ru" value="nordkor.ru">
+                    <div class="ads-hint">Без http:// и www</div>
 
-                    <label style="margin-top: 10px;">UTM-шаблон (опционально)</label>
-                    <input type="text" id="utm" value="utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}" placeholder="utm_source=yandex&utm_term={key}">
-                    <div class="hint">Подстановки: {key}, {group}</div>
+                    <label>UTM-шаблон</label>
+                    <input class="ads-input" id="utm" value="utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}" placeholder="utm_source=yandex&utm_term={key}">
+                    <div class="ads-hint">Используйте {key} и {group} для подстановки</div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Шаг 2: Прибавки к заголовку №2 -->
-        <div class="section">
-            <div class="section-title">Шаг 2. Прибавки к заголовку №2 (приоритет)</div>
-            <div class="field">
-                <label>Список прибавок (по одной в строке, от длинных к коротким)</label>
-                <textarea id="h2_additions" rows="6" placeholder="система под ключ за 70 190р!&#10;обезжелезиватели от 16 990р!&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано">Скидка 30% до 15.05&#10;Бесплатная консультация&#10;В наличии&#10;Сертифицировано</textarea>
-                <div class="hint">Если ключ целиком влез в H1 → берется прибавка. Если не влез → остаток ключа идет в H2</div>
-                <div id="additions_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
-            </div>
-        </div>
-
-        <!-- Шаг 3: Варианты текста -->
-        <div class="section">
-            <div class="section-title">Шаг 3. Варианты текста (выбор самого длинного)</div>
-            <div class="field">
-                <label>Тексты объявлений (лимит 81 символ для ЯД)</label>
-                <textarea id="texts" rows="5" placeholder="Официально. Быстрая доставка. Гарантия 2 года.&#10;Ответьте на 5 вопросов и узнайте стоимость в 3-х вариантах!">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!&#10;Официально. Быстрая доставка. Гарантия 2 года.&#10;Сертифицировано. Монтаж под ключ. Есть рассрочка.</textarea>
-                <div class="hint">Для каждого объявления выбирается самый длинный текст из вариантов, который влезает в 81 символ</div>
-                <div id="texts_lengths" style="margin-top: 5px; font-size: 11px; color: #666;"></div>
-            </div>
-        </div>
-
-        <!-- Шаг 4: Быстрые ссылки и уточнения (единые) -->
-        <div class="section">
-            <div class="section-title">Шаг 4. Быстрые ссылки и уточнения (для всех)</div>
-
-            <!-- Тексты быстрых ссылок -->
-            <div class="field" style="margin-bottom: 10px;">
-                <label>⊙ Быстрые ссылки (тексты, макс 30 символов)</label>
-                <div class="grid grid-4">
-                    <input type="text" id="sl1_text" placeholder="SL1 (напр. Каталог)" maxlength="30">
-                    <input type="text" id="sl2_text" placeholder="SL2 (напр. Цены)" maxlength="30">
-                    <input type="text" id="sl3_text" placeholder="SL3 (напр. Доставка)" maxlength="30">
-                    <input type="text" id="sl4_text" placeholder="SL4 (напр. Контакты)" maxlength="30">
+                <!-- Прибавки к H2 -->
+                <div class="ads-section">
+                    <h2>Прибавки к заголовку №2</h2>
+                    <textarea class="ads-textarea" id="h2_additions" placeholder="система под ключ за 70 190р!&#10;обезжелезиватели от 16 990р!">Скидка 30% до 15.05
+Бесплатная консультация
+В наличии
+Сертифицировано</textarea>
+                    <div class="ads-hint">Если ключ целиком влез в H1 → берется прибавка. Если не влез → остаток ключа идет в H2</div>
                 </div>
-            </div>
 
-            <!-- URL быстрых ссылок -->
-            <div class="field" style="margin-bottom: 10px;">
-                <label>⊙ Адреса быстрых ссылок</label>
-                <div class="grid grid-4">
-                    <input type="text" id="sl1_url" placeholder="SL1 URL">
-                    <input type="text" id="sl2_url" placeholder="SL2 URL">
-                    <input type="text" id="sl3_url" placeholder="SL3 URL">
-                    <input type="text" id="sl4_url" placeholder="SL4 URL">
+                <!-- Тексты объявлений -->
+                <div class="ads-section">
+                    <h2>Тексты объявлений</h2>
+                    <textarea class="ads-textarea" id="texts" placeholder="Официально. Быстрая доставка. Гарантия 2 года.">Ответьте на 5 вопросов и узнайте стоимость системы очистки воды в 3-х вариантах!
+Официально. Быстрая доставка. Гарантия 2 года.
+Сертифицировано. Монтаж под ключ. Есть рассрочка.</textarea>
+                    <div class="ads-hint">Выбирается самый длинный текст из вариантов, который влезает в 81 символ</div>
                 </div>
-            </div>
 
-            <!-- Описания быстрых ссылок -->
-            <div class="field" style="margin-bottom: 10px;">
-                <label>⊙ Описания быстрых ссылок (макс 60 символов)</label>
-                <div class="grid grid-4">
-                    <input type="text" id="sl1_desc" placeholder="SL1 Описание" maxlength="60">
-                    <input type="text" id="sl2_desc" placeholder="SL2 Описание" maxlength="60">
-                    <input type="text" id="sl3_desc" placeholder="SL3 Описание" maxlength="60">
-                    <input type="text" id="sl4_desc" placeholder="SL4 Описание" maxlength="60">
+                <!-- Быстрые ссылки -->
+                <div class="ads-section">
+                    <h2>Быстрые ссылки</h2>
+                    <label>Тексты (макс 30 символов)</label>
+                    <input class="ads-input" id="sl1_text" placeholder="SL1" maxlength="30" value="Распродажа">
+                    <input class="ads-input" id="sl2_text" placeholder="SL2" maxlength="30" value="скидка 30% до 15.05">
+                    <input class="ads-input" id="sl3_text" placeholder="SL3" maxlength="30" value="Видео отзывы">
+                    <input class="ads-input" id="sl4_text" placeholder="SL4" maxlength="30" value="Заказать">
+
+                    <label>Описания (макс 60 символов)</label>
+                    <input class="ads-input" id="sl1_desc" placeholder="SL1 Описание" maxlength="60" value="Бесплатная консультац">
+                    <input class="ads-input" id="sl2_desc" placeholder="SL2 Описание" maxlength="60" value="Подбор on-line">
+                    <input class="ads-input" id="sl3_desc" placeholder="SL3 Описание" maxlength="60" value="Монтаж за 1 день">
+                    <input class="ads-input" id="sl4_desc" placeholder="SL4 Описание" maxlength="60" value="15 лет на рынке">
                 </div>
-            </div>
 
-            <!-- Уточнения -->
-            <div class="field">
-                <label>⊙ Уточнения (до 4, через запятую или по одному в строке)</label>
-                <textarea id="clarifications" rows="2" placeholder="Быстрая доставка, Гарантия, Отзывы клиентов, Без предоплат">Быстрая доставка
+                <!-- Уточнения -->
+                <div class="ads-section">
+                    <h2>Уточнения</h2>
+                    <textarea class="ads-textarea" id="clarifications" rows="3" placeholder="Быстрая доставка&#10;Гарантия">Быстрая доставка
 Гарантия
 Отзывы клиентов
 Без предоплат</textarea>
-                <div class="hint">Будут склеены через " | " в экспорте</div>
-            </div>
-        </div>
+                    <div class="ads-hint">До 4 уточнений, будут склеены через " | " в экспорте</div>
+                </div>
 
-        <!-- Кнопки обработать -->
-        <div class="section">
-            <div class="buttons">
-                <button class="btn-primary" onclick="generateAds()">🚀 Обработать</button>
-                <button class="btn-secondary" onclick="showPreview()">👁️ Предпросмотр Яндекса</button>
-                <button class="btn-secondary" onclick="copyTSV()">📋 Копировать TSV</button>
-                <button class="btn-success" onclick="exportCSV()">💾 Экспорт CSV для Direct Commander</button>
-            </div>
-        </div>
+                <!-- Ключевые фразы -->
+                <div class="ads-section">
+                    <h2>Ключевые фразы</h2>
+                    <textarea class="ads-textarea" style="min-height: 120px;" id="keys" placeholder="система очистки воды&#10;фильтр для воды от железа&#10;обезжелезиватель воды">система очистки воды из скважины для частного
+фильтр для воды купить
+обезжелезиватель воды</textarea>
+                    <div class="ads-hint" id="keys_counter">Фраз: 0 / 1000 • Символов: 0 / 8192</div>
+                </div>
 
-        <!-- Предпросмотр как в Яндексе -->
-        <div class="preview-box" id="preview_box" style="display: none;">
-            <div class="section-title">Предпросмотр Яндекс.Директ</div>
-            <div class="buttons" style="margin-bottom: 10px;">
-                <button onclick="prevPreview()">← Пред.</button>
-                <span id="preview_nav" style="padding: 0 10px;">1 / 1</span>
-                <button onclick="nextPreview()">След. →</button>
+                <!-- Кнопки -->
+                <button class="btn-generate" onclick="generateAds()">🚀 Сгенерировать объявления</button>
+                <button class="btn-export" onclick="copyTSV()">📋 Копировать TSV</button>
+                <button class="btn-export" onclick="exportCSV()">💾 Экспорт CSV для Direct Commander</button>
             </div>
-            <div id="preview_content"></div>
-        </div>
 
-        <!-- Таблица -->
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>№</th>
-                        <th>Ключ</th>
-                        <th>H1<br>(≤56)</th>
-                        <th>H2<br>(≤56)</th>
-                        <th>Текст<br>(≤81)</th>
-                        <th>URL</th>
-                        <th>Отобр. ссылка</th>
-                        <th>Уточнения</th>
-                        <th>SL1</th>
-                        <th>SL1 URL</th>
-                        <th>SL1 Desc</th>
-                        <th>SL2</th>
-                        <th>SL2 URL</th>
-                        <th>SL2 Desc</th>
-                        <th>SL3</th>
-                        <th>SL3 URL</th>
-                        <th>SL3 Desc</th>
-                        <th>SL4</th>
-                        <th>SL4 URL</th>
-                        <th>SL4 Desc</th>
-                    </tr>
-                </thead>
-                <tbody id="table_body">
-                    <tr>
-                        <td colspan="20" style="text-align: center; padding: 40px; color: #999;">
-                            Введите данные и нажмите "Обработать"
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <!-- ЦЕНТРАЛЬНАЯ ЧАСТЬ -->
+            <div class="ads-main">
+                <!-- ЯНДЕКС ПРЕВЬЮ -->
+                <div class="yandex-preview">
+                    <div class="top-row">
+                        <div class="logo">
+                            <div class="logo-main"><span>Я</span>ндекс</div>
+                            <div class="logo-sub">Поиск №1 в России*</div>
+                        </div>
+                        <div class="search-area">
+                            <div class="search-top">
+                                <input class="search-input" id="preview_search" type="text" value="система очистки воды из скважины для частного">
+                                <div class="search-controls">
+                                    <div class="icon-btn">🔍</div>
+                                    <div class="icon-btn">★</div>
+                                    <div class="icon-btn">⚙</div>
+                                    <button class="search-button">Найти</button>
+                                </div>
+                            </div>
+                            <div class="search-nav">
+                                <a href="#" class="active"><span>поиск</span></a>
+                                <a href="#">картинки</a>
+                                <a href="#">видео</a>
+                                <a href="#">карты</a>
+                                <a href="#">маркет</a>
+                                <a href="#">новости</a>
+                                <a href="#">переводчик</a>
+                                <a href="#">ещё</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="main">
+                        <div id="preview_content" class="content">
+                            <div class="empty-state">
+                                <p>📝 Сгенерируйте объявления</p>
+                                <p>Заполните настройки слева и нажмите кнопку генерации</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ТАБЛИЦА -->
+                <div class="table-section">
+                    <div class="table-header">
+                        <h2>Сгенерированные объявления (<span id="ads_count">0</span>)</h2>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>№</th>
+                                    <th>Ключ</th>
+                                    <th>H1<br>(≤56)</th>
+                                    <th>H2<br>(≤56)</th>
+                                    <th>Текст<br>(≤81)</th>
+                                    <th>URL</th>
+                                    <th>Отобр. ссылка</th>
+                                    <th>Уточнения</th>
+                                    <th>SL1</th>
+                                    <th>SL1 Desc</th>
+                                    <th>SL2</th>
+                                    <th>SL2 Desc</th>
+                                    <th>SL3</th>
+                                    <th>SL3 Desc</th>
+                                    <th>SL4</th>
+                                    <th>SL4 Desc</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table_body">
+                                <tr>
+                                    <td colspan="16" style="text-align: center; padding: 40px; color: #999;">
+                                        Введите данные и нажмите "Обработать"
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         // ===========================================
-        // КОНСТАНТЫ (как у ChatGPT)
+        // КОНСТАНТЫ
         // ===========================================
         const LIMITS = {
             h1: 56,
@@ -400,11 +751,7 @@
             maxChars: 8192
         };
 
-        // ===========================================
-        // ПРАВИЛА ПОДМЕНЫ (то, чего у ChatGPT нет)
-        // ===========================================
         const SUBSTITUTION_RULES = [
-            // Города
             { find: /\bмск\b/gi, replace: 'МСК' },
             { find: /\bспб\b/gi, replace: 'СПб' },
             { find: /\bмосквы\b/gi, replace: 'Москвы' },
@@ -412,22 +759,17 @@
             { find: /\bпитер\b/gi, replace: 'СПб' },
             { find: /\bпетербург\b/gi, replace: 'СПб' },
             { find: /\bсанкт\b/gi, replace: 'Санкт-' },
-            // Аббревиатуры
             { find: /\bрф\b/gi, replace: 'РФ' },
             { find: /\bжкх\b/gi, replace: 'ЖКХ' },
-            // Технические
             { find: /\s+/g, replace: ' ' },
             { find: /\s+([,.!?])/g, replace: '$1' }
         ];
 
-        // ===========================================
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ===========================================
         let adsData = [];
-        let previewIndex = 0;
+        let currentPreviewIndex = 0;
 
         // ===========================================
-        // УТИЛИТЫ (клип, капитализация, подмены)
+        // УТИЛИТЫ
         // ===========================================
         function clip(text, maxLen) {
             if (!text || text.length <= maxLen) return text || '';
@@ -448,10 +790,8 @@
         }
 
         // ===========================================
-        // CORE ЛОГИКА ИЗ CHATGPT (1:1)
+        // CORE ЛОГИКА ИЗ CHATGPT
         // ===========================================
-
-        // 1) Разбиваем ключ на H1 и остаток
         function splitKeyToBaseH1H2(key) {
             const words = (key || '').trim().split(/\s+/).filter(Boolean);
             let h1 = '';
@@ -473,28 +813,21 @@
             };
         }
 
-        // 2) Выбираем addon для H2
         function chooseAddonForH2(h2Base, addons) {
             const base = (h2Base || '').trim();
             const list = (addons || []).map(s => s.trim()).filter(Boolean);
 
-            // Если нет addons, но есть base → вернуть base
             if (!list.length && base) return clip(base, LIMITS.h2);
             if (!list.length) return '';
 
-            // Если есть base (ключ длинный) → используем base, игнорируем addons
             if (base) return clip(base, LIMITS.h2);
 
-            // Если base пустой (ключ влез в H1) → берем первый addon, который влезает
             const candidate = list.find(a => a.length <= LIMITS.h2) || list[0];
             return clip(candidate, LIMITS.h2);
         }
 
-        // 3) Формирование заголовков (H1 + H2)
         function makeTitles(key, additions) {
-            // Применяем подмены ПЕРЕД разбиением
             const normalized = applySubstitutions(key);
-
             const { h1Base, h2Base } = splitKeyToBaseH1H2(normalized);
             const h2 = chooseAddonForH2(h2Base, additions);
 
@@ -504,7 +837,6 @@
             };
         }
 
-        // 4) Выбор самого длинного текста из вариантов
         function chooseBodyText(variants) {
             const list = (variants || []).map(s => s.trim()).filter(Boolean);
             if (!list.length) return '';
@@ -520,9 +852,6 @@
             return clip(list[0], LIMITS.body);
         }
 
-        // ===========================================
-        // ТРАНСЛИТЕРАЦИЯ (чего у ChatGPT нет)
-        // ===========================================
         function transliterate(text) {
             const map = {
                 'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
@@ -542,9 +871,6 @@
                 .substring(0, LIMITS.path);
         }
 
-        // ===========================================
-        // URL BUILDER (чего у ChatGPT нет)
-        // ===========================================
         function buildUrl(domain, utm, key) {
             const base = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
             let url = `https://${base}`;
@@ -565,7 +891,7 @@
         }
 
         // ===========================================
-        // ПОЛУЧЕНИЕ ДАННЫХ ИЗ ФОРМЫ
+        // ПОЛУЧЕНИЕ ДАННЫХ
         // ===========================================
         function getKeys() {
             const text = document.getElementById('keys').value;
@@ -582,7 +908,7 @@
                 .split('\n')
                 .map(a => a.trim())
                 .filter(a => a.length > 0)
-                .sort((a, b) => b.length - a.length); // От длинных к коротким
+                .sort((a, b) => b.length - a.length);
         }
 
         function getTexts() {
@@ -595,23 +921,19 @@
         function getUnifiedSettings() {
             return {
                 sl1_text: document.getElementById('sl1_text').value,
-                sl1_url: document.getElementById('sl1_url').value,
                 sl1_desc: document.getElementById('sl1_desc').value,
                 sl2_text: document.getElementById('sl2_text').value,
-                sl2_url: document.getElementById('sl2_url').value,
                 sl2_desc: document.getElementById('sl2_desc').value,
                 sl3_text: document.getElementById('sl3_text').value,
-                sl3_url: document.getElementById('sl3_url').value,
                 sl3_desc: document.getElementById('sl3_desc').value,
                 sl4_text: document.getElementById('sl4_text').value,
-                sl4_url: document.getElementById('sl4_url').value,
                 sl4_desc: document.getElementById('sl4_desc').value,
                 clarifications: document.getElementById('clarifications').value
             };
         }
 
         // ===========================================
-        // ГЛАВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ
+        // ГЕНЕРАЦИЯ ОБЪЯВЛЕНИЙ
         // ===========================================
         function generateAds() {
             const keys = getKeys();
@@ -642,7 +964,6 @@
 
             const unified = getUnifiedSettings();
 
-            // Генерируем объявления
             adsData = keys.map((key) => {
                 const { h1, h2 } = makeTitles(key, additions);
                 const text = chooseBodyText(texts);
@@ -659,32 +980,191 @@
                     path,
                     clarifications: unified.clarifications,
                     sl1_text: unified.sl1_text,
-                    sl1_url: unified.sl1_url,
                     sl1_desc: unified.sl1_desc,
                     sl2_text: unified.sl2_text,
-                    sl2_url: unified.sl2_url,
                     sl2_desc: unified.sl2_desc,
                     sl3_text: unified.sl3_text,
-                    sl3_url: unified.sl3_url,
                     sl3_desc: unified.sl3_desc,
                     sl4_text: unified.sl4_text,
-                    sl4_url: unified.sl4_url,
                     sl4_desc: unified.sl4_desc
                 };
             });
 
+            currentPreviewIndex = 0;
+            renderPreview();
             renderTable();
+            document.getElementById('ads_count').textContent = adsData.length;
             alert(`✅ Сгенерировано ${adsData.length} объявлений!`);
         }
 
         // ===========================================
-        // ОТРИСОВКА ТАБЛИЦЫ
+        // РЕНДЕР ПРЕВЬЮ
+        // ===========================================
+        function renderPreview() {
+            const container = document.getElementById('preview_content');
+
+            if (adsData.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>📝 Сгенерируйте объявления</p>
+                        <p>Заполните настройки слева и нажмите кнопку генерации</p>
+                    </div>`;
+                return;
+            }
+
+            const ad = adsData[currentPreviewIndex];
+            const domain = document.getElementById('domain').value.trim();
+            const clars = (ad.clarifications || '').split('\n').map(c => c.trim()).filter(Boolean);
+
+            // Обновляем поисковую строку
+            document.getElementById('preview_search').value = ad.key;
+
+            container.innerHTML = `
+                <div class="ad">
+                    <div class="ad-row">
+                        <div class="ad-label"></div>
+                        <div class="ad-row-main">
+                            <div class="ad-title">
+                                <a href="#">${esc(ad.h1)}${ad.h2 ? ' — ' + esc(ad.h2) : ''}</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ad-row">
+                        <div class="ad-label">Быстрые ссылки <span class="side-arrow">&gt;</span></div>
+                        <div class="ad-row-main">
+                            <div class="ad-quick-links">
+                                <div class="active"><a href="#">${esc(ad.sl1_text)}</a></div>
+                                <div><a href="#">${esc(ad.sl2_text)}</a></div>
+                                <div><a href="#">${esc(ad.sl3_text)}</a></div>
+                                <div><a href="#">${esc(ad.sl4_text)}</a></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ad-row">
+                        <div class="ad-label">Отображаемая ссылка <span class="side-arrow">&gt;</span></div>
+                        <div class="ad-row-main">
+                            <div class="ad-url-row">
+                                <div class="ad-url-domain">${esc(domain)}/</div>
+                                <div class="ad-url-text">${esc(ad.key)}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ad-row">
+                        <div class="ad-label">Текст <span class="side-arrow">&gt;</span></div>
+                        <div class="ad-row-main">
+                            <span class="ad-text">${esc(ad.text)}</span>
+                        </div>
+                    </div>
+
+                    <div class="ad-row">
+                        <div class="ad-label">Уточнения <span class="side-arrow">&gt;</span></div>
+                        <div class="ad-row-main">
+                            <table class="sitelinks">
+                                <tr>
+                                    <td>${esc(clars[0] || '')}</td>
+                                    <td>${esc(clars[1] || '')}</td>
+                                    <td>${esc(clars[2] || '')}</td>
+                                    <td>${esc(clars[3] || '')}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="ad-row">
+                        <div class="ad-label ad-label-sitelinks">
+                            <div>Адреса быстрых ссылок <span class="side-arrow">&gt;</span></div>
+                            <div>Якоря быстрых ссылок <span class="side-arrow">&gt;</span></div>
+                            <div>Описания быстрых ссылок <span class="side-arrow">&gt;</span></div>
+                        </div>
+                        <div class="ad-row-main">
+                            <table class="sitelinks">
+                                <tr>
+                                    <th><a href="#">${esc(domain)}</a></th>
+                                    <th><a href="#">${esc(domain)}</a></th>
+                                    <th><a href="#">${esc(domain)}</a></th>
+                                    <th><a href="#">${esc(domain)}</a></th>
+                                </tr>
+                                <tr>
+                                    <td>#1</td>
+                                    <td>#2</td>
+                                    <td>#3</td>
+                                    <td>#4</td>
+                                </tr>
+                                <tr>
+                                    <td>${esc(ad.sl1_desc)}</td>
+                                    <td>${esc(ad.sl2_desc)}</td>
+                                    <td>${esc(ad.sl3_desc)}</td>
+                                    <td>${esc(ad.sl4_desc)}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="dynamic-flag">
+                        <span class="dynamic-flag-label">Отображаемая ссылка динамическая</span>
+                        <div class="toggle-switch toggle-on">
+                            <span class="toggle-option">нет</span>
+                            <div class="toggle-track">
+                                <div class="toggle-knob"></div>
+                            </div>
+                            <span class="toggle-option active">да</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Активируем редактирование и клики
+            initPreviewInteractivity();
+        }
+
+        function initPreviewInteractivity() {
+            // Редактируемые ячейки
+            const editableCells = document.querySelectorAll('.ad-quick-links div, .sitelinks th, .sitelinks td, .ad-url-text');
+            editableCells.forEach(cell => {
+                cell.setAttribute('contenteditable', 'true');
+            });
+
+            // Быстрые ссылки - подсветка активной
+            const quickCells = document.querySelectorAll('.ad-quick-links div');
+            quickCells.forEach(cell => {
+                cell.addEventListener('click', () => {
+                    quickCells.forEach(c => c.classList.remove('active'));
+                    cell.classList.add('active');
+                });
+            });
+
+            // Тумблер динамической ссылки
+            const toggle = document.querySelector('.toggle-switch');
+            if (toggle) {
+                toggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const isOn = !toggle.classList.contains('toggle-on');
+                    const options = toggle.querySelectorAll('.toggle-option');
+
+                    if (isOn) {
+                        toggle.classList.add('toggle-on');
+                        if (options[0]) options[0].classList.remove('active');
+                        if (options[1]) options[1].classList.add('active');
+                    } else {
+                        toggle.classList.remove('toggle-on');
+                        if (options[0]) options[0].classList.add('active');
+                        if (options[1]) options[1].classList.remove('active');
+                    }
+                });
+            }
+        }
+
+        // ===========================================
+        // РЕНДЕР ТАБЛИЦЫ
         // ===========================================
         function renderTable() {
             const tbody = document.getElementById('table_body');
 
             if (adsData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="20" style="text-align: center; padding: 40px; color: #999;">Введите данные и нажмите "Обработать"</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 40px; color: #999;">Введите данные и нажмите "Обработать"</td></tr>';
                 return;
             }
 
@@ -694,35 +1174,39 @@
                 const h2Class = ad.h2.length > LIMITS.h2 ? 'limits-error' : '';
                 const textClass = ad.text.length > LIMITS.body ? 'limits-error' : '';
 
-                html += `<tr>
+                html += `<tr onclick="selectPreview(${i})" style="cursor: pointer;">
                     <td>${i + 1}</td>
-                    <td><input type="text" value="${esc(ad.key)}" onchange="updateAd(${i}, 'key', this.value)"></td>
-                    <td class="${h1Class}"><input type="text" value="${esc(ad.h1)}" onchange="updateAd(${i}, 'h1', this.value)"><div class="counter">${ad.h1.length}/56</div></td>
-                    <td class="${h2Class}"><input type="text" value="${esc(ad.h2)}" onchange="updateAd(${i}, 'h2', this.value)"><div class="counter">${ad.h2.length}/56</div></td>
-                    <td class="${textClass}"><input type="text" value="${esc(ad.text)}" onchange="updateAd(${i}, 'text', this.value)"><div class="counter">${ad.text.length}/81</div></td>
-                    <td><input type="text" value="${esc(ad.url)}" onchange="updateAd(${i}, 'url', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.displayUrl)}" onchange="updateAd(${i}, 'displayUrl', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.clarifications)}" onchange="updateAd(${i}, 'clarifications', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl1_text)}" onchange="updateAd(${i}, 'sl1_text', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl1_url)}" onchange="updateAd(${i}, 'sl1_url', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl1_desc)}" onchange="updateAd(${i}, 'sl1_desc', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl2_text)}" onchange="updateAd(${i}, 'sl2_text', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl2_url)}" onchange="updateAd(${i}, 'sl2_url', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl2_desc)}" onchange="updateAd(${i}, 'sl2_desc', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl3_text)}" onchange="updateAd(${i}, 'sl3_text', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl3_url)}" onchange="updateAd(${i}, 'sl3_url', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl3_desc)}" onchange="updateAd(${i}, 'sl3_desc', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl4_text)}" onchange="updateAd(${i}, 'sl4_text', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl4_url)}" onchange="updateAd(${i}, 'sl4_url', this.value)"></td>
-                    <td><input type="text" value="${esc(ad.sl4_desc)}" onchange="updateAd(${i}, 'sl4_desc', this.value)"></td>
+                    <td><input type="text" value="${esc(ad.key)}" onchange="updateAd(${i}, 'key', this.value)" onclick="event.stopPropagation()"></td>
+                    <td class="${h1Class}"><input type="text" value="${esc(ad.h1)}" onchange="updateAd(${i}, 'h1', this.value)" onclick="event.stopPropagation()"><div class="counter">${ad.h1.length}/56</div></td>
+                    <td class="${h2Class}"><input type="text" value="${esc(ad.h2)}" onchange="updateAd(${i}, 'h2', this.value)" onclick="event.stopPropagation()"><div class="counter">${ad.h2.length}/56</div></td>
+                    <td class="${textClass}"><input type="text" value="${esc(ad.text)}" onchange="updateAd(${i}, 'text', this.value)" onclick="event.stopPropagation()"><div class="counter">${ad.text.length}/81</div></td>
+                    <td><input type="text" value="${esc(ad.url)}" onchange="updateAd(${i}, 'url', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.displayUrl)}" onchange="updateAd(${i}, 'displayUrl', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.clarifications)}" onchange="updateAd(${i}, 'clarifications', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl1_text)}" onchange="updateAd(${i}, 'sl1_text', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl1_desc)}" onchange="updateAd(${i}, 'sl1_desc', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl2_text)}" onchange="updateAd(${i}, 'sl2_text', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl2_desc)}" onchange="updateAd(${i}, 'sl2_desc', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl3_text)}" onchange="updateAd(${i}, 'sl3_text', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl3_desc)}" onchange="updateAd(${i}, 'sl3_desc', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl4_text)}" onchange="updateAd(${i}, 'sl4_text', this.value)" onclick="event.stopPropagation()"></td>
+                    <td><input type="text" value="${esc(ad.sl4_desc)}" onchange="updateAd(${i}, 'sl4_desc', this.value)" onclick="event.stopPropagation()"></td>
                 </tr>`;
             });
 
             tbody.innerHTML = html;
         }
 
+        function selectPreview(index) {
+            currentPreviewIndex = index;
+            renderPreview();
+        }
+
         function updateAd(index, field, value) {
             adsData[index][field] = value;
+            if (index === currentPreviewIndex) {
+                renderPreview();
+            }
         }
 
         function esc(str) {
@@ -730,56 +1214,7 @@
         }
 
         // ===========================================
-        // ПРЕДПРОСМОТР ЯНДЕКСА
-        // ===========================================
-        function showPreview() {
-            if (adsData.length === 0) {
-                alert('Сначала сгенерируйте объявления!');
-                return;
-            }
-
-            document.getElementById('preview_box').style.display = 'block';
-            previewIndex = 0;
-            renderPreview();
-        }
-
-        function renderPreview() {
-            if (adsData.length === 0) return;
-
-            const ad = adsData[previewIndex];
-
-            let html = `
-                <div class="ad-preview">
-                    <div class="ad-title">${esc(ad.h1)}${ad.h2 ? ' — ' + esc(ad.h2) : ''}</div>
-                    <div class="ad-url">${esc(ad.displayUrl)}</div>
-                    <div class="ad-text">${esc(ad.text)}</div>
-                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 11px; color: #666;">
-                        <div>H1: ${ad.h1.length}/56 • H2: ${ad.h2.length}/56</div>
-                        <div>Текст: ${ad.text.length}/81</div>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('preview_content').innerHTML = html;
-            document.getElementById('preview_nav').textContent = `${previewIndex + 1} / ${adsData.length}`;
-        }
-
-        function prevPreview() {
-            if (previewIndex > 0) {
-                previewIndex--;
-                renderPreview();
-            }
-        }
-
-        function nextPreview() {
-            if (previewIndex < adsData.length - 1) {
-                previewIndex++;
-                renderPreview();
-            }
-        }
-
-        // ===========================================
-        // КОПИРОВАНИЕ TSV
+        // ЭКСПОРТ
         // ===========================================
         function copyTSV() {
             if (adsData.length === 0) {
@@ -787,7 +1222,7 @@
                 return;
             }
 
-            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 URL', 'SL1 Desc', 'SL2', 'SL2 URL', 'SL2 Desc', 'SL3', 'SL3 URL', 'SL3 Desc', 'SL4', 'SL4 URL', 'SL4 Desc'];
+            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 Desc', 'SL2', 'SL2 Desc', 'SL3', 'SL3 Desc', 'SL4', 'SL4 Desc'];
             const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
 
             let tsv = headers.join('\t') + '\n';
@@ -804,10 +1239,10 @@
                     ad.url,
                     ad.displayUrl,
                     clars,
-                    ad.sl1_text, ad.sl1_url, ad.sl1_desc,
-                    ad.sl2_text, ad.sl2_url, ad.sl2_desc,
-                    ad.sl3_text, ad.sl3_url, ad.sl3_desc,
-                    ad.sl4_text, ad.sl4_url, ad.sl4_desc
+                    ad.sl1_text, ad.sl1_desc,
+                    ad.sl2_text, ad.sl2_desc,
+                    ad.sl3_text, ad.sl3_desc,
+                    ad.sl4_text, ad.sl4_desc
                 ];
                 tsv += row.join('\t') + '\n';
             });
@@ -819,19 +1254,16 @@
             });
         }
 
-        // ===========================================
-        // ЭКСПОРТ CSV ДЛЯ DIRECT COMMANDER
-        // ===========================================
         function exportCSV() {
             if (adsData.length === 0) {
                 alert('Нет данных для экспорта!');
                 return;
             }
 
-            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 URL', 'SL1 Anchor', 'SL1 Desc', 'SL2', 'SL2 URL', 'SL2 Anchor', 'SL2 Desc', 'SL3', 'SL3 URL', 'SL3 Anchor', 'SL3 Desc', 'SL4', 'SL4 URL', 'SL4 Anchor', 'SL4 Desc'];
+            const headers = ['Кампания', 'Группа', 'Ключевая фраза', 'Заголовок 1', 'Заголовок 2', 'Текст', 'Ссылка', 'Отображаемая ссылка', 'Уточнения', 'SL1', 'SL1 Desc', 'SL2', 'SL2 Desc', 'SL3', 'SL3 Desc', 'SL4', 'SL4 Desc'];
             const campaign = 'AUTO-' + new Date().toISOString().slice(0, 10);
 
-            let csv = '\ufeff'; // UTF-8 BOM
+            let csv = '\ufeff';
             csv += headers.join(';') + '\n';
 
             adsData.forEach(ad => {
@@ -846,10 +1278,10 @@
                     ad.url,
                     ad.displayUrl,
                     clars,
-                    ad.sl1_text, ad.sl1_url, '', ad.sl1_desc,
-                    ad.sl2_text, ad.sl2_url, '', ad.sl2_desc,
-                    ad.sl3_text, ad.sl3_url, '', ad.sl3_desc,
-                    ad.sl4_text, ad.sl4_url, '', ad.sl4_desc
+                    ad.sl1_text, ad.sl1_desc,
+                    ad.sl2_text, ad.sl2_desc,
+                    ad.sl3_text, ad.sl3_desc,
+                    ad.sl4_text, ad.sl4_desc
                 ];
                 csv += row.map(escCsv).join(';') + '\n';
             });
@@ -872,7 +1304,7 @@
         }
 
         // ===========================================
-        // СЧЕТЧИКИ И ИНИЦИАЛИЗАЦИЯ
+        // ИНИЦИАЛИЗАЦИЯ
         // ===========================================
         document.getElementById('keys').addEventListener('input', function() {
             const keys = getKeys();
@@ -885,29 +1317,6 @@
                 counter.style.color = '#666';
             }
         });
-
-        document.getElementById('h2_additions').addEventListener('input', updateAdditionsLengths);
-        document.getElementById('texts').addEventListener('input', updateTextsLengths);
-
-        function updateAdditionsLengths() {
-            const additions = getAdditions();
-            const html = additions.map(a => `<span style="margin-right: 10px;">• ${a} <b>(${a.length})</b></span>`).join('');
-            document.getElementById('additions_lengths').innerHTML = html || 'Нет прибавок';
-        }
-
-        function updateTextsLengths() {
-            const texts = getTexts();
-            const html = texts.map(t => {
-                const len = t.length;
-                const color = len > LIMITS.body ? '#dc2626' : '#10b981';
-                return `<span style="margin-right: 10px;">• <b style="color: ${color}">${len}/81</b>: ${t.substring(0, 40)}${t.length > 40 ? '...' : ''}</span>`;
-            }).join('<br>');
-            document.getElementById('texts_lengths').innerHTML = html || 'Нет текстов';
-        }
-
-        // Инициализация
-        updateAdditionsLengths();
-        updateTextsLengths();
     </script>
 </body>
 </html>
