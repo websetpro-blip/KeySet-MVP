@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Генератор объявлений Яндекс.Директ</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React и ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone для JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // Простые лимиты под Яндекс.Директ (можно потом вынести в настройки)
+    const LIMITS = {
+      h1: 56,
+      h2: 56,
+      body: 81,
+    };
+
+    // Утилиты
+    const clip = (str, limit) => {
+      const s = (str || "").trim();
+      if (!s) return "";
+      if (s.length <= limit) return s;
+      return s.slice(0, limit - 1) + "…";
+    };
+
+    const normalizeDomain = (value) => {
+      if (!value) return "";
+      let d = value.trim();
+      d = d.replace(/^https?:\/\//i, "");
+      d = d.replace(/\/+$/g, "");
+      return d;
+    };
+
+    const buildUrl = (domain, utmTemplate, key) => {
+      const cleanDomain = normalizeDomain(domain) || "example.com";
+      let url = cleanDomain.startsWith("http") ? cleanDomain : `https://${cleanDomain}`;
+
+      const group = key.slice(0, 40);
+      const encodedKey = encodeURIComponent(key);
+      const encodedGroup = encodeURIComponent(group);
+
+      let q = (utmTemplate || "").trim();
+      if (q) {
+        q = q.replace(/\{key}/g, encodedKey).replace(/\{group}/g, encodedGroup);
+        url += (url.includes("?")) ? "&" : "?";
+        url += q;
+      }
+      return url;
+    };
+
+    // Разбиваем ключ на H1 и базу для H2
+    const splitKeyToBaseH1H2 = (key) => {
+      const words = (key || "").trim().split(/\s+/).filter(Boolean);
+      if (!words.length) return { h1Base: "", h2Base: "" };
+
+      let h1 = "";
+      let idx = 0;
+      for (; idx < words.length; idx++) {
+        const candidate = h1 ? `${h1} ${words[idx]}` : words[idx];
+        if (candidate.length <= LIMITS.h1) {
+          h1 = candidate;
+        } else {
+          break;
+        }
+      }
+
+      const rest = words.slice(idx).join(" ");
+      return { h1Base: clip(h1 || key, LIMITS.h1), h2Base: rest };
+    };
+
+    // Выбираем прибавку ко 2-му заголовку с учётом лимита
+    // Требование: H2 = только прибавка (если они заданы), без хвоста ключа.
+    const chooseAddonForH2 = (h2Base, addons) => {
+      const base = (h2Base || "").trim();
+      const list = (addons || []).map((s) => s.trim()).filter(Boolean);
+
+      // Если прибавок нет, можно показать хвост ключа как H2
+      if (!list.length && base) {
+        return clip(base, LIMITS.h2);
+      }
+      if (!list.length) return "";
+
+      // Всегда берём только прибавку: первую, которая полностью влезает,
+      // иначе первую и обрезаем.
+      const candidate = list.find((a) => a.length <= LIMITS.h2) || list[0];
+      return clip(candidate, LIMITS.h2);
+    };
+
+    // Выбираем текст объявления из вариантов
+    const chooseBodyText = (variants) => {
+      const list = (variants || []).map((s) => s.trim()).filter(Boolean);
+      if (!list.length) return "";
+
+      // Берём самый длинный, который влезает, иначе первый и урезаем
+      let best = "";
+      list.forEach((t) => {
+        if (t.length <= LIMITS.body && t.length > best.length) {
+          best = t;
+        }
+      });
+
+      if (best) return best;
+      return clip(list[0], LIMITS.body);
+    };
+
+    const copyToClipboard = async (text) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        alert("Скопировано в буфер обмена");
+      } catch (e) {
+        console.error(e);
+        alert("Не удалось скопировать, воспользуйся Ctrl+C");
+      }
+    };
+
+    const exportCsv = (rows) => {
+      if (!rows.length) {
+        alert("Нет объявлений для экспорта");
+        return;
+      }
+
+      const sep = ";";
+      const header = [
+        "Кампания",
+        "Группа",
+        "Ключевая фраза",
+        "Заголовок 1",
+        "Заголовок 2",
+        "Текст",
+        "Ссылка",
+        "Отображаемая ссылка",
+        "Уточнения",
+      ];
+
+      const camp = "AUTO-" + new Date().toISOString().slice(0, 10);
+
+      const csvEsc = (s) => {
+        const v = (s ?? "").toString();
+        return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+      };
+
+      const lines = [header.join(sep)];
+
+      rows.forEach((r) => {
+        const display = normalizeDomain(r.url.split("?")[0]) + (r.path ? `/${r.path.replace(/^\/+/, "")}` : "");
+        const clar = (r.clar || "").replace(/\r?\n/g, " | ");
+
+        const vals = [
+          camp,
+          r.group || r.key.slice(0, 80),
+          r.key,
+          r.h1,
+          r.h2,
+          r.text,
+          r.url,
+          display,
+          clar,
+        ].map(csvEsc);
+
+        lines.push(vals.join(sep));
+      });
+
+      const blob = new Blob([String.fromCharCode(65279) + lines.join("\n")], {
+        type: "text/csv;charset=utf-8",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `yandex_ads_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    // Основное приложение
+    function AdsCreatorApp() {
+      const [step, setStep] = useState(1);
+
+      // Ввод ключей
+      const [keysInput, setKeysInput] = useState("");
+      const [groupId, setGroupId] = useState("");
+      const [domain, setDomain] = useState("nordkor.ru");
+      const [utm, setUtm] = useState(
+        "utm_source=yandex&utm_medium=cpc&utm_campaign={group}&utm_term={key}"
+      );
+
+      // Прибавки и тексты
+      const [addonsInput, setAddonsInput] = useState(
+        "система под ключ за 70 190р!\nобезжелезиватели от 16 990р!\nфильтры от 16 990р!\nвсего за 16 990р!"
+      );
+      const [bodyVariantsInput, setBodyVariantsInput] = useState(
+        "Ответьте на 5 вопросов и узнайте стоимость системы очистки воды!"
+      );
+
+      // Быстрые ссылки/уточнения
+      const [fastLinks, setFastLinks] = useState(
+        [
+          { text: "Распродажа", desc: "Скидка 30% до 15.05" },
+          { text: "Видео отзывы", desc: "Посмотрите рекламу" },
+          { text: "Заказать", desc: "Заявка за 1 минуту" },
+          { text: "Консультация", desc: "Подбор системы" },
+        ]
+      );
+      const [clarifications, setClarifications] = useState(
+        "Быстрая доставка\nГарантия\nОтзывы клиентов\nБез предоплат"
+      );
+
+      const [rows, setRows] = useState([]);
+      const [selectedIndex, setSelectedIndex] = useState(0);
+
+      const keyList = useMemo(
+        () => [
+          ...new Set(
+            keysInput
+              .split(/\r?\n/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+          ),
+        ],
+        [keysInput]
+      );
+
+      const addons = useMemo(
+        () =>
+          addonsInput
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+        [addonsInput]
+      );
+
+      const bodyVariants = useMemo(
+        () =>
+          bodyVariantsInput
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+        [bodyVariantsInput]
+      );
+
+      const handleGenerate = () => {
+        if (!keyList.length) {
+          alert("Сначала вставь ключевые фразы");
+          return;
+        }
+
+        const text = chooseBodyText(bodyVariants);
+
+        const newRows = keyList.map((key, idx) => {
+          const { h1Base, h2Base } = splitKeyToBaseH1H2(key);
+          const h2 = chooseAddonForH2(h2Base, addons);
+          const url = buildUrl(domain, utm, key);
+
+          return {
+            key,
+            group: groupId || `grp-${idx + 1}`,
+            h1: h1Base,
+            h2,
+            text,
+            url,
+            path: "",
+            clar: clarifications,
+          };
+        });
+
+        setRows(newRows);
+        setSelectedIndex(0);
+        setStep(3);
+      };
+
+      const handleCopyTSV = () => {
+        if (!rows.length) {
+          alert("Нет строк для копирования");
+          return;
+        }
+        const header = ["Ключ", "H1", "H2", "Текст", "URL", "Путь", "Уточнения"];
+        const esc = (s) =>
+          (s ?? "").toString().replace(/\t/g, " ").replace(/\r?\n/g, " ");
+
+        const lines = [header.join("\t")];
+        rows.forEach((r) => {
+          lines.push(
+            [r.key, r.h1, r.h2, r.text, r.url, r.path, r.clar]
+              .map(esc)
+              .join("\t")
+          );
+        });
+        copyToClipboard(lines.join("\n"));
+      };
+
+      const previewRow = rows[selectedIndex] || rows[0];
+
+      const handleFastLinkChange = (index, field, value) => {
+        setFastLinks((prev) => {
+          const next = [...prev];
+          next[index] = { ...next[index], [field]: value };
+          return next;
+        });
+      };
+
+      const handleRowChange = (idx, field, value) => {
+        setRows((prev) => {
+          const next = [...prev];
+          next[idx] = { ...next[idx], [field]: value };
+          return next;
+        });
+      };
+
+      return (
+        <div className="max-w-6xl mx-auto p-4 flex flex-col gap-4 text-sm">
+          <div className="flex flex-wrap gap-2 border rounded-2xl p-2 bg-slate-50">
+            {[1, 2, 3].map((s) => (
+              <button
+                key={s}
+                onClick={() => setStep(s)}
+                className={`px-3 py-1.5 rounded-xl text-xs md:text-sm border transition ${
+                  { 1: step === 1, 2: step === 2, 3: step === 3 }[s]
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700"
+                }`}
+              >
+                {s === 1 && "1. Ключи и базовые настройки"}
+                {s === 2 && "2. Прибавки, тексты, быстрые ссылки"}
+                {s === 3 && "3. Таблица, превью и экспорт"}
+              </button>
+            ))}
+          </div>
+
+          {step === 1 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="font-semibold text-slate-800 text-base">
+                  Вставь ключевые фразы
+                </div>
+                <textarea
+                  className="border rounded-2xl px-3 py-2 min-h-[220px] text-sm outline-none focus:ring w-full"
+                  placeholder="по одной фразе в строке"
+                  value={keysInput}
+                  onChange={(e) => setKeysInput(e.target.value)}
+                />
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Фраз: {keyList.length}</span>
+                  <span>Пустые строки игнорируются, дубликаты удаляются</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">
+                    ID группы (опционально, если редактируешь старую РК)
+                  </label>
+                  <input
+                    className="border rounded-2xl px-3 py-1.5 w-full text-sm outline-none focus:ring"
+                    placeholder="если пусто — будет grp-1, grp-2 ..."
+                    value={groupId}
+                    onChange={(e) => setGroupId(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Домен / лендинг</label>
+                  <input
+                    className="border rounded-2xl px-3 py-1.5 w-full text-sm outline-none focus:ring"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">
+                    UTM-шаблон (подставляются {"{key}"} и {"{group}"})
+                  </label>
+                  <input
+                    className="border rounded-2xl px-3 py-1.5 w-full text-xs outline-none focus:ring"
+                    value={utm}
+                    onChange={(e) => setUtm(e.target.value)}
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Пример: utm_source=yandex&utm_medium=cpc&utm_campaign={"{group}"}
+                    &utm_term={"{key}"}
+                  </p>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-sm"
+                    onClick={() => setStep(2)}
+                  >
+                    Далее → Прибавки и тексты
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="font-semibold text-slate-800 text-base">
+                  Прибавки к заголовку №2 (до 20 штук)
+                </div>
+                <textarea
+                  className="border rounded-2xl px-3 py-2 min-h-[180px] text-sm outline-none focus:ring w-full"
+                  value={addonsInput}
+                  onChange={(e) => setAddonsInput(e.target.value)}
+                />
+                <div className="text-xs text-slate-500">
+                  Каждая строка — отдельная прибавка. Программа выберет первую
+                  подходящую по длине, иначе возьмёт первую и подрежет до {LIMITS.h2} символов.
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div>
+                  <div className="font-semibold text-slate-800 text-base mb-1">
+                    Варианты текста объявления
+                  </div>
+                  <textarea
+                    className="border rounded-2xl px-3 py-2 min-h-[140px] text-sm outline-none focus:ring w-full"
+                    value={bodyVariantsInput}
+                    onChange={(e) => setBodyVariantsInput(e.target.value)}
+                  />
+                  <div className="text-xs text-slate-500 mt-1">
+                    Каждый вариант — отдельная строка. Будет выбран самый длинный,
+                    который влезает в {LIMITS.body} символов. Если ни один не
+                    помещается — первый будет обрезан.
+                  </div>
+                </div>
+
+                <div className="border rounded-2xl p-3 flex flex-col gap-2 bg-slate-50">
+                  <div className="font-semibold text-slate-800 text-sm">
+                    Быстрые ссылки и уточнения (для превью)
+                  </div>
+                  {fastLinks.map((fl, idx) => (
+                    <div key={idx} className="grid grid-cols-5 gap-2 items-center">
+                      <div className="text-[11px] text-slate-500">#{idx + 1}</div>
+                      <input
+                        className="border rounded-xl px-2 py-1 text-xs col-span-2 outline-none focus:ring"
+                        placeholder="Текст ссылки"
+                        value={fl.text}
+                        onChange={(e) =>
+                          handleFastLinkChange(idx, "text", e.target.value)
+                        }
+                      />
+                      <input
+                        className="border rounded-xl px-2 py-1 text-xs col-span-2 outline-none focus:ring"
+                        placeholder="Описание"
+                        value={fl.desc}
+                        onChange={(e) =>
+                          handleFastLinkChange(idx, "desc", e.target.value)
+                        }
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">
+                      Уточнения (по одному на строку)
+                    </label>
+                    <textarea
+                      className="border rounded-xl px-2 py-1 text-xs w-full min-h-[60px] outline-none focus:ring"
+                      value={clarifications}
+                      onChange={(e) => setClarifications(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="px-4 py-1.5 rounded-xl bg-slate-200 text-slate-800 text-sm"
+                    onClick={() => setStep(1)}
+                  >
+                    ← Назад к ключам
+                  </button>
+                  <button
+                    className="px-4 py-1.5 rounded-xl bg-blue-600 text-white text-sm"
+                    onClick={handleGenerate}
+                  >
+                    Сгенерировать заголовки и перейти к таблице
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-2 justify-between items-center">
+                <div className="font-semibold text-slate-800 text-base">
+                  Таблица объявлений
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="px-3 py-1.5 rounded-xl border text-xs md:text-sm"
+                    onClick={handleCopyTSV}
+                    disabled={!rows.length}
+                  >
+                    Копировать таблицу (TSV)
+                  </button>
+                  <button
+                    className="px-3 py-1.5 rounded-xl border text-xs md:text-sm"
+                    onClick={() => exportCsv(rows)}
+                    disabled={!rows.length}
+                  >
+                    Экспорт CSV для Коммандера
+                  </button>
+                </div>
+              </div>
+
+              {/* Превью + подсказки ПЕРЕД таблицей */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-2xl p-4 bg-white shadow-sm">
+                  <div className="text-xs text-slate-500 mb-1">Превью объявления (Яндекс стиль)</div>
+                  {previewRow ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="font-semibold text-red-600">Яндекс</span>
+                        <span>Поиск №1 в России*</span>
+                      </div>
+                      <div className="flex flex-wrap items-baseline gap-1">
+                        <span className="text-base font-bold text-blue-700">{previewRow.h1}</span>
+                        {previewRow.h2 && (
+                          <span className="text-base font-bold text-blue-700">
+                            {" — "}
+                            {previewRow.h2}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-green-700 font-semibold">
+                          {normalizeDomain(previewRow.url.split("?")[0])}
+                        </span>
+                        <span className="text-slate-400 ml-1">· реклама</span>
+                      </div>
+                      <div className="text-sm text-slate-800">{previewRow.text}</div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-blue-700">
+                        {fastLinks.map((fl, i) => (
+                          <span key={i}>{fl.text}</span>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-[11px] text-slate-700">
+                        {fastLinks.map((fl, i) => (
+                          <div key={i}>{fl.desc}</div>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-[11px] text-slate-500">
+                        {clarifications
+                          .split(/\r?\n/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                          .map((c, i) => (
+                            <span key={i} className="mr-2">
+                              {c}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400">
+                      Сначала сгенерируй объявления и выбери строку в таблице ниже
+                    </div>
+                  )}
+                </div>
+
+                <div className="border rounded-2xl p-4 bg-slate-50 text-xs text-slate-700 space-y-2">
+                  <div className="font-semibold text-slate-800 mb-1">Подсказки</div>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>
+                      Ключ делится на H1 (до {LIMITS.h1} симв.) и хвост для H2. Прибавка ко 2-му заголовку берётся из списка.
+                    </li>
+                    <li>
+                      Текст объявления берётся из списка вариантов: выбирается самый длинный, который влезает в {LIMITS.body} символов.
+                    </li>
+                    <li>
+                      В таблице можно править любую ячейку вручную перед экспортом — как в Excel.
+                    </li>
+                    <li>
+                      "Копировать таблицу (TSV)" — формат, который удобно вставлять в Excel/Google Sheets.
+                    </li>
+                    <li>
+                      CSV-файл подходит для импорта в Директ Коммандер (после небольшой подстройки колонок под твою схему).
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Таблица объявлений */}
+              <div className="border rounded-2xl overflow-auto bg-white max-h-[360px]">
+                <table className="min-w-full text-[11px] border-collapse">
+                  <thead className="bg-slate-50 sticky top-0 z-10">
+                    <tr>
+                      {["#", "Ключ", "H1", "H2", "Текст", "URL", "Путь", "Уточнения"].map((h) => (
+                        <th
+                          key={h}
+                          className="px-2 py-1 border-b text-left font-semibold text-slate-700"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-3 py-4 text-center text-slate-400">
+                          Сгенерируй объявления на предыдущем шаге
+                        </td>
+                      </tr>
+                    )}
+                    {rows.map((r, idx) => (
+                      <tr
+                        key={idx}
+                        className={`${idx % 2 ? "bg-slate-50" : "bg-white"} cursor-pointer ${
+                          idx === selectedIndex ? "ring-1 ring-blue-500/60" : ""
+                        }`}
+                        onClick={() => setSelectedIndex(idx)}
+                      >
+                        <td className="px-2 py-1 border-b text-slate-400">{idx + 1}</td>
+                        <td className="px-2 py-1 border-b min-w-[160px]">
+                          <input
+                            className="w-full outline-none bg-transparent"
+                            value={r.key}
+                            onChange={(e) => handleRowChange(idx, "key", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-2 py-1 border-b min-w-[160px]">
+                          <input
+                            className="w-full outline-none bg-transparent"
+                            maxLength={LIMITS.h1}
+                            value={r.h1}
+                            onChange={(e) => handleRowChange(idx, "h1", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-2 py-1 border-b min-w-[160px]">
+                          <input
+                            className="w-full outline-none bg-transparent"
+                            maxLength={LIMITS.h2}
+                            value={r.h2}
+                            onChange={(e) => handleRowChange(idx, "h2", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-2 py-1 border-b min-w-[220px]">
+                          <textarea
+                            className="w-full outline-none bg-transparent resize-none"
+                            rows={2}
+                            maxLength={LIMITS.body}
+                            value={r.text}
+                            onChange={(e) => handleRowChange(idx, "text", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-2 py-1 border-b min-w-[220px]">
+                          <input
+                            className="w-full outline-none bg-transparent"
+                            value={r.url}
+                            onChange={(e) => handleRowChange(idx, "url", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-2 py-1 border-b min-w-[140px]">
+                          <input
+                            className="w-full outline-none bg-transparent"
+                            placeholder="catalog/filtry"
+                            value={r.path}
+                            onChange={(e) => handleRowChange(idx, "path", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-2 py-1 border-b min-w-[180px]">
+                          <textarea
+                            className="w-full outline-none bg-transparent resize-none"
+                            rows={2}
+                            value={r.clar}
+                            onChange={(e) => handleRowChange(idx, "clar", e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Рендер приложения
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<AdsCreatorApp />);
+  </script>
+</body>
+</html>
