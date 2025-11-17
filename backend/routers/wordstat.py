@@ -12,6 +12,7 @@ from services import accounts as legacy_accounts
 from services import frequency as frequency_service
 from services import wordstat_bridge
 from services import wordstat_ws as turbo_wordstat_service
+from services import wordstat_multiparser
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,35 @@ class CollectResponseRow(BaseModel):
     bws: int | None = None
     status: str = "pending"
     region: int | None = None
+
+
+class MultiCollectRequest(BaseModel):
+    phrases: List[str]
+    regions: List[int] = Field(default_factory=lambda: [225])
+
+    @validator("phrases")
+    def _clean_phrases(cls, value: Iterable[str]) -> List[str]:
+        cleaned = [phrase.strip() for phrase in value if phrase and phrase.strip()]
+        if not cleaned:
+            raise ValueError("Передайте хотя бы одну фразу для парсинга.")
+        return cleaned
+
+    @validator("regions")
+    def _clean_regions(cls, value: Iterable[int]) -> List[int]:
+        unique: list[int] = []
+        seen: set[int] = set()
+        for raw in value:
+            try:
+                region_id = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if region_id in seen:
+                continue
+            seen.add(region_id)
+            unique.append(region_id)
+        if not unique:
+            unique = [225]
+        return unique
 
 
 # Helpers ---------------------------------------------------------------------
@@ -238,6 +268,33 @@ def collect_frequency(payload: CollectRequest) -> list[CollectResponseRow]:
         logger.debug("Frequency service unavailable; skipping persistence.")
 
     return response
+
+
+@router.post("/multi-collect", response_model=list[CollectResponseRow])
+def collect_frequency_multi(payload: MultiCollectRequest) -> list[CollectResponseRow]:
+    """Запустить мультипарсер для всех рабочих аккаунтов."""
+    try:
+        results = wordstat_multiparser.collect_frequency_multi(
+            phrases=payload.phrases,
+            regions=payload.regions,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - зависит от окружения
+        logger.exception("Multiparser failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Wordstat multiparser error") from exc
+
+    return [
+        CollectResponseRow(
+            phrase=row.get("phrase", ""),
+            ws=_safe_int(row.get("ws")),
+            qws=_safe_int(row.get("qws")),
+            bws=_safe_int(row.get("bws")),
+            status=str(row.get("status") or "OK"),
+            region=row.get("region"),
+        )
+        for row in results
+    ]
 
 
 def _safe_int(value: Any) -> int | None:

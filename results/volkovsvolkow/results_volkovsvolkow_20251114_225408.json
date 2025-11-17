@@ -1,0 +1,31 @@
+{
+  "task_info": {
+    "task_id": "volkovsvolkow_20251114_225408",
+    "profile_email": "volkovsvolkow",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\volkovsvolkow",
+    "proxy_uri": "http://nDRYz5:EP0wPC@213.139.222.51:9738",
+    "fingerprint": null,
+    "phrases_count": 5,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T22:54:08.121314",
+    "started_at": "2025-11-14T22:54:08.121783",
+    "completed_at": "2025-11-14T22:55:06.065427",
+    "error_message": null,
+    "results_count": 5
+  },
+  "results": {
+    "покрасочные капитальные": 3,
+    "чистовые капитальные": 44,
+    "окрасочные капитальные": 16,
+    "черновые капитальные": 50,
+    "финишные капитальные": 9
+  },
+  "phrases": [
+    "покрасочные капитальные",
+    "окрасочные капитальные",
+    "финишные капитальные",
+    "чистовые капитальные",
+    "черновые капитальные"
+  ]
+}

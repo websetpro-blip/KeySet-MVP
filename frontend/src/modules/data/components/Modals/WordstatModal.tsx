@@ -8,8 +8,8 @@ import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Modal } from '../ui/Modal';
 import {
-  collectWordstat,
   fetchWordstatRegions,
+  multiCollectWordstat,
   type WordstatRegion,
 } from '../../api/wordstat';
 import { enqueuePhrases } from '../../api/data';
@@ -176,18 +176,20 @@ export const WordstatModal: React.FC<WordstatModalProps> = ({ isOpen, onClose })
     setProcessProgress(10, 0, targetPhrases.length);
 
     try {
-      const results: WordstatResult[] = await collectWordstat({
-        phrases: targetPhrases,
-        regions: regionsToSend,
-        modes,
-      });
+      const results: WordstatResult[] = await multiCollectWordstat(targetPhrases, regionsToSend);
+      const filteredResults = results.map((row) => ({
+        ...row,
+        ws: modes.ws ? row.ws : 0,
+        qws: modes.qws ? row.qws : 0,
+        bws: modes.bws ? row.bws : 0,
+      }));
 
-      applyWordstatResults(results);
+      applyWordstatResults(filteredResults);
       await loadInitialData?.();
       setProcessProgress(100, targetPhrases.length, targetPhrases.length);
       addLog(
         'success',
-        `Wordstat: обновлены частоты для ${results.length || 0} строк`
+        `Wordstat: обновлены частоты для ${filteredResults.length || 0} строк`
       );
       onClose();
     } catch (error) {

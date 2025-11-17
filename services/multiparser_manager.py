@@ -23,7 +23,13 @@ from queue import Queue
 
 from playwright.async_api import BrowserContext
 from sqlalchemy import select
-import win32crypt
+
+try:
+    import win32crypt  # type: ignore[import]
+    WIN32CRYPT_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    win32crypt = None  # type: ignore[assignment]
+    WIN32CRYPT_AVAILABLE = False
 
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -37,6 +43,12 @@ try:
 except ImportError:  # pragma: no cover - fallback for scripts
     from core.db import SessionLocal  # type: ignore
     from core.models import Account  # type: ignore
+
+try:
+    # Импортируем helper для пометки аккаунта как проблемного
+    from services.accounts import mark_account_broken_by_email  # type: ignore
+except ImportError:  # pragma: no cover - сценарии запуска как скрипта
+    mark_account_broken_by_email = None  # type: ignore
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 KEYSET_ROOT = Path(__file__).resolve().parents[1]
@@ -62,6 +74,12 @@ _MASTER_KEY_CACHE: Dict[Path, Optional[bytes]] = {}
 
 def _get_chrome_master_key(profile_path: Path, logger_obj: logging.Logger) -> Optional[bytes]:
     """Извлечь мастер-ключ Chrome для расшифровки v10 cookie."""
+    if not WIN32CRYPT_AVAILABLE:
+        logger_obj.debug(
+            f"[{profile_path.name}] win32crypt недоступен, пропускаю извлечение мастер-ключа",
+        )
+        return None
+
     resolved_path = profile_path.resolve()
     if resolved_path in _MASTER_KEY_CACHE:
         return _MASTER_KEY_CACHE[resolved_path]
@@ -115,6 +133,11 @@ def _decrypt_chrome_value(
             aesgcm = AESGCM(master_key)
             decrypted = aesgcm.decrypt(nonce, ciphertext + tag, None)
         else:
+            if not WIN32CRYPT_AVAILABLE:
+                logger_obj.debug(
+                    f"[{profile_path.name}] win32crypt недоступен, не удалось расшифровать legacy cookie",
+                )
+                return ""
             decrypted = win32crypt.CryptUnprotectData(encrypted_value, None, None, None, 0)[1]
         return decrypted.decode("utf-8", errors="ignore")
     except Exception:
@@ -323,6 +346,8 @@ class ParsingTask:
     profile_path: Path
     proxy_uri: Optional[str]
     phrases: List[str]
+    region_id: int = 225
+    fingerprint: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
@@ -338,6 +363,7 @@ class ParsingTask:
             'profile_email': self.profile_email,
             'profile_path': str(self.profile_path),
             'proxy_uri': self.proxy_uri,
+            'fingerprint': self.fingerprint,
             'phrases_count': len(self.phrases),
             'status': self.status,
             'progress': self.progress,
@@ -377,7 +403,9 @@ class MultiParserManager:
         profile_email: str,
         profile_path: str,
         proxy_uri: Optional[str],
-        phrases: List[str]
+        phrases: List[str],
+        region_id: int = 225,
+        fingerprint: Optional[str] = None,
     ) -> ParsingTask:
         """Создать новую задачу парсинга"""
         task_id = f"{profile_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -387,7 +415,9 @@ class MultiParserManager:
             profile_email=profile_email,
             profile_path=Path(profile_path),
             proxy_uri=proxy_uri,
-            phrases=phrases
+            phrases=phrases,
+            region_id=region_id,
+            fingerprint=fingerprint,
         )
         
         with self._lock:
@@ -396,7 +426,7 @@ class MultiParserManager:
         logger.info(f"Created task {task_id} for {profile_email} with {len(phrases)} phrases")
         return task
         
-    def submit_tasks(self, profiles: List[Dict], phrases: List[str]) -> List[str]:
+    def submit_tasks(self, profiles: List[Dict], phrases: Optional[List[str]] = None) -> List[str]:
         """
         Отправить задачи на выполнение
         
@@ -411,12 +441,20 @@ class MultiParserManager:
         futures = {}
         
         for profile in profiles:
+            profile_phrases = profile.get('phrases') or phrases
+            if not profile_phrases:
+                logger.debug("Profile %s skipped - no phrases", profile.get('email'))
+                continue
+
+            region_id = int(profile.get('region_id', profile.get('region', 225)))
             # Создаем задачу
             task = self.create_task(
                 profile_email=profile['email'],
                 profile_path=profile['profile_path'],
                 proxy_uri=profile.get('proxy'),
-                phrases=phrases
+                phrases=list(profile_phrases),
+                region_id=region_id,
+                fingerprint=profile.get('fingerprint'),
             )
             task_ids.append(task.task_id)
             
@@ -441,7 +479,11 @@ class MultiParserManager:
                 task.status = "running"
                 task.started_at = datetime.now()
                 
-            self._log(f"Starting parser for {task.profile_email}", level="INFO", task_id=task.task_id)
+            self._log(
+                f"Starting parser for {task.profile_email} (region {task.region_id})",
+                level="INFO",
+                task_id=task.task_id,
+            )
             
             # Проверяем профиль
             if not task.profile_path.exists():
@@ -450,16 +492,14 @@ class MultiParserManager:
             # Создаем новый event loop для этого потока
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            
+
             try:
-                # Импортируем парсер
-                import sys
-                turbo_path = PROJECT_ROOT
-                if str(turbo_path) not in sys.path:
-                    sys.path.insert(0, str(turbo_path))
-                    
-                from turbo_parser_10tabs import turbo_parser_10tabs
-                
+                # Импортируем TurboParser лениво, чтобы избежать циклических зависимостей
+                try:
+                    from ..turbo_parser_improved import turbo_parser_10tabs  # type: ignore
+                except ImportError:
+                    from turbo_parser_improved import turbo_parser_10tabs  # type: ignore
+
                 # Запускаем парсинг
                 results = loop.run_until_complete(
                     turbo_parser_10tabs(
@@ -468,27 +508,50 @@ class MultiParserManager:
                         phrases=task.phrases,
                         headless=False,
                         proxy_uri=task.proxy_uri,
+                        region_id=task.region_id,
+                        fingerprint_preset=task.fingerprint,
                     )
                 )
-                
+
+                # Если парсер вернул пустой результат для непустого списка фраз — считаем аккаунт проблемным
+                if not results and task.phrases and mark_account_broken_by_email:
+                    reason = (
+                        f"Мультипарсер: парсинг завершился без результатов "
+                        f"для профиля {task.profile_email} (region {task.region_id})"
+                    )
+                    mark_account_broken_by_email(task.profile_email, status="error", reason=reason)
+                    self._log(
+                        f"Account {task.profile_email} marked as error: empty results",
+                        level="ERROR",
+                        task_id=task.task_id,
+                    )
+                # Если результаты есть — считаем аккаунт восстановленным и возвращаем статус ok
+                elif results and mark_account_broken_by_email:
+                    mark_account_broken_by_email(task.profile_email, status="ok")
+                    self._log(
+                        f"Account {task.profile_email} marked as ok after successful parsing",
+                        level="INFO",
+                        task_id=task.task_id,
+                    )
+
                 # Обновляем результаты
                 with self._lock:
                     task.results = results
                     task.status = "completed"
                     task.completed_at = datetime.now()
                     task.progress = 100
-                    
+
                 self._log(
                     f"Parser completed for {task.profile_email}: {len(results)} results",
                     level="SUCCESS",
-                    task_id=task.task_id
+                    task_id=task.task_id,
                 )
-                
+
                 # Сохраняем результаты
                 self._save_results(task)
-                
+
                 return results
-                
+
             finally:
                 loop.close()
                 
@@ -497,7 +560,12 @@ class MultiParserManager:
                 task.status = "failed"
                 task.error_message = str(e)
                 task.completed_at = datetime.now()
-                
+
+            # При фатальной ошибке парсера помечаем аккаунт как проблемный
+            if mark_account_broken_by_email:
+                short_reason = str(e).splitlines()[0] if e else "parser error"
+                mark_account_broken_by_email(task.profile_email, status="error", reason=short_reason)
+
             self._log(
                 f"Parser failed for {task.profile_email}: {str(e)}",
                 level="ERROR",

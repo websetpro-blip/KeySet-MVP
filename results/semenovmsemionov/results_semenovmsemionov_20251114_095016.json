@@ -1,0 +1,30 @@
+{
+  "task_info": {
+    "task_id": "semenovmsemionov_20251114_095016",
+    "profile_email": "semenovmsemionov",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\semenovmsemionov",
+    "proxy_uri": "http://nDRYz5:EP0wPC@213.139.221.207:9393",
+    "phrases_count": 5,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T09:50:16.525770",
+    "started_at": "2025-11-14T09:50:16.526008",
+    "completed_at": "2025-11-14T09:51:17.308903",
+    "error_message": null,
+    "results_count": 5
+  },
+  "results": {
+    "отделка косметические": 239,
+    "черновые малярные": 9,
+    "финишные малярные": 95,
+    "отделочные косметические": 42,
+    "чистовые малярные": 10
+  },
+  "phrases": [
+    "финишные малярные",
+    "чистовые малярные",
+    "черновые малярные",
+    "отделочные косметические",
+    "отделка косметические"
+  ]
+}

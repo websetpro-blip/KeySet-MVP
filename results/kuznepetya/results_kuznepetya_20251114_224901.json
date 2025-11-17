@@ -1,0 +1,25 @@
+{
+  "task_info": {
+    "task_id": "kuznepetya_20251114_224901",
+    "profile_email": "kuznepetya",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\kuznepetya",
+    "proxy_uri": "http://TmNfbT:YFB5cE@77.73.134.166:8000",
+    "fingerprint": null,
+    "phrases_count": 5,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T22:49:01.129750",
+    "started_at": "2025-11-14T22:49:01.129999",
+    "completed_at": "2025-11-14T22:49:09.406876",
+    "error_message": null,
+    "results_count": 0
+  },
+  "results": {},
+  "phrases": [
+    "покрасочные малярные",
+    "окрасочные малярные",
+    "финишные малярные",
+    "чистовые малярные",
+    "черновые малярные"
+  ]
+}

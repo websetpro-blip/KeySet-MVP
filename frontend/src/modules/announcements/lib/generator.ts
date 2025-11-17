@@ -12,6 +12,81 @@ const LIMITS = {
   DISPLAY_URL_MAX: 20,
 };
 
+// Транслитерация ключа для отображаемой ссылки
+export function transliteratePath(text: string, maxLength: number = 20): string {
+  const map: Record<string, string> = {
+    а: 'a',
+    б: 'b',
+    в: 'v',
+    г: 'g',
+    д: 'd',
+    е: 'e',
+    ё: 'e',
+    ж: 'zh',
+    з: 'z',
+    и: 'i',
+    й: 'y',
+    к: 'k',
+    л: 'l',
+    м: 'm',
+    н: 'n',
+    о: 'o',
+    п: 'p',
+    р: 'r',
+    с: 's',
+    т: 't',
+    у: 'u',
+    ф: 'f',
+    х: 'h',
+    ц: 'ts',
+    ч: 'ch',
+    ш: 'sh',
+    щ: 'sch',
+    ъ: '',
+    ы: 'y',
+    ь: '',
+    э: 'e',
+    ю: 'yu',
+    я: 'ya',
+  };
+
+  return text
+    .toLowerCase()
+    .split('')
+    .map((ch) => map[ch] ?? ch)
+    .join('')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, maxLength);
+}
+
+// Построение URL с UTM
+export function buildUrl(domain: string, utm: string | undefined, key: string): string {
+  if (!domain) return '';
+  const base = domain
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .replace(/\/$/, '');
+  let url = `https://${base}`;
+
+  if (utm && utm.trim()) {
+    const utmParams = utm
+      .replace(/{key}/g, encodeURIComponent(key))
+      .replace(/{group}/g, encodeURIComponent(key.substring(0, 40)));
+    url += `?${utmParams}`;
+  }
+
+  return url;
+}
+
+// Отображаемая ссылка на основе URL и path
+export function buildDisplayUrl(url: string, path?: string): string {
+  if (!url) return '';
+  const domain = url.split('?')[0].replace(/^https?:\/\//i, '');
+  return path ? `${domain}/${path}` : domain;
+}
+
 /**
  * Капитализирует первую букву строки
  */
@@ -67,6 +142,60 @@ function validateText(text: string, maxLength: number): {
   }
 
   return { text: trimmed };
+}
+
+export function buildTitle1FromPhrase(phrase: string) {
+  const trimmed = phrase.trim();
+  if (!trimmed) {
+    return { text: '' };
+  }
+  const words = trimmed.split(/\s+/);
+  let candidate = '';
+
+  for (const word of words) {
+    const nextValue = candidate ? `${candidate} ${word}` : word;
+    if (nextValue.length <= LIMITS.TITLE1_MAX) {
+      candidate = nextValue;
+    } else {
+      break;
+    }
+  }
+
+  if (!candidate) {
+    candidate = trimmed;
+  }
+
+  return validateText(candidate, LIMITS.TITLE1_MAX);
+}
+
+export function buildTitle2FromAddons(
+  addons: string[],
+  index: number,
+  title1: string
+) {
+  if (!addons || addons.length === 0) {
+    return {};
+  }
+  const addon = addons[index % addons.length]?.trim();
+  if (!addon) {
+    return {};
+  }
+  const combinedLimit = Math.max(0, 65 - title1.length);
+  if (combinedLimit === 0) {
+    return {};
+  }
+  const maxLength = Math.min(LIMITS.TITLE2_MAX, combinedLimit);
+  if (maxLength <= 0) {
+    return {};
+  }
+  return validateText(addon, maxLength);
+}
+
+export function sanitizeBodyText(bodyText?: string) {
+  if (!bodyText) {
+    return undefined;
+  }
+  return validateText(bodyText, LIMITS.TEXT_MAX);
 }
 
 /**

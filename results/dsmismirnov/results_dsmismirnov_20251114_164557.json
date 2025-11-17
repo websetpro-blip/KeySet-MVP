@@ -1,0 +1,24 @@
+{
+  "task_info": {
+    "task_id": "dsmismirnov_20251114_164557",
+    "profile_email": "dsmismirnov",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\wordstat_main",
+    "proxy_uri": "http://TmNfbT:YFB5cE@77.73.134.166:8000",
+    "fingerprint": null,
+    "phrases_count": 4,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T16:45:57.232769",
+    "started_at": "2025-11-14T16:45:57.233054",
+    "completed_at": "2025-11-14T16:46:07.632567",
+    "error_message": null,
+    "results_count": 0
+  },
+  "results": {},
+  "phrases": [
+    "чистовые черновые",
+    "отделочные малярные",
+    "отделка малярные",
+    "покрасочные малярные"
+  ]
+}

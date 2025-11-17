@@ -1,15 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./legacy/styles.css";
+
 import type { Account, AccountsFilters } from "./types";
 import { filterAccounts } from "./utils";
 import { TopBar } from "./components/TopBar";
 import { SearchFilterBar } from "./components/SearchFilterBar";
-import { QuickFilters } from "./components/QuickFilters";
 import { AccountsTable } from "./components/AccountsTable";
-import { TableSummary } from "./components/TableSummary";
 import { AccountSidebar } from "./components/AccountSidebar";
-import { fetchAccounts } from "./api";
+import { AccountLogPanel } from "./components/AccountLogPanel";
+import {
+  fetchAccounts,
+  deleteAccount as apiDeleteAccount,
+  launchAccount,
+  launchAccounts,
+  createAccount,
+  updateAccount,
+} from "./api";
+import {
+  apiAccountToAccountWithCookies,
+  accountToCreatePayload,
+  accountToUpdatePayload,
+} from "./mapper";
 
 export default function AccountsModule() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -20,25 +32,39 @@ export default function AccountsModule() {
     status: "",
     onlyWithProxy: false,
   });
+  const [clientLogs, setClientLogs] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+
+  const appendClientLog = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleString("ru-RU");
+    const line = `[${timestamp}] ${message}`;
+    setClientLogs((prev) => {
+      const next = [...prev, line];
+      return next.slice(-200);
+    });
+  }, []);
 
   const loadAccounts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchAccounts();
-      setAccounts(data);
+      const mapped = data.map(apiAccountToAccountWithCookies);
+      setAccounts(mapped);
     } catch (loadError) {
       setAccounts([]);
       setError(
         (loadError as Error).message ||
-          "Не удалось загрузить аккаунты. Проверьте backend."
+          "Не удалось загрузить аккаунты. Проверьте backend.",
+      );
+      appendClientLog(
+        `Ошибка загрузки аккаунтов: ${(loadError as Error).message || "backend недоступен"}`,
       );
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [appendClientLog]);
 
   useEffect(() => {
     loadAccounts();
@@ -106,81 +132,174 @@ export default function AccountsModule() {
     setCurrentAccount(account);
   };
 
-  const handleAction = (action: string) => {
-    console.log(`[accounts] action -> ${action}`);
+  const handleAction = async (action: string) => {
+    const ids = Array.from(selectedIds);
 
-    switch (action) {
-      case "add":
-        alert("Функция 'Добавить аккаунт' в разработке");
-        break;
-      case "edit":
-        if (selectedIds.size === 0) {
-          alert("Выберите аккаунт для редактирования");
-        } else if (selectedIds.size > 1) {
-          alert("Выберите только один аккаунт для редактирования");
-        } else {
-          alert("Функция 'Редактировать' в разработке");
+    const pickSingleAccount = (): Account | null => {
+      if (ids.length !== 1) {
+        alert("Выберите один аккаунт");
+        return null;
+      }
+      const target = accounts.find((item) => item.id === ids[0]) ?? null;
+      if (!target) {
+        alert("Аккаунт не найден");
+      }
+      return target;
+    };
+
+    try {
+      if (action.startsWith("launch-")) {
+        const id = Number(action.split("-")[1]);
+        if (!Number.isNaN(id)) {
+          const response = await launchAccount(id);
+          alert(response.message);
         }
-        break;
-      case "delete":
-        if (selectedIds.size === 0) {
-          alert("Выберите аккаунты для удаления");
-        } else {
-          const confirmed = window.confirm(
-            `Удалить выбранные аккаунты (${selectedIds.size})? Это действие нельзя отменить.`
-          );
-          if (confirmed) {
-            alert(`Удалено ${selectedIds.size} аккаунтов`);
-            setSelectedIds(new Set());
+        return;
+      }
+
+      switch (action) {
+        case "mass-launch-5": {
+          const targetIds =
+            ids.length > 0 ? ids.slice(0, 5) : accounts.slice(0, 5).map((a) => a.id);
+          if (targetIds.length === 0) {
+            alert("Нет аккаунтов для запуска");
+            return;
           }
+          await launchAccounts({ ids: targetIds });
+          break;
         }
-        break;
-      case "refresh":
-        loadAccounts();
-        break;
-      case "launch":
-        if (selectedIds.size === 0) {
-          alert("Выберите аккаунты для запуска");
-        } else {
-          alert(`Запуск ${selectedIds.size} аккаунтов...`);
+        case "check-auth": {
+          const targetAccounts = ids.length
+            ? accounts.filter((acc) => ids.includes(acc.id))
+            : accounts.slice(0, 5);
+          if (targetAccounts.length === 0) {
+            alert("Нет аккаунтов для проверки");
+            return;
+          }
+          const lines = targetAccounts.map(
+            (acc) => `${acc.email}: ${acc.authStatus || "Неизвестно"} (посл. вход ${acc.lastLogin || "—"})`,
+          );
+          alert(lines.join("\n"));
+          break;
         }
-        break;
-      case "proxy-manager":
-        alert("Открытие менеджера прокси...");
-        break;
-      case "launch-browser":
-        alert("Запуск браузера...");
-        break;
-      case "consistency-check":
-        alert("Проверка консистентности данных...");
-        break;
-      default:
-        console.warn(`Unknown action: ${action}`);
+        case "export-accounts": {
+          if (accounts.length === 0) {
+            alert("Список аккаунтов пуст");
+            return;
+          }
+          const headers = [
+            "email",
+            "status",
+            "proxy",
+            "fingerprint",
+            "lastLaunch",
+            "authStatus",
+            "lastLogin",
+            "profileSize",
+          ];
+          const rows = accounts.map((acc) =>
+            [
+              acc.email,
+              acc.status,
+              acc.proxy,
+              acc.fingerprint,
+              acc.lastLaunch,
+              acc.authStatus,
+              acc.lastLogin,
+              acc.profileSize,
+            ]
+              .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+              .join(","),
+          );
+          const csv = [headers.join(","), ...rows].join("\n");
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "accounts_export.csv";
+          link.click();
+          URL.revokeObjectURL(url);
+          break;
+        }
+        case "show-history": {
+          const historyLines = accounts
+            .slice()
+            .sort((a, b) => b.lastLaunch.localeCompare(a.lastLaunch))
+            .slice(0, 5)
+            .map((acc) => `${acc.email}: ${acc.lastLaunch || "никогда"} (${acc.status})`);
+          alert(historyLines.join("\n") || "История пуста");
+          break;
+        }
+        case "add": {
+          const email = window.prompt("Email аккаунта Yandex");
+          if (!email) return;
+          const profilePath = window.prompt("Путь к профилю Chrome", `C:\\profiles\\${email}`);
+          if (!profilePath) return;
+          const proxy = window.prompt("Прокси (user:pass@host:port)", "");
+          const payload = accountToCreatePayload({
+            email,
+            profilePath,
+            proxy: proxy || undefined,
+          });
+          await createAccount(payload);
+          await loadAccounts();
+          break;
+        }
+        case "edit": {
+          const current = pickSingleAccount();
+          if (!current) return;
+          const nextProfile = window.prompt("Новый путь к профилю", current.profilePath) ?? current.profilePath;
+          const nextProxy = window.prompt("Прокси", current.proxy) ?? current.proxy;
+          const payload = accountToUpdatePayload({
+            profilePath: nextProfile,
+            proxy: nextProxy,
+          });
+          await updateAccount(current.id, payload);
+          await loadAccounts();
+          break;
+        }
+        case "delete": {
+          if (ids.length === 0) {
+            alert("Выберите аккаунты для удаления");
+            return;
+          }
+          const confirmed = window.confirm(
+            `Удалить выбранные аккаунты (${ids.length})? Действие нельзя отменить.`,
+          );
+          if (!confirmed) return;
+          for (const id of ids) {
+            await apiDeleteAccount(id);
+          }
+          await loadAccounts();
+          setSelectedIds(new Set());
+          break;
+        }
+        case "refresh":
+          await loadAccounts();
+          break;
+        case "launch":
+        case "launch-browser": {
+          if (ids.length === 0) {
+            alert("Выберите аккаунты для запуска");
+            return;
+          }
+          await launchAccounts({ ids });
+          break;
+        }
+        case "proxy-manager":
+          alert("Открытие менеджера прокси пока не реализовано.");
+          break;
+        case "consistency-check":
+          alert("Проверка консистентности находится в разработке.");
+          break;
+        default:
+          console.warn(`Unknown action: ${action}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(message);
+      appendClientLog(`Ошибка действия "${action}": ${message}`);
     }
-  };
-
-  const handleQuickStatus = (status: "active" | "needs_login" | "error") => {
-    setFilters((prev) => ({
-      ...prev,
-      status,
-      onlyWithProxy: false,
-    }));
-  };
-
-  const handleProxyOnly = () => {
-    setFilters((prev) => ({
-      ...prev,
-      onlyWithProxy: true,
-    }));
-  };
-
-  const handleResetFilters = () => {
-    setFilters({
-      search: "",
-      status: "",
-      onlyWithProxy: false,
-    });
-    setSelectedIds(new Set());
   };
 
   return (
@@ -192,18 +311,14 @@ export default function AccountsModule() {
           <SearchFilterBar
             search={filters.search}
             status={filters.status}
+            filteredCount={filteredAccounts.length}
+            totalCount={accounts.length}
             onSearchChange={(value) =>
               setFilters((prev) => ({ ...prev, search: value }))
             }
             onStatusChange={(value) =>
               setFilters((prev) => ({ ...prev, status: value }))
             }
-          />
-
-          <QuickFilters
-            onStatusSelect={handleQuickStatus}
-            onProxyOnly={handleProxyOnly}
-            onReset={handleResetFilters}
           />
 
           {isLoading ? (
@@ -245,27 +360,42 @@ export default function AccountsModule() {
               </button>
             </div>
           ) : (
-            <>
-              <AccountsTable
-                accounts={filteredAccounts}
-                searchTerm={filters.search}
-                selectedIds={selectedIds}
-                isAllSelected={isAllSelected}
-                onToggleAll={handleToggleAll}
-                onToggleRow={handleToggleRow}
-                onSelectAccount={handleSelectAccount}
-                onLaunch={(account) => handleAction(`launch-${account.id}`)}
-                onOpenSettings={handleSelectAccount}
-              />
+            <div className="table-log-container">
+              <div className="accounts-table-wrapper">
+                <div className="accounts-table-scroll">
+                  <AccountsTable
+                    accounts={filteredAccounts}
+                    searchTerm={filters.search}
+                    selectedIds={selectedIds}
+                    isAllSelected={isAllSelected}
+                    onToggleAll={handleToggleAll}
+                    onToggleRow={handleToggleRow}
+                    onSelectAccount={handleSelectAccount}
+                    onLaunch={(account) => handleAction(`launch-${account.id}`)}
+                    onOpenSettings={handleSelectAccount}
+                  />
+                </div>
+              </div>
 
-              <TableSummary filtered={filteredAccounts.length} total={accounts.length} />
-            </>
+              <div className="account-log-panel-wrapper">
+                <AccountLogPanel accounts={accounts} extraLogs={clientLogs} />
+              </div>
+            </div>
           )}
         </div>
 
         <AccountSidebar
           account={currentAccount}
           onClose={() => {}}
+          onLog={appendClientLog}
+          onReloadAccounts={loadAccounts}
+          onUpdateAccount={async (id: number, changes: Partial<Account>) => {
+            const payload = accountToUpdatePayload(changes);
+            const updated = await updateAccount(id, payload);
+            const mapped = apiAccountToAccountWithCookies(updated);
+            setAccounts((prev) => prev.map((acc) => (acc.id === id ? mapped : acc)));
+            setCurrentAccount((prev) => (prev && prev.id === id ? mapped : prev));
+          }}
         />
       </div>
     </div>

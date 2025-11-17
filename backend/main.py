@@ -17,7 +17,7 @@ from core.db import ensure_schema
 from core.app_paths import WWW_DIR, ensure_runtime, bootstrap_files, APP_ROOT
 
 from . import devtools
-from .routers import accounts, data, wordstat, regions
+from .routers import accounts, data, wordstat, regions, proxies
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -64,6 +64,8 @@ app.include_router(wordstat.router)
 app.include_router(accounts.router)
 app.include_router(data.router)
 app.include_router(regions.router)
+app.include_router(proxies.router)
+app.include_router(proxies.legacy_router)
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 

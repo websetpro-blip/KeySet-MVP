@@ -1,0 +1,30 @@
+{
+  "task_info": {
+    "task_id": "volkovsvolkow_20251114_095016",
+    "profile_email": "volkovsvolkow",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\volkovsvolkow",
+    "proxy_uri": "http://nDRYz5:EP0wPC@213.139.222.51:9738",
+    "phrases_count": 5,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T09:50:16.526376",
+    "started_at": "2025-11-14T09:50:16.526591",
+    "completed_at": "2025-11-14T09:51:17.526740",
+    "error_message": null,
+    "results_count": 5
+  },
+  "results": {
+    "малярные косметические": 65,
+    "отделочные капитальные": 237,
+    "покрасочные капитальные": 3,
+    "отделка капитальные": 345,
+    "окрасочные капитальные": 16
+  },
+  "phrases": [
+    "малярные косметические",
+    "отделочные капитальные",
+    "отделка капитальные",
+    "покрасочные капитальные",
+    "окрасочные капитальные"
+  ]
+}

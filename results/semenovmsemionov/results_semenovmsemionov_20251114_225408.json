@@ -1,0 +1,31 @@
+{
+  "task_info": {
+    "task_id": "semenovmsemionov_20251114_225408",
+    "profile_email": "semenovmsemionov",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\semenovmsemionov",
+    "proxy_uri": "http://nDRYz5:EP0wPC@213.139.221.207:9393",
+    "fingerprint": null,
+    "phrases_count": 5,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T22:54:08.120377",
+    "started_at": "2025-11-14T22:54:08.120647",
+    "completed_at": "2025-11-14T22:56:19.429163",
+    "error_message": null,
+    "results_count": 5
+  },
+  "results": {
+    "окрасочные косметические": 8,
+    "покрасочные косметические": 1,
+    "отделочные косметические": 43,
+    "отделка косметические": 244,
+    "финишные косметические": 8
+  },
+  "phrases": [
+    "отделочные косметические",
+    "отделка косметические",
+    "покрасочные косметические",
+    "окрасочные косметические",
+    "финишные косметические"
+  ]
+}

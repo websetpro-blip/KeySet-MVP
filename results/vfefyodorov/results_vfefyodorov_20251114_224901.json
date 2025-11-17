@@ -1,0 +1,31 @@
+{
+  "task_info": {
+    "task_id": "vfefyodorov_20251114_224901",
+    "profile_email": "vfefyodorov",
+    "profile_path": "C:\\AI\\yandex\\.profiles\\vfefyodorov",
+    "proxy_uri": "http://nDRYz5:EP0wPC@213.139.221.207:9393",
+    "fingerprint": null,
+    "phrases_count": 5,
+    "status": "completed",
+    "progress": 100,
+    "created_at": "2025-11-14T22:49:01.130517",
+    "started_at": "2025-11-14T22:49:01.130905",
+    "completed_at": "2025-11-14T22:50:07.743133",
+    "error_message": null,
+    "results_count": 5
+  },
+  "results": {
+    "чистовые косметические": 14,
+    "отделка капитальные": 338,
+    "отделочные капитальные": 236,
+    "черновые косметические": 35,
+    "малярные косметические": 66
+  },
+  "phrases": [
+    "чистовые косметические",
+    "черновые косметические",
+    "малярные косметические",
+    "отделочные капитальные",
+    "отделка капитальные"
+  ]
+}

@@ -11,18 +11,44 @@ export function TopBar({ onAction }: TopBarProps) {
         </h1>
         <div className="new-functions">
           <button
-            className="btn btn-warning btn-small"
+            className="btn btn-primary btn-icon-compact"
             type="button"
-            onClick={() => onAction("launch-browser")}
+            title="Массовый запуск (5)"
+            onClick={() => onAction("mass-launch-5")}
           >
-            <i className="fas fa-rocket" /> Запуск браузера
+            <i className="fas fa-rocket" />
           </button>
           <button
-            className="btn btn-info btn-small"
+            className="btn btn-warning btn-icon-compact"
             type="button"
+            title="Запуск браузера"
+            onClick={() => onAction("launch-browser")}
+          >
+            <i className="fas fa-rocket" />
+          </button>
+          <button
+            className="btn btn-info btn-icon-compact"
+            type="button"
+            title="Проверка консистентности"
             onClick={() => onAction("consistency-check")}
           >
-            <i className="fas fa-search" /> Проверка консистентности
+            <i className="fas fa-search" />
+          </button>
+          <button
+            className="btn btn-info btn-icon-compact"
+            type="button"
+            title="Проверить авторизацию"
+            onClick={() => onAction("check-auth")}
+          >
+            <i className="fas fa-shield-alt" />
+          </button>
+          <button
+            className="btn btn-secondary btn-icon-compact"
+            type="button"
+            title="Экспорт списка"
+            onClick={() => onAction("export-accounts")}
+          >
+            <i className="fas fa-download" />
           </button>
         </div>
       </div>
@@ -49,26 +75,8 @@ export function TopBar({ onAction }: TopBarProps) {
         >
           <i className="fas fa-trash" /> Удалить
         </button>
-        <button
-          className="btn btn-info"
-          type="button"
-          onClick={() => onAction("refresh")}
-        >
+        <button className="btn btn-info" type="button" onClick={() => onAction("refresh")}>
           <i className="fas fa-sync-alt" /> Обновить
-        </button>
-        <button
-          className="btn btn-success"
-          type="button"
-          onClick={() => onAction("launch")}
-        >
-          <i className="fas fa-play" /> Запустить
-        </button>
-        <button
-          className="btn btn-warning"
-          type="button"
-          onClick={() => onAction("proxy-manager")}
-        >
-          <i className="fas fa-cogs" /> Менеджер прокси
         </button>
       </div>
     </div>

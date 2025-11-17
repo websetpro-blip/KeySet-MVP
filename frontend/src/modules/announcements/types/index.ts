@@ -24,11 +24,14 @@ export interface GeneratedAd {
   phraseId: string; // ID фразы из модуля Data
   phrase: string; // Ключевая фраза
   templateId: string; // ID шаблона
+  groupId?: string; // Идентификатор группы для экспорта
   title1: string;
   title2?: string;
   text: string;
+  url?: string; // Полная ссылка (с UTM)
   displayUrl?: string;
   quickLinks?: QuickLink[];
+  clarifications?: string; // Уточнения (строки, разделённые переводами)
   status: 'draft' | 'ready' | 'exported';
   warnings?: string[]; // Предупреждения о длине и т.д.
   createdAt: number;
@@ -48,6 +51,13 @@ export interface GenerateOptions {
   templateId: string;
   phraseIds: string[]; // ID фраз для генерации
   replaceExisting: boolean; // Заменить существующие объявления
+  domain?: string; // Домен / лендинг
+  utm?: string; // UTM-шаблон
+  clarifications?: string; // Уточнения (единые для всех объявлений)
+  quickLinks?: QuickLink[]; // Общие быстрые ссылки
+  addons?: string[]; // Прибавки к заголовку №2
+  bodyText?: string; // Текст объявления из левого блока
+  groupId?: string; // ID группы объявлений
 }
 
 // Формат экспорта для Яндекс Директ

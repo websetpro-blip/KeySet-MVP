@@ -37,7 +37,7 @@ export function AddAccountDialog({ onSubmit, onClose }: AddAccountDialogProps) {
   };
 
   const handleChange = (field: keyof CreateAccountPayload, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev: CreateAccountPayload) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -80,7 +80,7 @@ export function AddAccountDialog({ onSubmit, onClose }: AddAccountDialogProps) {
               </label>
               <input
                 type="text"
-                value={formData.profile_path}
+                value={formData.profile_path ?? ""}
                 onChange={(e) => handleChange("profile_path", e.target.value)}
                 placeholder="C:\AI\yandex\.profiles\account1"
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -97,7 +97,7 @@ export function AddAccountDialog({ onSubmit, onClose }: AddAccountDialogProps) {
               </label>
               <input
                 type="text"
-                value={formData.proxy}
+                value={formData.proxy ?? ""}
                 onChange={(e) => handleChange("proxy", e.target.value)}
                 placeholder="host:port или http://user:pass@host:port"
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -113,7 +113,7 @@ export function AddAccountDialog({ onSubmit, onClose }: AddAccountDialogProps) {
                 Заметки
               </label>
               <textarea
-                value={formData.notes}
+                value={formData.notes ?? ""}
                 onChange={(e) => handleChange("notes", e.target.value)}
                 placeholder="Дополнительная информация об аккаунте"
                 rows={3}

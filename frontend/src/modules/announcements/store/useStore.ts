@@ -1,6 +1,20 @@
 import { create } from 'zustand';
-import type { AdTemplate, GeneratedAd, AnnouncementsState, GenerateOptions } from '../types';
-import { generateAdsFromPhrases } from '../lib/generator';
+import type {
+  AdTemplate,
+  GeneratedAd,
+  AnnouncementsState,
+  GenerateOptions,
+  QuickLink,
+} from '../types';
+import {
+  buildDisplayUrl,
+  buildTitle1FromPhrase,
+  buildTitle2FromAddons,
+  buildUrl,
+  generateAdsFromPhrases,
+  sanitizeBodyText,
+  transliteratePath,
+} from '../lib/generator';
 
 interface AnnouncementsStore extends AnnouncementsState {
   // Действия для шаблонов
@@ -20,6 +34,7 @@ interface AnnouncementsStore extends AnnouncementsState {
   selectAds: (ids: string[]) => void;
   selectAllAds: () => void;
   deselectAllAds: () => void;
+  applyCommonSettings: (settings: { clarifications?: string; quickLinks?: QuickLink[] }) => void;
 
   // Утилиты
   clearAll: () => void;
@@ -93,7 +108,18 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
 
   // Генерация объявлений
   generateAds: async (phrases, options) => {
-    const { templateId, phraseIds, replaceExisting } = options;
+    const {
+      templateId,
+      phraseIds,
+      replaceExisting,
+      domain,
+      utm,
+      clarifications,
+      quickLinks,
+      addons = [],
+      bodyText,
+      groupId,
+    } = options;
     const template = get().templates.find((t) => t.id === templateId);
 
     if (!template) {
@@ -114,13 +140,47 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
     });
 
     // Генерируем объявления
-    const newAds = generateAdsFromPhrases(
+    const baseAds = generateAdsFromPhrases(
       selectedPhrases,
       template,
       (current, total) => {
         set({ progress: current, totalToGenerate: total });
       }
     );
+
+    const preparedBodyText = sanitizeBodyText(bodyText);
+
+    const newAds: GeneratedAd[] = baseAds.map((ad, index) => {
+      const title1Result = buildTitle1FromPhrase(ad.phrase);
+      const title2Result = buildTitle2FromAddons(addons, index, title1Result.text);
+      const warnings: string[] = ad.warnings ? [...ad.warnings] : [];
+      if (title1Result.warning) {
+        warnings.push(`Заголовок 1: ${title1Result.warning}`);
+      }
+      if (title2Result.warning) {
+        warnings.push(`Заголовок 2: ${title2Result.warning}`);
+      }
+      if (preparedBodyText?.warning) {
+        warnings.push(`Текст: ${preparedBodyText.warning}`);
+      }
+
+      const url = domain ? buildUrl(domain, utm, ad.phrase) : ad.url;
+      const path = transliteratePath(ad.phrase);
+      const displayUrl = url ? buildDisplayUrl(url, path) : ad.displayUrl;
+
+      return {
+        ...ad,
+        title1: title1Result.text,
+        title2: title2Result.text ?? ad.title2,
+        text: preparedBodyText?.text ?? ad.text,
+        url,
+        displayUrl,
+        clarifications: clarifications ?? ad.clarifications,
+        quickLinks: quickLinks ?? ad.quickLinks,
+        groupId: groupId || ad.groupId,
+        warnings: warnings.length ? warnings : undefined,
+      };
+    });
 
     set((state) => {
       let updatedAds = [...state.generatedAds];
@@ -179,6 +239,16 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
 
   deselectAllAds: () => {
     set({ selectedAdIds: new Set() });
+  },
+
+  applyCommonSettings: (settings) => {
+    set((state) => ({
+      generatedAds: state.generatedAds.map((ad) => ({
+        ...ad,
+        clarifications: settings.clarifications ?? ad.clarifications,
+        quickLinks: settings.quickLinks ?? ad.quickLinks,
+      })),
+    }));
   },
 
   clearAll: () => {

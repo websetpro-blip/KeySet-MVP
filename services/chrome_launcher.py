@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Dict, Optional, Sequence
 
-from core.app_paths import APP_ROOT, PROFILES, RUNTIME
+from services.proxy_extension import build_proxy_extension
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,9 +30,9 @@ class ChromeLauncher:
         Path.home() / "AppData/Local/Google/Chrome/Application/chrome.exe",
     )
 
-    BASE_DIR = APP_ROOT
+    BASE_DIR = Path(r"C:/AI/yandex")
     DEFAULT_START_URL = "about:blank"
-    EXTENSIONS_ROOT = RUNTIME / "proxy_extensions"
+    EXTENSIONS_ROOT = BASE_DIR / "runtime" / "proxy_extensions"
 
     _processes: Dict[str, Dict[str, Optional[Path]]] = {}
 
@@ -45,46 +45,6 @@ class ChromeLauncher:
             "Chrome executable not found. Adjust ChromeLauncher._CHROME_CANDIDATES."
         )
 
-    @classmethod
-    def _cleanup_proxy_extensions(cls) -> None:
-        if not cls.EXTENSIONS_ROOT.exists():
-            return
-        active = {data.get('extension') for data in cls._processes.values() if data.get('extension')}
-        for item in cls.EXTENSIONS_ROOT.glob('cli_*'):
-            if item in active:
-                continue
-            shutil.rmtree(item, ignore_errors=True)
-
-    @classmethod
-    def _create_proxy_extension(cls, username: str, password: str) -> Path:
-        cls.EXTENSIONS_ROOT.mkdir(parents=True, exist_ok=True)
-        ext_dir = cls.EXTENSIONS_ROOT / f'cli_{int(time.time() * 1000)}'
-        ext_dir.mkdir(parents=True, exist_ok=True)
-
-        manifest = {
-            'manifest_version': 3,
-            'name': 'ProxyAuth (KeySet)',
-            'version': '1.0',
-            'permissions': ['webRequest', 'webRequestAuthProvider', 'webRequestBlocking'],
-            'host_permissions': ['<all_urls>'],
-            'background': {'service_worker': 'background.js'},
-            'minimum_chrome_version': '109',
-        }
-        (ext_dir / 'manifest.json').write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2),
-            encoding='utf-8',
-        )
-
-        background = """chrome.webRequest.onAuthRequired.addListener(
-  async () => ({ authCredentials: { username: '%s', password: '%s' } }),
-  { urls: ['<all_urls>'] },
-  ['blocking']
-);
-
-console.log('[ProxyAuth] service worker registered');
-""" % (username, password)
-        (ext_dir / 'background.js').write_text(background, encoding='utf-8')
-        return ext_dir
 
     @classmethod
     def _normalise_profile_path(cls, profile_path: Optional[str], account: str) -> Path:
@@ -98,21 +58,12 @@ console.log('[ProxyAuth] service worker registered');
 
         legacy_root = Path(r"C:/AI/yandex")
         base_root = cls.BASE_DIR
-        runtime_profiles = PROFILES
-        legacy_profiles = legacy_root / ".profiles"
-
         candidates: list[Path] = []
 
         def add_candidate(path: Path) -> None:
-            resolved = path
+            resolved = path if path.is_absolute() else path
             if resolved not in candidates:
                 candidates.append(resolved)
-
-        def strip_profiles_prefix(path: Path) -> Path:
-            parts = list(path.parts)
-            if parts and parts[0] == ".profiles":
-                return Path(*parts[1:]) if len(parts) > 1 else Path()
-            return path
 
         if profile_path:
             raw = Path(str(profile_path).strip())
@@ -124,23 +75,12 @@ console.log('[ProxyAuth] service worker registered');
                     pass
                 else:
                     add_candidate(base_root / relative)
-                    stripped = strip_profiles_prefix(relative)
-                    if stripped.parts:
-                        add_candidate(runtime_profiles / stripped)
-                    else:
-                        add_candidate(runtime_profiles)
             else:
-                normalized = strip_profiles_prefix(raw)
                 add_candidate(base_root / raw)
-                if normalized.parts:
-                    add_candidate(runtime_profiles / normalized)
-                else:
-                    add_candidate(runtime_profiles)
                 add_candidate(legacy_root / raw)
         else:
-            add_candidate(runtime_profiles / account)
-            add_candidate(legacy_profiles / account)
             add_candidate(base_root / ".profiles" / account)
+            add_candidate(legacy_root / ".profiles" / account)
 
         for candidate in candidates:
             if candidate and candidate.exists():
@@ -148,6 +88,15 @@ console.log('[ProxyAuth] service worker registered');
 
         # If nothing exists yet, fallback to first candidate (creates under new workspace)
         return candidates[0].resolve()
+
+    @classmethod
+    def _cleanup_entry(cls, account: str, data: Optional[Dict[str, Optional[Path]]]) -> None:
+        if not data:
+            return
+        extension_dir = data.get('extension')
+        if extension_dir:
+            shutil.rmtree(extension_dir, ignore_errors=True)
+        cls._processes.pop(account, None)
 
     @classmethod
     def _terminate_existing(cls, account: str) -> None:
@@ -161,9 +110,7 @@ console.log('[ProxyAuth] service worker registered');
                 proc.kill()
             except Exception as exc:  # pragma: no cover
                 LOGGER.warning("Unable to terminate Chrome for %s: %s", account, exc)
-        if data and data.get('extension'):
-            shutil.rmtree(data['extension'], ignore_errors=True)
-        cls._processes.pop(account, None)
+        cls._cleanup_entry(account, data)
 
     @classmethod
     def launch(
@@ -200,6 +147,7 @@ console.log('[ProxyAuth] service worker registered');
 
         extension_dir: Optional[Path] = None
         if proxy_server:
+            # Parse proxy server to get scheme
             scheme, sep, rest = proxy_server.partition('://')
             if sep:
                 server_host = rest
@@ -208,26 +156,27 @@ console.log('[ProxyAuth] service worker registered');
                 proxy_scheme = 'http'
                 server_host = proxy_server
 
+            # ВАЖНО: нужен --proxy-server даже когда используется расширение!
             args.append(f"--proxy-server={proxy_scheme}://{server_host}")
 
             if proxy_username and proxy_password:
-                cls._cleanup_proxy_extensions()
-                extension_dir = cls._create_proxy_extension(proxy_username, proxy_password)
-                ext_path = extension_dir.as_posix()
-                args.extend([
-                    f"--load-extension={ext_path}",
-                    f"--disable-extensions-except={ext_path}",
-                ])
-                env_proxy = f"{proxy_scheme}://{proxy_username}:{proxy_password}@{server_host}"
-            else:
-                env_proxy = f"{proxy_scheme}://{server_host}"
-
-            env.update({
-                'HTTP_PROXY': env_proxy,
-                'http_proxy': env_proxy,
-                'HTTPS_PROXY': env_proxy,
-                'https_proxy': env_proxy,
-            })
+                # Расширение обработает авторизацию через chrome.webRequest.onAuthRequired
+                proxy_config = {
+                    "server": proxy_server,
+                    "username": proxy_username,
+                    "password": proxy_password,
+                }
+                try:
+                    extension_dir = build_proxy_extension(account, proxy_config, disable_webrtc=True)
+                    ext_path = extension_dir.as_posix()
+                    args.extend([
+                        f"--load-extension={ext_path}",
+                        f"--disable-extensions-except={ext_path}",
+                    ])
+                    LOGGER.info("Proxy extension created for %s at %s", account, ext_path)
+                except Exception as exc:
+                    LOGGER.warning("Failed to create proxy extension for %s: %s", account, exc)
+                    extension_dir = None
 
         args.append(start_url or cls.DEFAULT_START_URL)
 
@@ -244,3 +193,34 @@ console.log('[ProxyAuth] service worker registered');
     def terminate_all(cls) -> None:
         for name in list(cls._processes):
             cls._terminate_existing(name)
+
+    @classmethod
+    def status(cls, account: Optional[str] = None) -> Dict[str, Dict[str, object]]:
+        """Return running state for launched browsers.
+
+        Args:
+            account: конкретное имя аккаунта. Если ``None`` — вернуть статусы всех
+                     известных процессов.
+
+        Returns:
+            Dict[str, Dict] c полями ``running`` (bool), ``pid`` (int | None),
+            ``returncode`` (int | None).
+        """
+        targets = [account] if account else list(cls._processes.keys())
+        result: Dict[str, Dict[str, object]] = {}
+        for name in targets:
+            if not name:
+                continue
+            data = cls._processes.get(name)
+            if not data:
+                result[name] = {'running': False, 'pid': None, 'returncode': None}
+                continue
+            proc = data.get('proc')
+            running = bool(proc and proc.poll() is None)
+            if running:
+                result[name] = {'running': True, 'pid': proc.pid if proc else None, 'returncode': None}
+            else:
+                returncode = proc.returncode if proc else None
+                result[name] = {'running': False, 'pid': proc.pid if proc else None, 'returncode': returncode}
+                cls._cleanup_entry(name, data)
+        return result

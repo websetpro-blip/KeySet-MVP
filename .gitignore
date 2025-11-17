@@ -18,3 +18,7 @@ backend/*.db-journal
 build/
 *.spec
 keyset/
+runtime/edge_profile/
+runtime/*.db
+runtime/*.db-journal
+config/chrome_profiles/

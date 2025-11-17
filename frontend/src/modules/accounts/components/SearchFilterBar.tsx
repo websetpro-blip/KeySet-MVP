@@ -3,6 +3,8 @@ import type { AccountStatus } from "../types";
 interface SearchFilterBarProps {
   search: string;
   status: AccountStatus | "";
+  filteredCount: number;
+  totalCount: number;
   onSearchChange(value: string): void;
   onStatusChange(value: AccountStatus | ""): void;
 }
@@ -10,6 +12,8 @@ interface SearchFilterBarProps {
 export function SearchFilterBar({
   search,
   status,
+  filteredCount,
+  totalCount,
   onSearchChange,
   onStatusChange,
 }: SearchFilterBarProps) {
@@ -38,6 +42,12 @@ export function SearchFilterBar({
           <option value="error">❌ Ошибка</option>
           <option value="working">🔄 В работе</option>
         </select>
+      </div>
+
+      <div className="search-counter" aria-label="Результаты поиска">
+        <span className="counter-current">{filteredCount}</span>
+        <span className="counter-separator">/</span>
+        <span className="counter-total">{totalCount}</span>
       </div>
     </div>
   );

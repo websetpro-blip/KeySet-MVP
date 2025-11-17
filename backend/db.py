@@ -170,7 +170,7 @@ class Proxy(Base):
 def init_db():
     """Initialize database - create all tables"""
     Base.metadata.create_all(bind=engine)
-    print(f"✓ Database initialized at {DB_PATH}")
+    print(f"[db] Database initialized at {DB_PATH}")
 
 
 def get_db() -> Session:

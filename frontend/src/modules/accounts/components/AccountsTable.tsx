@@ -39,6 +39,7 @@ export function AccountsTable({
             </th>
             <th>Аккаунт</th>
             <th>Статус</th>
+            <th>Консистентность</th>
             <th>Прокси</th>
             <th>Отпечаток</th>
             <th>Последний запуск</th>
@@ -81,6 +82,23 @@ export function AccountsTable({
                   <span className={`status-badge ${statusMeta.badgeClass}`}>
                     {statusMeta.label}
                   </span>
+                </td>
+                <td>
+                  {account.consistencyLabel ? (
+                    <span
+                      className={
+                        account.consistencyWarning
+                          ? "consistency-badge consistency-badge-warning"
+                          : "consistency-badge consistency-badge-ok"
+                      }
+                    >
+                      {account.consistencyLabel}
+                    </span>
+                  ) : (
+                    <span className="consistency-badge consistency-badge-unknown">
+                      —
+                    </span>
+                  )}
                 </td>
                 <td className={hasProxy ? "proxy-info" : "proxy-none"}>
                   <Highlight

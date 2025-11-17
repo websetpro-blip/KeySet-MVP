@@ -71,3 +71,10 @@ export function collectWordstat(payload: WordstatCollectRequest): Promise<Wordst
     body: JSON.stringify(payload),
   });
 }
+
+export function multiCollectWordstat(phrases: string[], regions: number[]): Promise<WordstatResult[]> {
+  return request<WordstatResult[]>('/multi-collect', {
+    method: 'POST',
+    body: JSON.stringify({ phrases, regions }),
+  });
+}

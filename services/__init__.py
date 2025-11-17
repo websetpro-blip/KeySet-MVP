@@ -13,6 +13,7 @@ __all__ = [
     "wordstat_bridge",
     "direct",
     "wordstat_ws",
+    "wordstat_multiparser",
     "browser_factory",
     "multiparser_manager",
 ]

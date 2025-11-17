@@ -1,9 +1,9 @@
 /**
- * Mappers to convert between frontend Account format and backend ApiAccount format
- * Backend stores extended fields in the notes field as JSON
+ * Helpers that convert API payloads into UI-friendly structures.
+ * Extra account fields travel inside Account.notes as JSON.
  */
 
-import type { Account } from "./types";
+import type { Account, AccountStatus, ProxyStrategy } from "./types";
 import type { ApiAccount, CreateAccountPayload, UpdateAccountPayload } from "./api";
 
 interface AccountExtras {
@@ -17,47 +17,47 @@ interface AccountExtras {
   authStatus?: string;
   lastLogin?: string;
   profileSize?: string;
+  captchaService?: string;
+  captchaAutoSolve?: boolean;
 }
 
-/**
- * Convert backend ApiAccount to frontend Account
- */
 export function apiAccountToAccount(apiAccount: ApiAccount): Account {
-  // Parse extras from notes field
   let extras: AccountExtras = {};
   try {
     if (apiAccount.notes) {
       const parsed = JSON.parse(apiAccount.notes);
-      if (typeof parsed === "object" && parsed !== null && "password" in parsed) {
-        extras = parsed;
+      if (parsed && typeof parsed === "object") {
+        extras = parsed as AccountExtras;
       }
     }
-  } catch (e) {
-    // If notes is not valid JSON, ignore and use defaults
+  } catch {
+    // broken notes payloads are ignored
   }
 
   return {
     id: apiAccount.id,
     email: apiAccount.name,
-    password: extras.password || "",
-    secretAnswer: extras.secretAnswer || "",
-    profilePath: apiAccount.profile_path || "",
-    status: apiAccount.status as any, // backend uses string, frontend has specific types
-    proxy: apiAccount.proxy || "",
-    proxyUsername: extras.proxyUsername || "",
-    proxyPassword: extras.proxyPassword || "",
-    proxyType: extras.proxyType || "http",
-    fingerprint: (extras.fingerprint as any) || "russia_standard",
-    lastLaunch: extras.lastLaunch || formatLastUsed(apiAccount.last_used_at),
-    authStatus: extras.authStatus || "Неизвестно",
-    lastLogin: extras.lastLogin || formatDateTime(apiAccount.last_used_at),
-    profileSize: extras.profileSize || "0 МБ",
+    password: extras.password ?? "",
+    secretAnswer: extras.secretAnswer ?? "",
+    profilePath: apiAccount.profile_path ?? "",
+    status: mapStatus(apiAccount.status),
+    proxy: apiAccount.proxy ?? "",
+    proxyUsername: extras.proxyUsername ?? "",
+    proxyPassword: extras.proxyPassword ?? "",
+    proxyType: extras.proxyType ?? "http",
+    proxyId: apiAccount.proxy_id ?? null,
+    proxyStrategy: normalizeProxyStrategy(apiAccount.proxy_strategy),
+    fingerprint: (extras.fingerprint as any) ?? "russia_standard",
+    captchaService: extras.captchaService ?? "none",
+    captchaAutoSolve: extras.captchaAutoSolve ?? false,
+    lastLaunch: extras.lastLaunch ?? formatLastUsed(apiAccount.last_used_at),
+    authStatus: extras.authStatus ?? "Неизвестно",
+    lastLogin: extras.lastLogin ?? formatDateTime(apiAccount.last_used_at),
+    profileSize: extras.profileSize ?? "0 МБ",
+    notesRaw: apiAccount.notes ?? "",
   };
 }
 
-/**
- * Convert frontend Account to backend CreateAccountPayload
- */
 export function accountToCreatePayload(account: Partial<Account>): CreateAccountPayload {
   const extras: AccountExtras = {
     password: account.password,
@@ -70,19 +70,20 @@ export function accountToCreatePayload(account: Partial<Account>): CreateAccount
     authStatus: account.authStatus,
     lastLogin: account.lastLogin,
     profileSize: account.profileSize,
+    captchaService: account.captchaService,
+    captchaAutoSolve: account.captchaAutoSolve,
   };
 
   return {
     name: account.email || "",
-    profile_path: account.profilePath,
+    profile_path: account.profilePath || "",
     proxy: account.proxy,
+    proxy_id: account.proxyId ?? null,
+    proxy_strategy: account.proxyStrategy ?? "fixed",
     notes: JSON.stringify(extras),
   };
 }
 
-/**
- * Convert frontend Account to backend UpdateAccountPayload
- */
 export function accountToUpdatePayload(account: Partial<Account>): UpdateAccountPayload {
   const extras: AccountExtras = {};
 
@@ -96,23 +97,28 @@ export function accountToUpdatePayload(account: Partial<Account>): UpdateAccount
   if (account.authStatus !== undefined) extras.authStatus = account.authStatus;
   if (account.lastLogin !== undefined) extras.lastLogin = account.lastLogin;
   if (account.profileSize !== undefined) extras.profileSize = account.profileSize;
+  if (account.captchaService !== undefined) extras.captchaService = account.captchaService;
+  if (account.captchaAutoSolve !== undefined) extras.captchaAutoSolve = account.captchaAutoSolve;
 
   const payload: UpdateAccountPayload = {};
 
   if (account.email !== undefined) payload.name = account.email;
   if (account.profilePath !== undefined) payload.profile_path = account.profilePath;
   if (account.proxy !== undefined) payload.proxy = account.proxy;
-  if (account.status !== undefined) payload.status = account.status;
-  if (Object.keys(extras).length > 0) payload.notes = JSON.stringify(extras);
+  if (account.proxyId !== undefined) payload.proxy_id = account.proxyId;
+  if (account.proxyStrategy !== undefined) payload.proxy_strategy = account.proxyStrategy;
+  if (account.status !== undefined) payload.status = mapStatusToApi(account.status);
+  if (Object.keys(extras).length > 0) {
+    payload.notes = JSON.stringify(extras);
+  }
 
   return payload;
 }
 
-/**
- * Format last used timestamp to relative time
- */
 function formatLastUsed(timestamp: string | null): string {
-  if (!timestamp) return "никогда";
+  if (!timestamp) {
+    return "никогда";
+  }
 
   const date = new Date(timestamp);
   const now = new Date();
@@ -130,12 +136,10 @@ function formatLastUsed(timestamp: string | null): string {
   return date.toLocaleDateString("ru-RU");
 }
 
-/**
- * Format datetime for display
- */
 function formatDateTime(timestamp: string | null): string {
-  if (!timestamp) return "—";
-
+  if (!timestamp) {
+    return "—";
+  }
   const date = new Date(timestamp);
   return date.toLocaleString("ru-RU", {
     year: "numeric",
@@ -147,14 +151,98 @@ function formatDateTime(timestamp: string | null): string {
   });
 }
 
-/**
- * Russian pluralization helper
- */
 function pluralize(n: number, one: string, few: string, many: string): string {
   const mod10 = n % 10;
   const mod100 = n % 100;
-
   if (mod10 === 1 && mod100 !== 11) return one;
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
   return many;
+}
+
+function mapStatus(raw: string): AccountStatus {
+  const status = (raw || "").toLowerCase();
+  switch (status) {
+    case "ok":
+    case "active":
+      return "active";
+    case "cooldown":
+    case "working":
+      return "working";
+    case "captcha":
+    case "needs_login":
+      return "needs_login";
+    case "banned":
+    case "disabled":
+    case "error":
+      return "error";
+    default:
+      return "needs_login";
+  }
+}
+
+function mapStatusToApi(status: AccountStatus): string {
+  switch (status) {
+    case "active":
+      return "ok";
+    case "working":
+      return "cooldown";
+    case "needs_login":
+      return "captcha";
+    case "error":
+    default:
+      return "error";
+  }
+}
+
+export function apiAccountToAccountWithCookies(apiAccount: ApiAccount): Account {
+  const base = apiAccountToAccount(apiAccount);
+  const cookiesStatus = apiAccount.cookies_status ?? "";
+
+  const hasProxy = Boolean(base.proxy);
+  const hasProfile = Boolean(base.profilePath);
+  const hasFreshCookies =
+    cookiesStatus && !cookiesStatus.toLowerCase().includes("нет") &&
+    !cookiesStatus.toLowerCase().includes("expired");
+
+  let consistencyLabel = "";
+  let consistencyWarning = false;
+
+  if (!hasProfile) {
+    consistencyLabel = "Нет профиля";
+    consistencyWarning = true;
+  } else if (!hasProxy) {
+    consistencyLabel = "Нет прокси";
+    consistencyWarning = true;
+  } else if (!cookiesStatus) {
+    consistencyLabel = "Неизвестный статус cookies";
+    consistencyWarning = false;
+  } else if (cookiesStatus.toLowerCase().includes("нет куков")) {
+    consistencyLabel = "Нет cookies";
+    consistencyWarning = true;
+  } else if (cookiesStatus.toLowerCase().includes("expired")) {
+    consistencyLabel = "Просроченные cookies";
+    consistencyWarning = true;
+  } else if (cookiesStatus.toLowerCase().includes("stale")) {
+    consistencyLabel = "Старые cookies";
+    consistencyWarning = false;
+  } else {
+    consistencyLabel = "Ок";
+    consistencyWarning = false;
+  }
+
+  return {
+    ...base,
+    cookiesStatus,
+    consistencyLabel,
+    consistencyWarning,
+  };
+}
+
+function normalizeProxyStrategy(value: string | null | undefined): ProxyStrategy {
+  switch ((value || "").toLowerCase()) {
+    case "rotate":
+      return "rotate";
+    default:
+      return "fixed";
+  }
 }

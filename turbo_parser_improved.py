@@ -31,7 +31,7 @@ if str(PROJECT_PATH) not in sys.path:
 
 # Импортируем модуль прокси
 try:
-    from keyset.utils.proxy import parse_proxy, proxy_to_playwright  # type: ignore
+    from utils.proxy import parse_proxy, proxy_to_playwright  # type: ignore
     PROXY_MODULE_AVAILABLE = True
 except ImportError:
     try:
@@ -307,7 +307,7 @@ def load_phrases(path: pathlib.Path) -> List[str]:
 
 class TurboParser:
     """Класс для управления парсером"""
-    
+
     def __init__(
         self,
         account_name: str,
@@ -315,17 +315,55 @@ class TurboParser:
         phrases: List[str],
         headless: bool = False,
         proxy_uri: Optional[str] = None,
+        fingerprint_preset: Optional[str] = None,
     ):
         self.account_name = account_name
         self.profile_path = profile_path.expanduser().resolve()
         self.phrases = phrases
         self.headless = headless
         self.proxy_uri = proxy_uri
+        self.fingerprint_preset = (fingerprint_preset or "").strip() or None
         self.waiters: Dict[str, asyncio.Future[int]] = {}
         self.region_id: int = 225
         self.results: Dict[str, Any] = {}
         self.result_status: Dict[str, str] = {}
         self.logger = logging.getLogger(f"TurboParser.{account_name}")
+
+    def _resolve_fingerprint(self) -> tuple[Optional[str], str, Optional[str]]:
+        """
+        Вернуть (user_agent, locale, timezone_id) для выбранного fingerprint.
+
+        Минимальные пресеты:
+        - russia_standard (по умолчанию): ru-RU, Europe/Moscow;
+        - kazakhstan_standard: ru-KZ, Asia/Almaty;
+        - no_spoofing: оставить user_agent по умолчанию, locale ru-RU.
+        """
+        preset = (self.fingerprint_preset or "russia_standard").lower()
+        # Значения UA взяты как типичный десктопный Chrome на Windows
+        ru_ua = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+
+        if preset == "kazakhstan_standard":
+            return (
+                ru_ua,
+                "ru-KZ",
+                "Asia/Almaty",
+            )
+        if preset == "no_spoofing":
+            return (
+                None,      # не трогаем user agent
+                "ru-RU",
+                None,
+            )
+        # preset == russia_standard или любое неизвестное значение
+        return (
+            ru_ua,
+            "ru-RU",
+            "Europe/Moscow",
+        )
 
     def _inject_region_into_payload(self, payload: Any) -> Dict[str, Any] | None:
         """
@@ -392,8 +430,9 @@ class TurboParser:
         proxy_config = get_proxy_config(self.proxy_uri)
         if proxy_config:
             self.logger.info(f"[PROXY] Используется: {proxy_config['server']}")
-        
-        
+
+        user_agent, locale, timezone_id = self._resolve_fingerprint()
+
         async with async_playwright() as p:
             # 1. ЗАПУСК CHROME
             self.logger.info(f"[1/6] Запуск Chrome с профилем {self.account_name}...")
@@ -413,7 +452,9 @@ class TurboParser:
                         "--no-default-browser-check",
                     ],
                     viewport=None,
-                    locale="ru-RU",
+                    locale=locale,
+                    user_agent=user_agent,
+                    timezone_id=timezone_id,
                 )
             except Exception as e:
                 self.logger.error(f"Failed to launch browser: {e}")
@@ -833,6 +874,7 @@ async def turbo_parser_10tabs(
     headless: bool = False,
     proxy_uri: Optional[str] = None,
     region_id: int = 225,
+    fingerprint_preset: Optional[str] = None,
 ) -> WordstatResult:
     """
     Главная функция парсера для обратной совместимости
@@ -852,7 +894,8 @@ async def turbo_parser_10tabs(
         profile_path=profile_path,
         phrases=list(phrases),
         headless=headless,
-        proxy_uri=proxy_uri
+        proxy_uri=proxy_uri,
+        fingerprint_preset=fingerprint_preset,
     )
     parser.region_id = region_id
     return await parser.run()

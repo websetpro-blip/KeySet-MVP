@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "ProxyAuth (KeySet)",
+  "version": "1.0",
+  "permissions": [
+    "webRequest",
+    "webRequestAuthProvider",
+    "webRequestBlocking"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "minimum_chrome_version": "109"
+}

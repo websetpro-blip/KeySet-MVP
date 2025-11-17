@@ -1,9 +1,8 @@
 .announcements-app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   background-color: #f5f5f5;
-  overflow: hidden;
 }
 
 .announcements-app .announcements-header {
@@ -26,26 +25,114 @@
 }
 
 .announcements-app .announcements-content {
-  display: flex;
   flex: 1;
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
   gap: 20px;
   padding: 20px;
-  overflow: hidden;
+  min-height: 0;
 }
 
 /* Левая панель */
 .announcements-app .announcements-sidebar {
-  width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.announcements-app .announcements-sidebar-scroll {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 15px;
   overflow-y: auto;
+  padding-right: 4px;
+}
+
+.announcements-app .announcements-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.announcements-app .announcements-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.announcements-app .announcements-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+/* Таблица сгенерированных объявлений */
+.announcements-app .generated-ads-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 12px 16px;
+}
+
+.announcements-app .generated-ads-controls {
+  display: flex;
+  gap: 8px;
+  position: sticky;
+  top: -12px;
+  padding-bottom: 8px;
+  background: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0.85));
+  z-index: 2;
+}
+
+.announcements-app .generated-ads-header {
+  margin-bottom: 8px;
+}
+
+.announcements-app .generated-ads-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.announcements-app .generated-ads-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.announcements-app .generated-ads-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.announcements-app .generated-ads-table th,
+.announcements-app .generated-ads-table td {
+  border: 1px solid #e5e7eb;
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.announcements-app .generated-ads-table th {
+  background: #f9fafb;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.announcements-app .generated-ads-empty {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #9ca3af;
 }
 
 .announcements-app .announcements-section {
   background: white;
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -224,10 +311,44 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.announcements-app .announcements-main-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.announcements-app .yandex-preview-wrapper {
+  flex: 0 0 auto;
+  margin-bottom: 16px;
+}
+
+.announcements-app .yandex-preview-page {
   background: white;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  padding: 16px 20px;
+}
+
+.announcements-app .announcements-results {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.announcements-app .preview-input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  background: #fff;
 }
 
 .announcements-app .announcements-toolbar {
@@ -466,6 +587,9 @@
 /* Яндекс превью */
 .announcements-app .yandex-preview-page {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: #ffffff;
   border: 1px solid #d4d4d4;
   padding: 10px 18px 25px;
@@ -476,6 +600,38 @@
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+}
+
+.announcements-app .yandex-top-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-right: 18px;
+}
+
+.announcements-app .yandex-top-btn {
+  padding: 2px 10px;
+  border: 1px solid #b0b0b0;
+  border-radius: 2px;
+  background: #f1f1f1;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.announcements-app .yandex-back-btn {
+  margin-right: 20px;
+  padding: 8px 18px;
+  border-radius: 4px;
+  border: 1px solid #b1b1b1;
+  background: linear-gradient(#f6f6f6, #e1e1e1);
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.announcements-app .yandex-back-btn::before {
+  content: "◀ ";
+  font-size: 13px;
 }
 
 .announcements-app .yandex-logo {
@@ -570,8 +726,44 @@
   margin-top: 14px;
 }
 
+.announcements-app .yandex-sidebar {
+  display: none;
+}
+
+.announcements-app .yandex-side-block {
+  background: transparent;
+  border: none;
+  padding: 0 0 6px 0;
+  margin-bottom: 4px;
+  min-height: auto;
+  box-shadow: none;
+}
+
+.announcements-app .yandex-side-block-title {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.announcements-app .yandex-side-row {
+  font-size: 12px;
+  color: #000;
+  margin-bottom: 4px;
+}
+
+.announcements-app .yandex-side-label {
+  font-size: 12px;
+  color: #000;
+}
+
 .announcements-app .yandex-content {
   flex: 1;
+}
+
+.announcements-app .yandex-crumbs {
+  font-size: 14px;
+  color: #0a8a9b;
+  margin-bottom: 4px;
 }
 
 .announcements-app .yandex-ad {
@@ -697,7 +889,8 @@
   padding: 4px 6px;
   text-align: center;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: text;
+  outline: none;
 }
 
 .announcements-app .yandex-ad-quick-links a {

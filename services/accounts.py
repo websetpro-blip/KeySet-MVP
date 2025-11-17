@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any
 import time
+import json
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 # Абсолютные импорты из новой структуры
 from core.db import SessionLocal
@@ -25,7 +26,31 @@ except ImportError:
     ASYNC_AVAILABLE = False
 
 
+def _load_notes_dict(raw_notes: str | None) -> Dict[str, Any]:
+    """
+    Normalize Account.notes into a dict.
+
+    - If notes contain a JSON object, return it.
+    - Otherwise wrap legacy plain text into {"userNotes": "<text>"}.
+    """
+    text_value = fix_mojibake(raw_notes) or ""
+    if not text_value:
+        return {}
+    try:
+        parsed = json.loads(text_value)
+    except Exception:
+        return {"userNotes": text_value}
+    if isinstance(parsed, dict):
+        return parsed
+    return {"userNotes": text_value}
+
+
 def _auto_refresh(session):
+    # Нормализуем устаревшие статусы, попавшие из UI/старых сборок
+    session.execute(text("UPDATE accounts SET status='ok' WHERE status IN ('active', 'ready')"))
+    session.execute(text("UPDATE accounts SET status='cooldown' WHERE status IN ('working', 'busy')"))
+    session.execute(text("UPDATE accounts SET status='captcha' WHERE status IN ('needs_login', 'need_login', 'login_required')"))
+    session.execute(text("UPDATE accounts SET status='error' WHERE status IN ('fail', 'failed')"))
     now = datetime.utcnow()
     stmt = select(Account).where(Account.status.in_(['cooldown', 'captcha']))
     for acc in session.execute(stmt).scalars():
@@ -36,6 +61,26 @@ def _auto_refresh(session):
     session.commit()
 
 
+def _map_status_to_db(value: str | None) -> str:
+    """
+    Привести статус из UI/старых данных к значениям Enum account_status.
+    """
+    if not value:
+        return 'ok'
+    val = value.lower()
+    if val in ('ok', 'cooldown', 'captcha', 'banned', 'disabled', 'error'):
+        return val
+    if val in ('active', 'ready'):
+        return 'ok'
+    if val in ('working', 'busy'):
+        return 'cooldown'
+    if val in ('needs_login', 'need_login', 'login_required'):
+        return 'captcha'
+    if val in ('fail', 'failed'):
+        return 'error'
+    return 'error'
+
+
 def _sanitize_account(account: Account) -> Account:
     account.name = fix_mojibake(account.name)
     account.profile_path = fix_mojibake(account.profile_path)
@@ -43,12 +88,21 @@ def _sanitize_account(account: Account) -> Account:
     account.proxy_id = fix_mojibake(account.proxy_id)
     account.proxy_strategy = fix_mojibake(account.proxy_strategy) or "fixed"
     account.notes = fix_mojibake(account.notes)
-    account.status = fix_mojibake(account.status)
+    account.status = _map_status_to_db(fix_mojibake(account.status))
     if account.proxy_id and not account.proxy:
         proxy = ProxyManager.instance().get(account.proxy_id)
         if proxy:
             account.proxy = proxy.uri()
     return account
+
+
+def get_account(account_id: int) -> Account:
+    """Return a single sanitized account by its primary key."""
+    with SessionLocal() as session:
+        account = session.get(Account, account_id)
+        if account is None:
+            raise ValueError(f"Account {account_id} not found")
+        return _sanitize_account(account)
 
 
 def list_accounts() -> list[Account]:
@@ -148,6 +202,9 @@ def update_account(account_id: int, **fields) -> Account:
                 continue
             if key == "proxy":
                 account.proxy = value or None
+                continue
+            if key == "status":
+                account.status = _map_status_to_db(value)
                 continue
             if hasattr(account, key):
                 setattr(account, key, value)
@@ -344,13 +401,44 @@ async def autologin_account(account: Account) -> Dict[str, Any]:
             await context.storage_state(path=str(storage_file))
             await browser.close()
             
-            # Обновляем last_used_at
+            # Обновляем last_used_at и метаданные профиля в notes
             with SessionLocal() as session:
                 stmt = select(Account).where(Account.id == account.id)
                 acc = session.execute(stmt).scalar_one_or_none()
                 if acc:
                     acc.last_used_at = datetime.utcnow()
-                    session.commit()
+
+                    # Обновляем extras в notes: статус авторизации, время входа, размер профиля
+                    extras: Dict[str, Any] = {}
+                    raw_notes = fix_mojibake(acc.notes)
+                    if raw_notes:
+                        try:
+                            payload = json.loads(raw_notes)
+                            if isinstance(payload, dict):
+                                extras = payload
+                        except Exception:
+                            extras = {}
+
+                    # Оцениваем размер профиля по файлу storage_state.json
+                    profile_size_label = extras.get("profileSize") or "0 МБ"
+                    try:
+                        if storage_file.exists():
+                            size_mb = storage_file.stat().st_size / (1024 * 1024)
+                            profile_size_label = f"{size_mb:.1f} МБ"
+                    except OSError:
+                        pass
+
+                    extras["authStatus"] = "Авторизован"
+                    extras["lastLogin"] = datetime.utcnow().isoformat(sep=" ", timespec="seconds")
+                    extras["profileSize"] = profile_size_label
+
+                    # Сбрасываем статус аккаунта в ok после успешного автологина
+                    acc.status = "ok"
+                    merged_extras: Dict[str, Any] = _load_notes_dict(acc.notes)
+                    merged_extras.update(extras)
+                    acc.notes = json.dumps(merged_extras, ensure_ascii=False)
+
+                session.commit()
             
             return {
                 "ok": True,
@@ -427,3 +515,37 @@ def get_account_by_email(email: str) -> dict | None:
     except Exception as e:
         print(f"Ошибка получения аккаунта: {e}")
         return None
+
+
+def mark_account_broken_by_email(
+    email: str,
+    status: str = "error",
+    reason: str | None = None,
+) -> None:
+    """
+    Пометить аккаунт как проблемный по email.
+
+    Используется мультипарсером, когда парсинг для аккаунта стабильно падает
+    (ошибка авторизации, невозможность загрузить Wordstat и т.п.).
+    """
+    with SessionLocal() as session:
+        stmt = select(Account).where(Account.name == email)
+        account = session.execute(stmt).scalar_one_or_none()
+        if not account:
+            return
+
+        account.status = status or "error"
+
+        if reason:
+            # Аккуратно дописываем причину в notes, сохраняя существующий текст
+            existing = fix_mojibake(account.notes)
+            note_line = f"[{datetime.utcnow().isoformat()}] {reason}"
+            if existing:
+                account.notes = f"{existing}\n{note_line}"
+            else:
+                account.notes = note_line
+
+            # Нормализуем notes в JSON-словарь, чтобы фронт и сервисы могли его разбирать.
+            account.notes = json.dumps(_load_notes_dict(account.notes), ensure_ascii=False)
+
+        session.commit()
