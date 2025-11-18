@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-import random
+import logging
 import time
 import uuid
 from typing import Optional, List
@@ -10,7 +10,10 @@ from pydantic import BaseModel, Field
 
 from services.accounts import test_proxy as test_proxy_service, set_account_proxy
 from services.proxy_manager import ProxyManager, Proxy as ManagerProxy, _normalize_server
+from services.proxy_parsers import parse_proxies_from_sources
 from utils.text_fix import fix_mojibake
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/proxies", tags=["proxies"])
 legacy_router = APIRouter(prefix="/api/proxy", tags=["proxies"])
@@ -133,26 +136,6 @@ def _proxy_to_item(proxy: ManagerProxy) -> ProxyItem:
         notes=fix_mojibake(proxy.notes) or "",
         last_check=proxy.last_check,
         last_ip=proxy.last_ip,
-    )
-
-
-def _generate_proxy(source: str, protocol: str, country: Optional[str]) -> ManagerProxy:
-    host = ".".join(str(random.randint(2, 250)) for _ in range(4))
-    port = random.randint(2000, 9000)
-    username = f"user_{random.randint(100,999)}" if random.random() < 0.25 else None
-    password = f"pass_{random.randint(1000,9999)}" if username else None
-    return ManagerProxy(
-        id=str(uuid.uuid4()),
-        label=f"{source}_{country or 'global'}_{port}",
-        type=protocol,
-        server=f"{protocol}://{host}:{port}",
-        username=username,
-        password=password,
-        geo=(country or "global").upper(),
-        sticky=bool(random.getrandbits(1)),
-        max_concurrent=random.randint(5, 20),
-        enabled=True,
-        notes=f"Импортировано из {source}",
     )
 
 
@@ -292,23 +275,67 @@ def assign_proxy(payload: ProxyAssignRequest) -> ProxyAssignResponse:
 
 
 @router.post("/parse", response_model=ProxyParseResponse)
-def parse_proxies(payload: ProxyParseRequest) -> ProxyParseResponse:
-    manager = ProxyManager.instance()
-    generated: List[ManagerProxy] = []
-    per_source = max(1, payload.count // max(1, len(payload.sources)))
+async def parse_proxies(payload: ProxyParseRequest) -> ProxyParseResponse:
+    """
+    Парсит прокси из указанных источников и сохраняет их в ProxyManager.
 
-    for source in payload.sources:
-        for _ in range(per_source):
-            proxy = _generate_proxy(source, payload.protocol.lower(), payload.country)
+    Поддерживаемые источники:
+    - fineproxy / fineproxy.org
+    - proxyelite / proxyelite.com
+    - htmlweb / htmlweb.ru
+    - advanced.name / advanced
+    - proxy.market / proxymarket
+    """
+    sources_str = ", ".join(payload.sources)
+    logger.info(
+        f"[ПРОКСИ] Начат парсинг прокси: источники=[{sources_str}], "
+        f"протокол={payload.protocol}, страна={payload.country or 'любая'}, "
+        f"количество={payload.count}"
+    )
+
+    manager = ProxyManager.instance()
+
+    # Получить существующие прокси для проверки дубликатов
+    existing = manager.list(include_disabled=True)
+    existing_keys = {
+        (p.server, p.username, p.password)
+        for p in existing
+    }
+
+    # Парсить прокси из источников
+    result = await parse_proxies_from_sources(
+        sources=payload.sources,
+        protocol=payload.protocol.lower(),
+        country=payload.country,
+        count=payload.count,
+    )
+
+    # Сохранить только новые прокси (избегаем дубликатов с существующими)
+    added = 0
+    duplicates = 0
+    for proxy in result.proxies:
+        key = (proxy.server, proxy.username, proxy.password)
+        if key not in existing_keys:
             manager.upsert(proxy)
-            generated.append(proxy)
+            existing_keys.add(key)
+            added += 1
+        else:
+            duplicates += 1
+
+    logger.info(
+        f"[ПРОКСИ] Парсинг завершен: найдено={result.found}, "
+        f"валидных={result.valid}, добавлено={added}, дубликатов={duplicates}"
+    )
+
+    if result.errors:
+        logger.warning(f"[ПРОКСИ] Ошибки при парсинге: {', '.join(result.errors[:3])}")
 
     return ProxyParseResponse(
-        success=True,
-        found=len(generated),
-        valid=len(generated),
-        added=len(generated),
-        items=[_proxy_to_item(proxy) for proxy in generated],
+        success=result.added > 0 or len(result.errors) == 0,
+        found=result.found,
+        valid=result.valid,
+        added=added,
+        items=[_proxy_to_item(proxy) for proxy in result.proxies],
     )
 
 
