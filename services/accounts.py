@@ -9,8 +9,9 @@ import json
 from sqlalchemy import select, text
 
 # Абсолютные импорты из новой структуры
+from core.app_paths import PROFILES
 from core.db import SessionLocal
-from core.models import Account
+from core.models import Account, ProfileSlot
 from utils.proxy import proxy_to_playwright
 from utils.text_fix import fix_mojibake
 from services.proxy_manager import ProxyManager
@@ -96,6 +97,28 @@ def _sanitize_account(account: Account) -> Account:
     return account
 
 
+def _create_default_slot(session, account: Account, slot_name: str = "Default") -> None:
+    """Создать дефолтный слот, если его ещё нет."""
+    if session.query(ProfileSlot).filter(ProfileSlot.account_id == account.id).count():
+        return
+
+    requested_path = Path(account.profile_path or "")
+    if not requested_path.is_absolute():
+        requested_path = (PROFILES / account.name / requested_path).resolve()
+    requested_path.mkdir(parents=True, exist_ok=True)
+
+    slot = ProfileSlot(
+        account_id=account.id,
+        name=slot_name,
+        profile_path=str(requested_path),
+        is_active=True,
+    )
+    session.add(slot)
+    session.flush()
+    account.active_slot_id = slot.id
+    account.profile_path = str(requested_path)
+
+
 def get_account(account_id: int) -> Account:
     """Return a single sanitized account by its primary key."""
     with SessionLocal() as session:
@@ -129,15 +152,20 @@ def create_account(
             proxy_value = proxy_obj.uri()
 
     with SessionLocal() as session:
+        resolved_profile = Path(profile_path or "")
+        if not resolved_profile.is_absolute():
+            resolved_profile = (PROFILES / name / resolved_profile).resolve()
         account = Account(
             name=name,
-            profile_path=profile_path,
+            profile_path=str(resolved_profile),
             proxy=proxy_value,
             proxy_id=proxy_id,
             proxy_strategy=proxy_strategy or "fixed",
             notes=notes,
         )
         session.add(account)
+        session.flush()
+        _create_default_slot(session, account)
         session.commit()
         session.refresh(account)
         return _sanitize_account(account)
@@ -159,27 +187,35 @@ def upsert_account(
         if proxy_obj:
             proxy_value = proxy_obj.uri()
 
+    resolved_profile = Path(profile_path or "")
+    if not resolved_profile.is_absolute():
+        resolved_profile = (PROFILES / name / resolved_profile).resolve()
+
     with SessionLocal() as session:
         stmt = select(Account).where(Account.name == name)
         existing = session.execute(stmt).scalar_one_or_none()
         if existing:
-            existing.profile_path = profile_path
+            existing.profile_path = str(resolved_profile)
             existing.proxy = proxy_value
             existing.proxy_id = proxy_id
             existing.proxy_strategy = proxy_strategy or "fixed"
             existing.notes = notes
+            session.flush()
+            _create_default_slot(session, existing)
             session.commit()
             session.refresh(existing)
             return _sanitize_account(existing)
         account = Account(
             name=name,
-            profile_path=profile_path,
+            profile_path=str(resolved_profile),
             proxy=proxy_value,
             proxy_id=proxy_id,
             proxy_strategy=proxy_strategy or "fixed",
             notes=notes,
         )
         session.add(account)
+        session.flush()
+        _create_default_slot(session, account)
         session.commit()
         session.refresh(account)
         return _sanitize_account(account)

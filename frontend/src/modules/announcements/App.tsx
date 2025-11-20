@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from './store/useStore';
 import { exportToYandexDirectCSV } from './lib/generator';
 import type { GeneratedAd } from './types';
@@ -16,6 +16,15 @@ type QuickLinkInput = {
   title: string;
   description: string;
   url: string;
+  anchor: string;
+};
+
+const normalizeDomainValue = (value: string) => {
+  if (!value) return '';
+  let d = value.trim();
+  d = d.replace(/^https?:\/\//i, '');
+  d = d.replace(/\/+$/g, '');
+  return d;
 };
 
 const splitMultilineInput = (value: string): string[] =>
@@ -60,6 +69,7 @@ export default function AnnouncementsApp() {
     deselectAllAds,
     deleteAds,
     applyCommonSettings,
+    applyDisplaySettings,
   } = useStore();
 
   // Состояния для новой левой панели
@@ -89,14 +99,25 @@ export default function AnnouncementsApp() {
   const [adGroupName, setAdGroupName] = useState('Группа объявлений');
   const [searchQuery, setSearchQuery] = useState('поисковый запрос пользователя');
   const [isDynamicLink, setIsDynamicLink] = useState(true);
+  const [customDisplayPath, setCustomDisplayPath] = useState('');
   const [clarificationsInput, setClarificationsInput] = useState(
     'Быстрая доставка\nГарантия\nОтзывы клиентов\nБез предоплат'
   );
+  const [activeQuickLinkIndex, setActiveQuickLinkIndex] = useState<number | null>(null);
+  const [contactLine1, setContactLine1] = useState(
+    '+7 (800) 0000-000 · пн-пт 9:00-18:00, сб 9:30-17:00'
+  );
+  const [contactLine2, setContactLine2] = useState('м. Невский Проспект · Санкт-Петербург');
   const [quickLinksInput, setQuickLinksInput] = useState<QuickLinkInput[]>([
-    { title: 'Распродажа', description: 'Горячие предложения', url: 'https://example.com/sale' },
-    { title: 'Скидка 30% до 15.05', description: 'Лучшие цены до конца акции', url: 'https://example.com/discount' },
-    { title: 'Видео отзывы', description: 'Честные обзоры клиентов', url: 'https://example.com/reviews' },
-    { title: 'Заказать', description: 'Оставьте заявку онлайн', url: 'https://example.com/order' },
+    { title: 'Распродажа', description: 'Горячие предложения', url: '', anchor: '#1' },
+    {
+      title: 'Скидка 30% до 15.05',
+      description: 'Лучшие цены до конца акции',
+      url: '',
+      anchor: '#2',
+    },
+    { title: 'Видео отзывы', description: 'Честные обзоры клиентов', url: '', anchor: '#3' },
+    { title: 'Заказать', description: 'Оставьте заявку онлайн', url: '', anchor: '#4' },
   ]);
 
   const addonsList = useMemo(() => splitMultilineInput(addonsInput), [addonsInput]);
@@ -106,10 +127,49 @@ export default function AnnouncementsApp() {
     [bodyVariants]
   );
 
-  const quickLinksPayload = useMemo(
-    () => quickLinksInput.map((link) => ({ title: link.title, description: link.description, url: link.url })),
-    [quickLinksInput]
-  );
+  const normalizedDomainValue = useMemo(() => normalizeDomainValue(domain), [domain]);
+  const defaultQuickLinkDomain = useMemo(() => {
+    if (!normalizedDomainValue) return '';
+    return /^https?:\/\//i.test(normalizedDomainValue)
+      ? normalizedDomainValue
+      : `https://${normalizedDomainValue}`;
+  }, [normalizedDomainValue]);
+
+  const lastAutoQuickLinkDomain = useRef<string | null>(null);
+  useEffect(() => {
+    if (!defaultQuickLinkDomain) return;
+    setQuickLinksInput((links) => {
+      let changed = false;
+      const nextLinks = links.map((link) => {
+        const autoValue = lastAutoQuickLinkDomain.current;
+        const shouldReplace =
+          !link.url ||
+          (autoValue && link.url === autoValue) ||
+          (!autoValue && link.url?.match(/example\.com|ya\.ru/));
+        if (shouldReplace) {
+          changed = true;
+          return { ...link, url: defaultQuickLinkDomain };
+        }
+        return link;
+      });
+      return changed ? nextLinks : links;
+    });
+    lastAutoQuickLinkDomain.current = defaultQuickLinkDomain;
+  }, [defaultQuickLinkDomain]);
+
+  const quickLinksPayload = useMemo(() => {
+    return quickLinksInput.map((link) => {
+      const cleanAnchor = link.anchor?.trim().replace(/^#+/, '');
+      const baseUrl = link.url?.trim() || defaultQuickLinkDomain;
+      const combinedUrl =
+        baseUrl && cleanAnchor ? `${baseUrl}#${cleanAnchor}` : baseUrl || undefined;
+      return {
+        title: link.title,
+        description: link.description,
+        url: combinedUrl || undefined,
+      };
+    });
+  }, [quickLinksInput, defaultQuickLinkDomain]);
 
   const handleClarificationsChange = (value: string) => {
     setClarificationsInput(value);
@@ -131,7 +191,7 @@ export default function AnnouncementsApp() {
 
   const handleQuickLinkChange = (
     index: number,
-    field: 'title' | 'description' | 'url',
+    field: 'title' | 'description' | 'url' | 'anchor',
     value: string
   ) => {
     const updatedLinks = quickLinksInput.map((link, idx) =>
@@ -192,6 +252,8 @@ export default function AnnouncementsApp() {
         addons: addonsList,
         bodyText: preferredBodyText,
         groupId: groupId || undefined,
+        useDynamicDisplayUrl: isDynamicLink,
+        customDisplayPath,
       });
       applyCommonSettings({ clarifications: clarificationsInput, quickLinks: quickLinksPayload });
     } catch (error) {
@@ -224,6 +286,11 @@ export default function AnnouncementsApp() {
       alert('Нет объявлений для копирования');
       return;
     }
+
+    const escapeCell = (value: string | number | null | undefined) => {
+      if (value === null || value === undefined) return '';
+      return String(value).replace(/\t/g, ' ').replace(/\r?\n/g, ' ').trim();
+    };
 
     const headers = [
       'Тип кампании',
@@ -274,34 +341,34 @@ export default function AnnouncementsApp() {
         .join('||');
 
       return [
-        'Текстово-графическое',
-        '',
-        '',
-        '',
-        '',
-        'Текстово-графическое',
-        ad.groupId || '',
-        adGroupName || '',
-        String(index + 1),
-        ad.phraseId,
-        ad.phrase,
-        ad.id,
-        ad.title1,
-        ad.title2 || '',
-        ad.text,
-        ad.url || '',
-        ad.displayUrl || '',
-        '',
-        '',
-        '',
-        quickLinkTitles,
-        quickLinkDescriptions,
-        quickLinkUrls,
-        '',
-        '',
-        '',
-        clarifications,
-        '',
+        escapeCell('Текстово-графическое'),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell('Текстово-графическое'),
+        escapeCell(ad.groupId || ''),
+        escapeCell(adGroupName || ''),
+        escapeCell(String(index + 1)),
+        escapeCell(ad.phraseId),
+        escapeCell(ad.phrase),
+        escapeCell(ad.id),
+        escapeCell(ad.title1),
+        escapeCell(ad.title2 || ''),
+        escapeCell(ad.text),
+        escapeCell(ad.url || ''),
+        escapeCell(ad.displayUrl || ''),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell(quickLinkTitles),
+        escapeCell(quickLinkDescriptions),
+        escapeCell(quickLinkUrls),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell(''),
+        escapeCell(clarifications),
+        escapeCell(''),
       ];
     });
 
@@ -338,13 +405,6 @@ export default function AnnouncementsApp() {
     }
   };
 
-  const normalizeDomain = (value: string) => {
-    if (!value) return '';
-    let d = value.trim();
-    d = d.replace(/^https?:\/\//i, '');
-    d = d.replace(/\/+$/g, '');
-    return d;
-  };
 
   const selectedAd = generatedAds[selectedAdIndex];
 
@@ -357,19 +417,32 @@ export default function AnnouncementsApp() {
 
   const previewAd: Pick<GeneratedAd, 'title1' | 'title2' | 'text' | 'phrase'> =
     selectedAd ?? defaultPreviewAd;
-  const displayUrlText = isDynamicLink ? searchQuery : '';
-  const previewQuickLinksRaw =
-    selectedAd && selectedAd.quickLinks && selectedAd.quickLinks.length
-      ? selectedAd.quickLinks
-      : quickLinksPayload;
-  const previewQuickLinks = previewQuickLinksRaw.map((link) => ({
-    title: link.title || '',
-    description: link.description || '',
-    url: link.url || '',
-  }));
-  while (previewQuickLinks.length < 4) {
-    previewQuickLinks.push({ title: '', description: '', url: '' });
-  }
+  const previewQuickLinks = useMemo(() => {
+    const normalized = quickLinksInput.map((link, idx) => ({
+      title: link.title || '',
+      description: link.description || '',
+      url: link.url || defaultQuickLinkDomain,
+      anchor: link.anchor || `#${idx + 1}`,
+    }));
+    while (normalized.length < 4) {
+      const index = normalized.length;
+      normalized.push({
+        title: '',
+        description: '',
+        url: defaultQuickLinkDomain,
+        anchor: `#${index + 1}`,
+      });
+    }
+    return normalized;
+  }, [quickLinksInput, defaultQuickLinkDomain]);
+
+  const previewDisplayPath = useMemo(() => {
+    if (!selectedAd?.displayUrl) {
+      return '';
+    }
+    const [, ...rest] = selectedAd.displayUrl.split('/');
+    return rest.join('/');
+  }, [selectedAd]);
 
   const previewClarificationsSource = selectedAd?.clarifications ?? clarificationsInput;
   const previewClarifications = previewClarificationsSource
@@ -379,7 +452,7 @@ export default function AnnouncementsApp() {
   while (previewClarifications.length < 4) {
     previewClarifications.push('');
   }
-  const normalizedDomain = normalizeDomain(domain);
+  const normalizedDomain = normalizedDomainValue;
 
   useEffect(() => {
     if (selectedAd) {
@@ -388,6 +461,10 @@ export default function AnnouncementsApp() {
       setSearchQuery(defaultPreviewAd.phrase);
     }
   }, [selectedAd]);
+
+  useEffect(() => {
+    applyDisplaySettings({ useDynamicDisplayUrl: isDynamicLink, customDisplayPath });
+  }, [isDynamicLink, customDisplayPath, applyDisplaySettings]);
 
   return (
     <div className="announcements-app ads-app">
@@ -401,6 +478,13 @@ export default function AnnouncementsApp() {
       <div className="announcements-content ads-content">
         {/* Левая панель с настройками */}
         <div className="announcements-sidebar ads-sidebar">
+          <button
+            className="btn-generate btn-generate-top"
+            onClick={handleGenerateAds}
+            disabled={!keyList.length}
+          >
+            🚀 Сгенерировать объявления
+          </button>
           <div className="announcements-sidebar-scroll">
           {/* Настройки URL */}
           <div className="announcements-section ads-section">
@@ -555,11 +639,16 @@ export default function AnnouncementsApp() {
                     <div className="yandex-ad-row-main">
                       <div className="yandex-ad-quick-links">
                         {previewQuickLinks.map((link, index) => (
-                          <div key={`preview-ql-${index}`} className={index === 0 ? 'active' : undefined}>
+                          <div
+                            key={`preview-ql-${index}`}
+                            className={activeQuickLinkIndex === index ? 'active' : undefined}
+                            onClick={() => setActiveQuickLinkIndex(index)}
+                          >
                             <input
                               className="preview-input"
                               value={link.title}
                               placeholder={`Ссылка ${index + 1}`}
+                              onFocus={() => setActiveQuickLinkIndex(index)}
                               onChange={(e) => handleQuickLinkChange(index, 'title', e.target.value)}
                             />
                           </div>
@@ -575,7 +664,16 @@ export default function AnnouncementsApp() {
                         <div className="yandex-ad-row-main">
                         <div className="yandex-ad-url-row">
                           <div className="yandex-ad-url-domain">{normalizedDomain}/</div>
-                          <div className="yandex-ad-url-text">{displayUrlText}</div>
+                          {isDynamicLink ? (
+                            <div className="yandex-ad-url-text">{previewDisplayPath || '—'}</div>
+                          ) : (
+                            <input
+                              className="preview-input"
+                              value={customDisplayPath}
+                              placeholder="catalog/offers"
+                              onChange={(e) => setCustomDisplayPath(e.target.value)}
+                            />
+                          )}
                         </div>
                         </div>
                       </div>
@@ -618,10 +716,26 @@ export default function AnnouncementsApp() {
                         <div className="yandex-ad-row-main">
                           <div className="yandex-ad-body">
                             <div style={{ marginTop: '4px' }}>
-                              <a href="#">Контактная информация</a> · +7 (800) 0000-000 · пн-пт 9:00-18:00,
-                              сб 9:30-17:00
+                              <a href="#">Контактная информация</a>
                             </div>
-                            <div>м. Невский Проспект · Санкт-Петербург</div>
+                            <div className="yandex-contact-lines">
+                              <input
+                              className="preview-input"
+                              value={contactLine1}
+                              placeholder="+7 (800) 0000-000 · пн-пт 9:00-18:00, сб 9:30-17:00"
+                              onChange={(e) => {
+                                  setContactLine1(e.target.value);
+                                }}
+                              />
+                              <input
+                                className="preview-input"
+                                value={contactLine2}
+                                placeholder="м. Невский Проспект · Санкт-Петербург"
+                                onChange={(e) => {
+                                  setContactLine2(e.target.value);
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -647,7 +761,7 @@ export default function AnnouncementsApp() {
                               <input
                                 className="preview-input"
                                 value={link.url}
-                                placeholder={`https://example.com/link${idx + 1}`}
+                                placeholder={defaultQuickLinkDomain || `https://site${idx + 1}.com`}
                                 onChange={(e) => handleQuickLinkChange(idx, 'url', e.target.value)}
                               />
                             </td>
@@ -658,9 +772,9 @@ export default function AnnouncementsApp() {
                             <td key={`ql-title-${idx}`}>
                               <input
                                 className="preview-input"
-                                value={link.title}
-                                placeholder={`Заголовок ${idx + 1}`}
-                                onChange={(e) => handleQuickLinkChange(idx, 'title', e.target.value)}
+                                value={link.anchor}
+                                placeholder={`#${idx + 1}`}
+                                onChange={(e) => handleQuickLinkChange(idx, 'anchor', e.target.value)}
                               />
                             </td>
                           ))}

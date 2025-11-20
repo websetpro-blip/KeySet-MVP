@@ -58,6 +58,8 @@ export interface GenerateOptions {
   addons?: string[]; // Прибавки к заголовку №2
   bodyText?: string; // Текст объявления из левого блока
   groupId?: string; // ID группы объявлений
+  useDynamicDisplayUrl?: boolean; // Динамическая отображаемая ссылка
+  customDisplayPath?: string; // Ручной путь для отображаемой ссылки
 }
 
 // Формат экспорта для Яндекс Директ

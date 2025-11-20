@@ -1,19 +1,32 @@
 ﻿from __future__ import annotations
 
-import random
+import asyncio
+import logging
 import time
 import uuid
+from datetime import datetime
 from typing import Optional, List
 
+import requests
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
-from services.accounts import test_proxy as test_proxy_service, set_account_proxy
+from services.accounts import (
+    test_proxy as test_proxy_service,
+    set_account_proxy,
+    list_accounts,
+)
 from services.proxy_manager import ProxyManager, Proxy as ManagerProxy, _normalize_server
+from services.proxy_parsers import parse_proxies_from_sources
+from services.proxy_blacklist import ProxyBlacklist
+from utils.proxy import proxy_to_playwright
 from utils.text_fix import fix_mojibake
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/proxies", tags=["proxies"])
 legacy_router = APIRouter(prefix="/api/proxy", tags=["proxies"])
+px6_router = APIRouter(prefix="/api/proxy/px6", tags=["proxy6"])
 
 
 class ProxyTestRequest(BaseModel):
@@ -46,6 +59,9 @@ class ProxyItem(BaseModel):
     notes: str = ""
     last_check: float | None = None
     last_ip: str | None = None
+    provider: str | None = None
+    external_id: str | None = None
+    expires_at: float | None = None
 
 
 class ProxyListResponse(BaseModel):
@@ -118,6 +134,87 @@ class ProxyTestAllResponse(BaseModel):
     failed: int
 
 
+class Px6AccountRequest(BaseModel):
+    api_key: str = Field(..., min_length=10)
+
+
+class Px6AccountResponse(BaseModel):
+    user_id: str
+    balance: float
+    currency: str
+
+
+class Px6OptionsRequest(BaseModel):
+    apiKey: str = Field(..., min_length=10)
+    version: int = Field(6, ge=3, le=6)
+
+
+class Px6OptionsResponse(BaseModel):
+    countries: List[str]
+
+
+class Px6PriceRequest(BaseModel):
+    apiKey: str = Field(..., min_length=10)
+    version: int = Field(6, ge=3, le=6)
+    count: int = Field(..., ge=1, le=1000)
+    period: int = Field(..., ge=1, le=365)
+
+
+class Px6PriceResponse(BaseModel):
+    price: float
+    priceSingle: float
+    currency: str
+
+
+class Px6BuyRequest(BaseModel):
+    apiKey: str = Field(..., min_length=10)
+    country: str = Field(..., min_length=2, max_length=2)
+    version: int = Field(6, ge=3, le=6)
+    type: str = Field("http", pattern="^(http|socks)$")
+    count: int = Field(..., ge=1, le=1000)
+    period: int = Field(..., ge=1, le=365)
+    autoProlong: bool = False
+    descr: str | None = Field(None, max_length=50)
+
+
+class Px6BuyResponse(BaseModel):
+    proxies: List[ProxyItem]
+
+
+class Px6SyncRequest(BaseModel):
+    apiKey: str = Field(..., min_length=10)
+    state: str | None = Field("active")
+
+
+class Px6SyncResponse(BaseModel):
+    proxies: List[ProxyItem]
+
+
+class Px6ProlongRequest(BaseModel):
+    apiKey: str = Field(..., min_length=10)
+    proxyIds: List[str] = Field(..., min_items=1)
+    period: int = Field(..., ge=1, le=365)
+
+
+class Px6DeleteRequest(BaseModel):
+    apiKey: str = Field(..., min_length=10)
+    proxyIds: List[str] = Field(..., min_items=1)
+
+
+class Px6SimpleResponse(BaseModel):
+    status: str
+
+
+class Px6DistributeRequest(BaseModel):
+    accountIds: Optional[List[int]] = None
+    allWithoutProxy: bool = False
+
+
+class Px6DistributeResponse(BaseModel):
+    status: str
+    assigned: int
+
+
 def _proxy_to_item(proxy: ManagerProxy) -> ProxyItem:
     return ProxyItem(
         id=proxy.id,
@@ -133,37 +230,490 @@ def _proxy_to_item(proxy: ManagerProxy) -> ProxyItem:
         notes=fix_mojibake(proxy.notes) or "",
         last_check=proxy.last_check,
         last_ip=proxy.last_ip,
+        provider=proxy.provider,
+        external_id=proxy.external_id,
+        expires_at=proxy.expires_at,
     )
 
 
-def _generate_proxy(source: str, protocol: str, country: Optional[str]) -> ManagerProxy:
-    host = ".".join(str(random.randint(2, 250)) for _ in range(4))
-    port = random.randint(2000, 9000)
-    username = f"user_{random.randint(100,999)}" if random.random() < 0.25 else None
-    password = f"pass_{random.randint(1000,9999)}" if username else None
-    return ManagerProxy(
-        id=str(uuid.uuid4()),
-        label=f"{source}_{country or 'global'}_{port}",
-        type=protocol,
-        server=f"{protocol}://{host}:{port}",
-        username=username,
-        password=password,
-        geo=(country or "global").upper(),
-        sticky=bool(random.getrandbits(1)),
-        max_concurrent=random.randint(5, 20),
-        enabled=True,
-        notes=f"Импортировано из {source}",
-    )
+@px6_router.post("/account", response_model=Px6AccountResponse)
+def px6_account_info(payload: Px6AccountRequest) -> Px6AccountResponse:
+    """
+    Проверка PX6 API key и получение баланса аккаунта.
+    """
+    api_key = payload.api_key.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    url = f"https://px6.link/api/{api_key}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover - зависит от сети/окружения
+        logger.error("[PX6] Ошибка запроса account: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось связаться с PX6") from exc
+
+    status = str(data.get("status", "")).lower()
+    if status != "yes":
+        error_msg = data.get("error") or "PX6 вернул ошибку"
+        raise HTTPException(status_code=400, detail=error_msg)
+
+    # Нормализуем баланс к float, PX6 может вернуть строку
+    raw_balance = str(data.get("balance") or "0").replace(",", ".")
+    try:
+        balance = float(raw_balance)
+    except ValueError:
+        balance = 0.0
+
+    currency = str(data.get("currency") or "RUB")
+    user_id = str(data.get("user_id") or "")
+
+    return Px6AccountResponse(user_id=user_id, balance=balance, currency=currency)
+
+
+@px6_router.post("/options", response_model=Px6OptionsResponse)
+def px6_options(payload: Px6OptionsRequest) -> Px6OptionsResponse:
+    """
+    Получить список стран PX6 для указанной версии (IPv4/Shared/IPv6).
+    """
+    api_key = payload.apiKey.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    url = f"https://px6.link/api/{api_key}/getcountry/?version={payload.version}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[PX6] Ошибка запроса getcountry: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось получить список стран PX6") from exc
+
+    if str(data.get("status", "")).lower() != "yes":
+        raise HTTPException(status_code=400, detail=data.get("error") or "PX6 вернул ошибку")
+
+    countries = [str(code).lower() for code in data.get("list", [])]
+    return Px6OptionsResponse(countries=countries)
+
+
+@px6_router.post("/price", response_model=Px6PriceResponse)
+def px6_price(payload: Px6PriceRequest) -> Px6PriceResponse:
+    """
+    Посчитать цену заказа PX6.
+    """
+    api_key = payload.apiKey.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    params = {
+        "count": payload.count,
+        "period": payload.period,
+        "version": payload.version,
+    }
+    url = f"https://px6.link/api/{api_key}/getprice/"
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[PX6] Ошибка запроса getprice: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось получить цену PX6") from exc
+
+    if str(data.get("status", "")).lower() != "yes":
+        raise HTTPException(status_code=400, detail=data.get("error") or "PX6 вернул ошибку")
+
+    raw_price = str(data.get("price") or "0").replace(",", ".")
+    raw_single = str(data.get("price_single") or "0").replace(",", ".")
+    try:
+        price = float(raw_price)
+    except ValueError:
+        price = 0.0
+    try:
+        price_single = float(raw_single)
+    except ValueError:
+        price_single = 0.0
+
+    currency = str(data.get("currency") or "RUB")
+    return Px6PriceResponse(price=price, priceSingle=price_single, currency=currency)
+
+
+@px6_router.post("/buy", response_model=Px6BuyResponse)
+def px6_buy(payload: Px6BuyRequest) -> Px6BuyResponse:
+    """
+    Купить прокси PX6 и добавить их в пул ProxyManager.
+    """
+    api_key = payload.apiKey.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    params: dict[str, object] = {
+        "count": payload.count,
+        "period": payload.period,
+        "country": payload.country.lower(),
+        "version": payload.version,
+        "type": payload.type,
+        "auto_prolong": 1 if payload.autoProlong else 0,
+    }
+    if payload.descr:
+        params["descr"] = payload.descr
+
+    url = f"https://px6.link/api/{api_key}/buy/"
+    try:
+        response = requests.get(url, params=params, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[PX6] Ошибка запроса buy: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось купить прокси PX6") from exc
+
+    if str(data.get("status", "")).lower() != "yes":
+        raise HTTPException(status_code=400, detail=data.get("error") or "PX6 вернул ошибку")
+
+    manager = ProxyManager.instance()
+    created: List[ProxyItem] = []
+
+    items = data.get("list") or []
+    if isinstance(items, dict):
+        items = list(items.values())
+
+    for item in items:
+        try:
+            ip = str(item.get("ip") or item.get("host"))
+            port = int(item.get("port"))
+            user = item.get("user") or None
+            pwd = item.get("pass") or None
+            ptype = str(item.get("type") or payload.type or "http").lower()
+            if ptype == "socks":
+                ptype = "socks5"
+            country = str(item.get("country") or payload.country).upper()
+            external_id = str(item.get("id"))
+        except Exception:
+            continue
+
+        server = f"{ptype}://{ip}:{port}"
+        label = f"PX6 {country} {ip}:{port}"
+        raw_end = item.get("date_end")
+        expires_at: float | None = None
+        if raw_end:
+            raw_str = str(raw_end)
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                try:
+                    dt = datetime.strptime(raw_str, fmt)
+                    expires_at = dt.timestamp()
+                    break
+                except ValueError:
+                    continue
+
+        proxy = ManagerProxy(
+            id=str(uuid.uuid4()),
+            label=label,
+            type=ptype,
+            server=server,
+            username=user,
+            password=pwd,
+            geo=country,
+            sticky=True,
+            max_concurrent=10,
+            enabled=True,
+            notes="PX6",
+            provider="px6",
+            external_id=external_id,
+            expires_at=expires_at,
+        )
+        manager.upsert(proxy)
+        created.append(_proxy_to_item(proxy))
+
+    return Px6BuyResponse(proxies=created)
+
+
+@px6_router.post("/sync", response_model=Px6SyncResponse)
+def px6_sync(payload: Px6SyncRequest) -> Px6SyncResponse:
+    """
+    Синхронизация списка PX6-прокси с локальным ProxyManager.
+    """
+    api_key = payload.apiKey.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    params: dict[str, object] = {}
+    if payload.state:
+        state = str(payload.state).lower()
+        if state not in {"active", "expired", "expiring", "all"}:
+            raise HTTPException(status_code=400, detail="Некорректное значение state PX6")
+        params["state"] = state
+
+    url = f"https://px6.link/api/{api_key}/getproxy/"
+    try:
+        response = requests.get(url, params=params or None, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[PX6] Ошибка запроса getproxy: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось получить список PX6-прокси") from exc
+
+    if str(data.get("status", "")).lower() != "yes":
+        raise HTTPException(status_code=400, detail=data.get("error") or "PX6 вернул ошибку")
+
+    items = data.get("list") or {}
+    manager = ProxyManager.instance()
+
+    existing = manager.list(include_disabled=True)
+    by_external: dict[str, ManagerProxy] = {}
+    for proxy in existing:
+        if proxy.provider == "px6" and proxy.external_id:
+            by_external[str(proxy.external_id)] = proxy
+
+    if isinstance(items, dict):
+        iterable = items.items()
+    else:
+        iterable = [(str(entry.get("id")), entry) for entry in items]
+
+    for raw_id, item in iterable:
+        if not isinstance(item, dict):
+            continue
+        external_id = str(item.get("id") or raw_id)
+        try:
+            ip = str(item.get("ip") or item.get("host"))
+            port = int(item.get("port"))
+            user = item.get("user") or None
+            pwd = item.get("pass") or None
+            ptype = str(item.get("type") or "http").lower()
+            if ptype == "socks":
+                ptype = "socks5"
+            country = str(item.get("country") or "").upper() or None
+            active = bool(item.get("active", True))
+            raw_end = item.get("date_end")
+        except Exception:
+            continue
+
+        server = f"{ptype}://{ip}:{port}"
+        label = f"PX6 {country or ''} {ip}:{port}".strip()
+
+        expires_at: float | None = None
+        if raw_end:
+            raw_str = str(raw_end)
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                try:
+                    dt = datetime.strptime(raw_str, fmt)
+                    expires_at = dt.timestamp()
+                    break
+                except ValueError:
+                    continue
+
+        existing_proxy = by_external.get(external_id)
+        if existing_proxy is not None:
+            existing_proxy.server = server
+            existing_proxy.type = ptype
+            existing_proxy.username = user
+            existing_proxy.password = pwd
+            existing_proxy.geo = country
+            existing_proxy.enabled = active
+            existing_proxy.provider = "px6"
+            existing_proxy.external_id = external_id
+            existing_proxy.expires_at = expires_at
+            manager.upsert(existing_proxy)
+        else:
+            proxy = ManagerProxy(
+                id=str(uuid.uuid4()),
+                label=label,
+                type=ptype,
+                server=server,
+                username=user,
+                password=pwd,
+                geo=country,
+                sticky=True,
+                max_concurrent=10,
+                enabled=active,
+                notes="PX6",
+                provider="px6",
+                external_id=external_id,
+                expires_at=expires_at,
+            )
+            manager.upsert(proxy)
+
+    # Возвращаем только PX6-прокси после синхронизации
+    refreshed = [
+        _proxy_to_item(proxy)
+        for proxy in manager.list(include_disabled=True)
+        if proxy.provider == "px6"
+    ]
+    return Px6SyncResponse(proxies=refreshed)
+
+
+@px6_router.post("/prolong", response_model=Px6SimpleResponse)
+def px6_prolong(payload: Px6ProlongRequest) -> Px6SimpleResponse:
+    """
+    Продлить выбранные PX6-прокси на указанный срок.
+    """
+    api_key = payload.apiKey.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    manager = ProxyManager.instance()
+    proxies: list[ManagerProxy] = []
+    for proxy_id in payload.proxyIds:
+        proxy = manager.get(proxy_id)
+        if proxy and proxy.provider == "px6" and proxy.external_id:
+            proxies.append(proxy)
+
+    if not proxies:
+        raise HTTPException(status_code=400, detail="Не найдены PX6-прокси для продления")
+
+    external_ids = sorted({str(p.external_id) for p in proxies if p.external_id})
+    params = {
+        "ids": ",".join(external_ids),
+        "period": payload.period,
+    }
+
+    url = f"https://px6.link/api/{api_key}/prolong/"
+    try:
+        response = requests.get(url, params=params, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[PX6] Ошибка запроса prolong: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось продлить PX6-прокси") from exc
+
+    if str(data.get("status", "")).lower() != "yes":
+        raise HTTPException(status_code=400, detail=data.get("error") or "PX6 вернул ошибку")
+
+    items = data.get("list") or {}
+    if isinstance(items, dict):
+        iterable = items.items()
+    else:
+        iterable = [(str(entry.get("id")), entry) for entry in items]
+
+    by_external = {str(p.external_id): p for p in proxies if p.external_id}
+
+    for raw_id, item in iterable:
+        if not isinstance(item, dict):
+            continue
+        external_id = str(item.get("id") or raw_id)
+        proxy = by_external.get(external_id)
+        if proxy is None:
+            continue
+        raw_end = item.get("date_end")
+        if not raw_end:
+            continue
+        raw_str = str(raw_end)
+        expires_at: float | None = None
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                dt = datetime.strptime(raw_str, fmt)
+                expires_at = dt.timestamp()
+                break
+            except ValueError:
+                continue
+        if expires_at:
+            proxy.expires_at = expires_at
+            manager.upsert(proxy)
+
+    return Px6SimpleResponse(status="success")
+
+
+@px6_router.post("/delete", response_model=Px6SimpleResponse)
+def px6_delete(payload: Px6DeleteRequest) -> Px6SimpleResponse:
+    """
+    Удалить выбранные PX6-прокси в кабинете PX6 и локальном пуле.
+    """
+    api_key = payload.apiKey.strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key PX6 не указан")
+
+    manager = ProxyManager.instance()
+    proxies: list[ManagerProxy] = []
+    for proxy_id in payload.proxyIds:
+        proxy = manager.get(proxy_id)
+        if proxy and proxy.provider == "px6" and proxy.external_id:
+            proxies.append(proxy)
+
+    if not proxies:
+        raise HTTPException(status_code=400, detail="Не найдены PX6-прокси для удаления")
+
+    external_ids = sorted({str(p.external_id) for p in proxies if p.external_id})
+    params = {
+        "ids": ",".join(external_ids),
+    }
+
+    url = f"https://px6.link/api/{api_key}/delete/"
+    try:
+        response = requests.get(url, params=params, timeout=20)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:  # pragma: no cover
+        logger.error("[PX6] Ошибка запроса delete: %s", exc)
+        raise HTTPException(status_code=502, detail="Не удалось удалить PX6-прокси") from exc
+
+    if str(data.get("status", "")).lower() != "yes":
+        raise HTTPException(status_code=400, detail=data.get("error") or "PX6 вернул ошибку")
+
+    for proxy in proxies:
+        manager.delete(proxy.id)
+
+    return Px6SimpleResponse(status="success")
+
+
+@router.post("/px6/distribute", response_model=Px6DistributeResponse)
+def distribute_px6_proxies(payload: Px6DistributeRequest) -> Px6DistributeResponse:
+    """
+    Распределить PX6-прокси по аккаунтам.
+
+    Если переданы accountIds, берём только эти аккаунты (без уже назначенного proxy_id).
+    Иначе, если allWithoutProxy=True или ничего не передано, берём все аккаунты без proxy_id.
+    """
+    accounts = list_accounts()
+
+    # Целевые аккаунты: без proxy_id
+    target_ids: set[int]
+    if payload.accountIds:
+        target_ids = {int(x) for x in payload.accountIds}
+        target_accounts = [acc for acc in accounts if acc.id in target_ids and not getattr(acc, "proxy_id", None)]
+    else:
+        target_accounts = [acc for acc in accounts if not getattr(acc, "proxy_id", None)]
+
+    if not target_accounts:
+        return Px6DistributeResponse(status="success", assigned=0)
+
+    manager = ProxyManager.instance()
+    all_proxies = manager.list(include_disabled=True)
+
+    used_proxy_ids: set[str] = {
+        str(acc.proxy_id)
+        for acc in accounts
+        if getattr(acc, "proxy_id", None)
+    }
+
+    available_px6: list[ManagerProxy] = [
+        proxy
+        for proxy in all_proxies
+        if proxy.provider == "px6" and proxy.enabled and proxy.id not in used_proxy_ids
+    ]
+
+    assigned = 0
+    for account, proxy in zip(target_accounts, available_px6):
+        try:
+            set_account_proxy(account.id, proxy.id, "fixed")
+            assigned += 1
+        except Exception as exc:  # pragma: no cover - защитное логирование
+            logger.warning(
+                "[PX6] Не удалось назначить прокси %s аккаунту %s: %s",
+                proxy.id,
+                account.id,
+                exc,
+            )
+
+    return Px6DistributeResponse(status="success", assigned=assigned)
 
 
 @router.post("/test", response_model=ProxyTestResponse)
 async def test_proxy(payload: ProxyTestRequest) -> ProxyTestResponse:
     """
-    РўРµСЃС‚ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє РїСЂРѕРєСЃРё.
+    Тест подключения к прокси.
 
-    РЎРѕР±РёСЂР°РµС‚ СЃС‚СЂРѕРєСѓ РІРёРґР° protocol://[username:password@]host:port
-    Рё РїРµСЂРµРґР°С‘С‚ РµС‘ РІ services.accounts.test_proxy, С‡С‚РѕР±С‹
-    РїСЂРѕРІРµСЂРёС‚СЊ РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РїСЂРѕРєСЃРё СЃ РјР°С€РёРЅС‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ.
+    Собирает строку вида protocol://[username:password@]host:port
+    и передаёт её в services.accounts.test_proxy, чтобы
+    проверить доступность прокси с машины пользователя.
     """
     auth = ""
     if payload.username or payload.password:
@@ -197,6 +747,35 @@ async def test_proxy(payload: ProxyTestRequest) -> ProxyTestResponse:
 def list_proxies() -> ProxyListResponse:
     manager = ProxyManager.instance()
     items = manager.list(include_disabled=True)
+
+    logger.info(f"[list_proxies] Всего прокси в ProxyManager: {len(items)}")
+
+    # Не показываем в пуле менеджера "основные" прокси,
+    # которые вручную прописаны у аккаунтов ЕСЛИ они НЕ из пула (т.е. без proxy_id)
+    try:
+        account_proxy_servers: set[str] = set()
+        for acc in list_accounts():
+            # Пропускаем аккаунты у которых указан proxy_id - они используют пул
+            if getattr(acc, "proxy_id", None):
+                continue
+
+            raw = (getattr(acc, "proxy", None) or "").strip()
+            if not raw:
+                continue
+            parsed = proxy_to_playwright(raw)
+            if not parsed or not parsed.get("server"):
+                continue
+            account_proxy_servers.add(parsed["server"])
+
+        logger.info(f"[list_proxies] Прокси вручную у аккаунтов (без proxy_id): {len(account_proxy_servers)}")
+
+        if account_proxy_servers:
+            items = [p for p in items if p.server not in account_proxy_servers]
+
+        logger.info(f"[list_proxies] После фильтрации: {len(items)} прокси")
+    except Exception as exc:  # pragma: no cover - защитное логирование
+        logger.warning("[ПРОКСИ] Не удалось отфильтровать аккаунт-прокси: %s", exc)
+
     return ProxyListResponse(
         status="success",
         items=[_proxy_to_item(p) for p in items],
@@ -292,23 +871,67 @@ def assign_proxy(payload: ProxyAssignRequest) -> ProxyAssignResponse:
 
 
 @router.post("/parse", response_model=ProxyParseResponse)
-def parse_proxies(payload: ProxyParseRequest) -> ProxyParseResponse:
-    manager = ProxyManager.instance()
-    generated: List[ManagerProxy] = []
-    per_source = max(1, payload.count // max(1, len(payload.sources)))
+async def parse_proxies(payload: ProxyParseRequest) -> ProxyParseResponse:
+    """
+    Парсит прокси из указанных источников и сохраняет их в ProxyManager.
 
-    for source in payload.sources:
-        for _ in range(per_source):
-            proxy = _generate_proxy(source, payload.protocol.lower(), payload.country)
+    Поддерживаемые источники:
+    - fineproxy / fineproxy.org
+    - proxyelite / proxyelite.com
+    - htmlweb / htmlweb.ru
+    - advanced.name / advanced
+    - proxy.market / proxymarket
+    """
+    sources_str = ", ".join(payload.sources)
+    logger.info(
+        f"[ПРОКСИ] Начат парсинг прокси: источники=[{sources_str}], "
+        f"протокол={payload.protocol}, страна={payload.country or 'любая'}, "
+        f"количество={payload.count}"
+    )
+
+    manager = ProxyManager.instance()
+
+    # Получить существующие прокси для проверки дубликатов
+    existing = manager.list(include_disabled=True)
+    existing_keys = {
+        (p.server, p.username, p.password)
+        for p in existing
+    }
+
+    # Парсить прокси из источников
+    result = await parse_proxies_from_sources(
+        sources=payload.sources,
+        protocol=payload.protocol.lower(),
+        country=payload.country,
+        count=payload.count,
+    )
+
+    # Сохранить только новые прокси (избегаем дубликатов с существующими)
+    added = 0
+    duplicates = 0
+    for proxy in result.proxies:
+        key = (proxy.server, proxy.username, proxy.password)
+        if key not in existing_keys:
             manager.upsert(proxy)
-            generated.append(proxy)
+            existing_keys.add(key)
+            added += 1
+        else:
+            duplicates += 1
+
+    logger.info(
+        f"[ПРОКСИ] Парсинг завершен: найдено={result.found}, "
+        f"валидных={result.valid}, добавлено={added}, дубликатов={duplicates}"
+    )
+
+    if result.errors:
+        logger.warning(f"[ПРОКСИ] Ошибки при парсинге: {', '.join(result.errors[:3])}")
 
     return ProxyParseResponse(
-        success=True,
-        found=len(generated),
-        valid=len(generated),
-        added=len(generated),
-        items=[_proxy_to_item(proxy) for proxy in generated],
+        success=result.added > 0 or len(result.errors) == 0,
+        found=result.found,
+        valid=result.valid,
+        added=added,
+        items=[_proxy_to_item(proxy) for proxy in result.proxies],
     )
 
 
@@ -323,22 +946,50 @@ async def test_all_proxies(payload: ProxyBulkRequest | None = None) -> ProxyTest
     total = len(proxies)
     ok = 0
 
-    for proxy in proxies:
+    blacklist = ProxyBlacklist.instance()
+
+    # Параллельное тестирование (до 50 одновременно)
+    async def test_one(proxy: ManagerProxy):
         try:
             uri = proxy.uri(include_credentials=True)
             result = await test_proxy_service(uri)
-            if result.get("ok"):
-                ok += 1
-                proxy.last_ip = result.get("ip")
-                proxy.last_check = time.time()
-                proxy.enabled = True
-            else:
-                proxy.enabled = False
-            manager.upsert(proxy)
+            return (proxy, result)
         except Exception:
-            proxy.enabled = False
+            return (proxy, None)
+
+    semaphore = asyncio.Semaphore(50)
+    
+    async def test_with_limit(p):
+        async with semaphore:
+            return await test_one(p)
+
+    tasks = [asyncio.create_task(test_with_limit(proxy)) for proxy in proxies]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for result in results:
+        if isinstance(result, Exception):
+            continue
+
+        proxy, test_result = result
+        
+        if test_result and test_result.get("ok"):
+            ok += 1
+            proxy.last_ip = test_result.get("ip")
             proxy.last_check = time.time()
+            proxy.enabled = True
             manager.upsert(proxy)
+        else:
+            # Добавляем в blacklist и удаляем
+            try:
+                server_parts = proxy.server.split("://")[1].split(":")
+                ip = server_parts[0]
+                port = int(server_parts[1]) if len(server_parts) > 1 else 80
+                blacklist.add(ip, port)
+            except Exception:
+                pass
+            
+            proxy.last_check = time.time()
+            manager.delete(proxy.id)
 
     return ProxyTestAllResponse(
         success=True,
@@ -419,5 +1070,3 @@ def _register_legacy_routes() -> None:
 
 
 _register_legacy_routes()
-
-

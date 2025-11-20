@@ -121,13 +121,15 @@ function substitutePhrase(template: string, phrase: string): string {
   return result;
 }
 
+type TextValidationResult = {
+  text: string;
+  warning?: string;
+};
+
 /**
  * Валидирует и очищает текст объявления
  */
-function validateText(text: string, maxLength: number): {
-  text: string;
-  warning?: string;
-} {
+function validateText(text: string, maxLength: number): TextValidationResult {
   const trimmed = text.trim();
 
   if (trimmed.length === 0) {
@@ -144,7 +146,7 @@ function validateText(text: string, maxLength: number): {
   return { text: trimmed };
 }
 
-export function buildTitle1FromPhrase(phrase: string) {
+export function buildTitle1FromPhrase(phrase: string): TextValidationResult {
   const trimmed = phrase.trim();
   if (!trimmed) {
     return { text: '' };
@@ -172,26 +174,26 @@ export function buildTitle2FromAddons(
   addons: string[],
   index: number,
   title1: string
-) {
+): TextValidationResult | null {
   if (!addons || addons.length === 0) {
-    return {};
+    return null;
   }
   const addon = addons[index % addons.length]?.trim();
   if (!addon) {
-    return {};
+    return null;
   }
   const combinedLimit = Math.max(0, 65 - title1.length);
   if (combinedLimit === 0) {
-    return {};
+    return null;
   }
   const maxLength = Math.min(LIMITS.TITLE2_MAX, combinedLimit);
   if (maxLength <= 0) {
-    return {};
+    return null;
   }
   return validateText(addon, maxLength);
 }
 
-export function sanitizeBodyText(bodyText?: string) {
+export function sanitizeBodyText(bodyText?: string): TextValidationResult | undefined {
   if (!bodyText) {
     return undefined;
   }

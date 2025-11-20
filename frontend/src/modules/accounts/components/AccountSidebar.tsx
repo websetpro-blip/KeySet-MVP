@@ -1,7 +1,14 @@
 ﻿import { useEffect, useState, ChangeEvent, useRef, useMemo } from "react";
 import type { MouseEvent } from "react";
 
-import type { Account } from "../types";
+import type {
+  Account,
+  AntidetectConfig,
+  CanvasNoise,
+  GeoPreset,
+  PlatformPreset,
+  WebRTCMode,
+} from "../types";
 
 import {
   autologinAccount,
@@ -10,13 +17,9 @@ import {
   openAccountProfileDirectory,
   uploadAccountCookies,
   testProxy,
-  fetchProxies,
-  assignProxyToAccount,
-  parseProxies,
-  testAllProxies,
-  clearProxies,
 } from "../api";
-import type { ProxyItem } from "../api";
+import { ProxyManagerSection } from "./ProxyManager";
+import { ProfileSlotsSection } from "./ProfileSlotsSection";
 
 
 
@@ -29,7 +32,7 @@ const TABS = [
   { id: "network", label: "Сеть", icon: "fas fa-globe" },
 
 
-  { id: "fingerprint", label: "Fingerprint", icon: "fas fa-mask" },
+  { id: "fingerprint", label: "Антидетект", icon: "fas fa-mask" },
 
 
   { id: "captcha", label: "Капча", icon: "fas fa-shield-alt" },
@@ -56,6 +59,7 @@ interface AccountSidebarProps {
   onUpdateAccount?: UpdateAccountFn;
   onReloadAccounts?: () => Promise<void> | void;
   onLog?: (message: string) => void;
+  selectedAccountIds?: number[];
 }
 
 export function AccountSidebar({
@@ -64,6 +68,7 @@ export function AccountSidebar({
   onUpdateAccount,
   onReloadAccounts,
   onLog,
+  selectedAccountIds,
 }: AccountSidebarProps) {
   const [activeTab, setActiveTab] = useState("basic");
 
@@ -191,7 +196,7 @@ export function AccountSidebar({
 
         <div className="tabs-content">
           <div className="tab-content-scroll">
-            {renderTabContent(activeTab, draft, handleDraftChange, onReloadAccounts, onLog)}
+            {renderTabContent(activeTab, draft, handleDraftChange, onUpdateAccount, onReloadAccounts, onLog, selectedAccountIds)}
           </div>
           {draft && (
             <div className="sidebar-floating-actions">
@@ -253,8 +258,10 @@ function renderTabContent(
   tab: string,
   account: Account | null,
   onUpdateDraft?: UpdateDraftFn,
+  onUpdateAccount?: UpdateAccountFn,
   onReloadAccounts?: () => Promise<void> | void,
   onLog?: (message: string) => void,
+  selectedAccountIds?: number[],
 ) {
   if (!account) {
 
@@ -448,6 +455,9 @@ function renderTabContent(
               account={account}
               onReloadAccounts={onReloadAccounts}
               onLog={onLog}
+              selectedAccountIds={selectedAccountIds}
+              onUpdateDraft={onUpdateDraft}
+              onUpdateAccount={onUpdateAccount}
             />
           </div>
         </div>
@@ -803,490 +813,6 @@ function NetworkTab({ account, onUpdateDraft, onLog }: NetworkTabProps) {
   );
 }
 
-interface ProxyManagerSectionProps {
-  account: Account;
-  onReloadAccounts?: () => Promise<void> | void;
-  onLog?: (message: string) => void;
-}
-
-type ProxyEditorMode = "create" | "edit";
-
-interface ProxyFormState {
-  id?: string;
-  label: string;
-  server: string;
-  username: string;
-  password: string;
-  type: ProxyItem["type"];
-  geo: string;
-  sticky: boolean;
-  maxConcurrent: number;
-  enabled: boolean;
-  notes: string;
-}
-
-const emptyProxyForm: ProxyFormState = {
-  id: undefined,
-  label: "",
-  server: "",
-  username: "",
-  password: "",
-  type: "http",
-  geo: "",
-  sticky: true,
-  maxConcurrent: 10,
-  enabled: true,
-  notes: "",
-};
-
-function ProxyManagerSection({
-  account,
-  onReloadAccounts,
-  onLog,
-}: ProxyManagerSectionProps) {
-  const [proxies, setProxies] = useState<ProxyItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [strategy, setStrategy] = useState<Account["proxyStrategy"]>(account.proxyStrategy || "fixed");
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [assignMessage, setAssignMessage] = useState<string | null>(null);
-  const [assignError, setAssignError] = useState<string | null>(null);
-  const [isTesting, setIsTesting] = useState(false);
-  const [testMessage, setTestMessage] = useState<string | null>(null);
-  const [testError, setTestError] = useState<string | null>(null);
-  const [isParsing, setIsParsing] = useState(false);
-  const [parseMessage, setParseMessage] = useState<string | null>(null);
-  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
-  const [bulkError, setBulkError] = useState<string | null>(null);
-  const [protocolFilter, setProtocolFilter] = useState<Account["proxyType"]>("http");
-  const [countryFilter, setCountryFilter] = useState<string>("ru");
-  const [sourceFlags, setSourceFlags] = useState<Record<string, boolean>>({
-    fineproxy: true,
-    proxyelite: false,
-    htmlweb: false,
-    advanced: false,
-    market: false,
-  });
-
-  const firstSelectedId = useMemo(() => Array.from(selectedIds)[0] ?? null, [selectedIds]);
-  const selectedProxy = useMemo(
-    () => proxies.find((item) => item.id === firstSelectedId) ?? null,
-    [proxies, firstSelectedId],
-  );
-
-  const loadProxies = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetchProxies();
-      const items = response.items ?? [];
-      setProxies(items);
-      setSelectedIds((prev) => {
-        const next = new Set<string>();
-        items.forEach((proxy) => {
-          if (prev.has(proxy.id)) {
-            next.add(proxy.id);
-          }
-        });
-        return next;
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message || "Не удалось загрузить список прокси.");
-      setProxies([]);
-      onLog?.(`Ошибка загрузки списка прокси: ${message || "неизвестная ошибка"}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadProxies();
-  }, [account.id]);
-
-  useEffect(() => {
-    setStrategy(account.proxyStrategy || "fixed");
-  }, [account.id, account.proxyStrategy]);
-
-  const toggleSource = (id: string) => {
-    setSourceFlags((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleStartParsing = async () => {
-    const sources = Object.entries(sourceFlags)
-      .filter(([_, checked]) => checked)
-      .map(([id]) => id);
-    if (!sources.length) {
-      setParseMessage("Выберите хотя бы один источник.");
-      return;
-    }
-
-    setIsParsing(true);
-    setParseMessage(null);
-    try {
-      const result = await parseProxies({
-        sources,
-        protocol: protocolFilter,
-        country: countryFilter,
-        count: 40,
-      });
-      setParseMessage(`Добавлено ${result.added} прокси (всего найдено ${result.found}).`);
-      onLog?.(`Парсинг прокси: ${sources.join(", ")} → +${result.added}`);
-      await loadProxies();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setParseMessage(message || "Ошибка парсинга");
-      onLog?.(`Ошибка парсинга прокси: ${message}`);
-    } finally {
-      setIsParsing(false);
-    }
-  };
-
-  const handleTestAllProxies = async () => {
-    setBulkError(null);
-    setBulkMessage(null);
-    try {
-      const payload = selectedIds.size ? { ids: Array.from(selectedIds) } : undefined;
-      const result = await testAllProxies(payload?.ids);
-      setBulkMessage(`Проверено ${result.tested}: рабочие ${result.ok}, нерабочие ${result.failed}.`);
-      onLog?.(`Тест прокси: ${result.ok}/${result.tested} успешно.`);
-      await loadProxies();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setBulkError(message || "Ошибка тестирования");
-      onLog?.(`Ошибка массового теста прокси: ${message || "неизвестная ошибка"}`);
-    }
-  };
-
-  const handleClearProxies = async () => {
-    const ids = selectedIds.size ? Array.from(selectedIds) : undefined;
-    if (!window.confirm(ids ? "Удалить выбранные прокси?" : "Удалить все прокси?")) {
-      return;
-    }
-    setBulkError(null);
-    setBulkMessage(null);
-    try {
-      const result = await clearProxies(ids);
-      setBulkMessage(`Удалено ${result.removed} прокси.`);
-      setSelectedIds(new Set());
-      await loadProxies();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setBulkError(message || "Не удалось очистить список");
-      onLog?.(`Ошибка очистки списка прокси: ${message || "неизвестная ошибка"}`);
-    }
-  };
-
-  const handleToggleSelection = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedIds.size === proxies.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(proxies.map((proxy) => proxy.id)));
-    }
-  };
-
-  const handleTestSelected = async () => {
-    if (!selectedProxy) {
-      setTestError("Выберите прокси в таблице.");
-      setTestMessage(null);
-      return;
-    }
-    const [scheme, hostPort] = selectedProxy.server.split("://");
-    const [host, portStr] = hostPort.split(":");
-    const port = Number(portStr);
-    setIsTesting(true);
-    setTestError(null);
-    setTestMessage(null);
-    try {
-      const response = await testProxy(
-        host,
-        port,
-        selectedProxy.username || undefined,
-        selectedProxy.password || undefined,
-        scheme,
-      );
-      if (response.status === "ok") {
-        const info = [];
-        if (typeof response.response_time_ms === "number") {
-          info.push(`${Math.round(response.response_time_ms)} мс`);
-        }
-        if (response.ip) {
-          info.push(`IP ${response.ip}`);
-        }
-        const details = info.length ? ` (${info.join(", ")})` : "";
-        setTestMessage(`Прокси работает${details}.`);
-        onLog?.(
-          `Тест прокси (Менеджер) для ${account.email}: OK${details} (${selectedProxy.server})`,
-        );
-      } else {
-        setTestError(response.error || "Прокси не отвечает.");
-        onLog?.(
-          `Тест прокси (Менеджер) для ${account.email}: ошибка: ${response.error || "прокси не отвечает"}`,
-        );
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setTestError(message || "Ошибка проверки");
-       onLog?.(
-         `Тест прокси (Менеджер) для ${account.email}: исключение: ${message || "неизвестная ошибка"}`,
-       );
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-  const handleAssignToAccount = async () => {
-    if (!selectedProxy) {
-      setAssignError("Выберите прокси.");
-      setAssignMessage(null);
-      return;
-    }
-    setIsAssigning(true);
-    setAssignError(null);
-    setAssignMessage(null);
-    try {
-      await assignProxyToAccount(account.id, selectedProxy.id, strategy);
-      setAssignMessage("Прокси применён к аккаунту.");
-      onReloadAccounts && (await onReloadAccounts());
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setAssignError(message || "Не удалось применить прокси.");
-    } finally {
-      setIsAssigning(false);
-    }
-  };
-
-  const handlePreviewProxy = () => {
-    if (!selectedProxy) {
-      setBulkError("Выберите прокси для предпросмотра.");
-      return;
-    }
-    onLog?.(
-      `Прокси ${selectedProxy.label || selectedProxy.server}: ${selectedProxy.server} (${selectedProxy.geo || "N/A"})`)
-    ;
-  };
-
-  return (
-    <>
-      <div className="proxy-section">
-        <h4>
-          <i className="fas fa-download" /> Парсинг прокси
-        </h4>
-        <div className="proxy-sources">
-          {[
-            { id: "fineproxy", label: "fineproxy.org" },
-            { id: "proxyelite", label: "proxyelite.info" },
-            { id: "htmlweb", label: "htmlweb.ru" },
-            { id: "advanced", label: "advanced.name" },
-            { id: "market", label: "proxy.market" },
-          ].map((source) => (
-            <label key={source.id} className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={!!sourceFlags[source.id]}
-                onChange={() => toggleSource(source.id)}
-              />
-              <span className="checkmark" />
-              {source.label}
-            </label>
-          ))}
-        </div>
-        <div className="proxy-parse-options">
-          <div className="form-group">
-            <label>Протокол</label>
-            <select value={protocolFilter} onChange={(e) => setProtocolFilter(e.target.value as Account["proxyType"]) }>
-              <option value="http">HTTP</option>
-              <option value="https">HTTPS</option>
-              <option value="socks5">SOCKS5</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Страна</label>
-            <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}>
-              <option value="ru">Россия</option>
-              <option value="kz">Казахстан</option>
-              <option value="by">Беларусь</option>
-              <option value="any">Любая</option>
-            </select>
-          </div>
-        </div>
-        <button className="btn btn-primary" type="button" onClick={handleStartParsing} disabled={isParsing}>
-          <i className="fas fa-play" /> {isParsing ? "Парсинг..." : "Начать парсинг"}
-        </button>
-        {parseMessage && (
-          <p className="action-hint" style={{ marginTop: 8 }}>
-            <i className="fas fa-info-circle" /> {parseMessage}
-          </p>
-        )}
-      </div>
-
-      <div className="proxy-section">
-        <h4>
-          <i className="fas fa-vial" /> Тестирование списка
-        </h4>
-        <div className="form-group">
-          <label>Действия</label>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button className="btn btn-warning" type="button" onClick={handleTestAllProxies}>
-              <i className="fas fa-flask" /> Тестировать {selectedIds.size ? "выбранные" : "все"}
-            </button>
-            <button className="btn btn-secondary" type="button" onClick={handleClearProxies}>
-              <i className="fas fa-trash" /> Очистить {selectedIds.size ? "выбранные" : "все"}
-            </button>
-            <button className="btn btn-secondary" type="button" onClick={handlePreviewProxy}>
-              <i className="fas fa-eye" /> Предпросмотр
-            </button>
-          </div>
-        </div>
-        {bulkMessage && (
-          <p className="action-hint" style={{ color: "#059669" }}>
-            <i className="fas fa-check-circle" /> {bulkMessage}
-          </p>
-        )}
-        {bulkError && (
-          <p className="action-hint" style={{ color: "#b91c1c" }}>
-            <i className="fas fa-exclamation-circle" /> {bulkError}
-          </p>
-        )}
-      </div>
-
-      <div className="proxy-section">
-        <h4>
-          <i className="fas fa-sync-alt" /> Автоматическая ротация
-        </h4>
-        <div className="form-group">
-          <label>Стратегия привязки аккаунтов</label>
-          <select value={strategy} onChange={(e) => setStrategy(e.target.value as Account["proxyStrategy"]) }>
-            <option value="fixed">Фиксированная (один аккаунт → один прокси)</option>
-            <option value="rotate">Ротация (подбор свободного прокси)</option>
-          </select>
-        </div>
-        <p className="action-hint">
-          Стратегия «Ротация» использует свободные прокси из пула ProxyManager. Настройте макс. одновременные подключения в конфиге.
-        </p>
-      </div>
-
-      <div className="proxy-section">
-        <h4>
-          <i className="fas fa-list" /> Список прокси
-        </h4>
-        <div className="proxy-table-container">
-          <table className="proxy-table">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}>
-                  <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === proxies.length}
-                  />
-                </th>
-                <th>Название</th>
-                <th>Адрес</th>
-                <th>GEO</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5}>Загрузка списка прокси…</td>
-                </tr>
-              ) : proxies.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>Прокси не найдены.</td>
-                </tr>
-              ) : (
-                proxies.map((proxy) => (
-                  <tr
-                    key={proxy.id}
-                    className={selectedIds.has(proxy.id) ? "selected" : undefined}
-                    onClick={() => handleToggleSelection(proxy.id)}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(proxy.id)}
-                        onChange={() => handleToggleSelection(proxy.id)}
-                      />
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{proxy.label}</div>
-                      <div className="proxy-notes">{proxy.notes || "—"}</div>
-                    </td>
-                    <td>{proxy.server}</td>
-                    <td>{proxy.geo || "—"}</td>
-                    <td>
-                      <div style={{ color: proxy.enabled ? "#059669" : "#9ca3af" }}>
-                        {proxy.enabled ? "Активен" : "Отключен"}
-                      </div>
-                      <div className="proxy-meta">IP: {proxy.last_ip || "—"}</div>
-                      <div className="proxy-meta">Проверка: {formatRelativeTimestamp(proxy.last_check)}</div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-small"
-            onClick={handleTestSelected}
-            disabled={isTesting || !selectedProxy}
-          >
-            <i className="fas fa-plug" /> {isTesting ? "Проверка..." : "Тестировать выбранный"}
-          </button>
-          <button
-            type="button"
-            className="btn btn-success btn-small"
-            onClick={handleAssignToAccount}
-            disabled={isAssigning || !selectedProxy}
-          >
-            <i className="fas fa-check" /> {isAssigning ? "Применение..." : "Применить к аккаунту"}
-          </button>
-        </div>
-
-        {(testMessage || testError || assignMessage || assignError) && (
-          <div style={{ marginTop: 8 }}>
-            {testMessage && (
-              <p className="action-hint" style={{ color: "#059669" }}>
-                <i className="fas fa-check-circle" /> {testMessage}
-              </p>
-            )}
-            {testError && (
-              <p className="action-hint" style={{ color: "#b91c1c" }}>
-                <i className="fas fa-exclamation-circle" /> {testError}
-              </p>
-            )}
-            {assignMessage && (
-              <p className="action-hint" style={{ color: "#059669" }}>
-                <i className="fas fa-check-circle" /> {assignMessage}
-              </p>
-            )}
-            {assignError && (
-              <p className="action-hint" style={{ color: "#b91c1c" }}>
-                <i className="fas fa-exclamation-circle" /> {assignError}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
 
 function formatRelativeTimestamp(value: number | null | undefined): string {
   if (!value || value <= 0) {
@@ -1363,92 +889,709 @@ function composeProxyValue(
 
 interface FingerprintTabProps {
   account: Account;
-
   onUpdateDraft?: UpdateDraftFn;
-
 }
 
-
-
 function FingerprintTab({ account, onUpdateDraft }: FingerprintTabProps) {
-  const [preset, setPreset] = useState(account.fingerprint || "russia_standard");
-
-
-
-  useEffect(() => {
-
-    setPreset(account.fingerprint || "russia_standard");
-
-  }, [account.id, account.fingerprint]);
-
-
-
-  const handleChangePreset = (value: Account["fingerprint"]) => {
-
-    setPreset(value);
-
-    onUpdateDraft?.({ fingerprint: value });
-
+  const presetMap: Record<GeoPreset, AntidetectConfig> = {
+    usa: {
+      geo: "usa",
+      timezone: "America/New_York",
+      locale: "en-US",
+    languages: ["en-US", "en"],
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgentRandom: true,
+    userAgentPool: [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    ],
+    geolocation: { latitude: 40.7128, longitude: -74.006, accuracy: 100, jitter: 0.01 },
+    screen: {
+      width: 1920,
+      height: 1080,
+      dpr: 1.0,
+      options: [
+        { width: 1920, height: 1080, dpr: 1.0 },
+        { width: 1366, height: 768, dpr: 1.0 },
+        { width: 1440, height: 900, dpr: 1.25 },
+      ],
+    },
+    hardware: {
+      cores: 8,
+      memory: 8,
+      platform: "Windows",
+      deviceName: "Windows 11",
+      coresOptions: [4, 6, 8],
+      memoryOptions: [4, 8, 16],
+      webglProfiles: [
+        { vendor: "Intel Inc.", renderer: "Intel(R) UHD Graphics 620" },
+        { vendor: "Intel Inc.", renderer: "Intel(R) Iris(R) Xe Graphics" },
+        { vendor: "AMD", renderer: "Radeon RX 6600" },
+      ],
+    },
+      webrtc: "replace_ip",
+      canvasNoise: "light",
+      webglNoise: true,
+      audioNoise: true,
+      fontsSpoofing: true,
+      dnt: false,
+      dohEnabled: true,
+    },
+    russia: {
+      geo: "russia",
+      timezone: "Europe/Moscow",
+    locale: "ru-RU",
+    languages: ["ru-RU", "ru", "en-US", "en"],
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgentRandom: true,
+    userAgentPool: [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    ],
+    geolocation: { latitude: 55.7558, longitude: 37.6173, accuracy: 100, jitter: 0.01 },
+    screen: {
+      width: 1920,
+      height: 1080,
+      dpr: 1.0,
+      options: [
+        { width: 1920, height: 1080, dpr: 1.0 },
+        { width: 1600, height: 900, dpr: 1.25 },
+        { width: 1366, height: 768, dpr: 1.0 },
+      ],
+    },
+    hardware: {
+      cores: 8,
+      memory: 8,
+      platform: "Windows",
+      deviceName: "Windows 11",
+      coresOptions: [4, 6, 8],
+      memoryOptions: [4, 8],
+      webglProfiles: [
+        { vendor: "Intel Inc.", renderer: "Intel(R) HD Graphics 630" },
+        { vendor: "Intel Inc.", renderer: "Intel(R) Iris(R) Graphics 6100" },
+      ],
+    },
+      webrtc: "disable",
+      canvasNoise: "medium",
+      webglNoise: true,
+      audioNoise: false,
+      fontsSpoofing: true,
+      dnt: false,
+      dohEnabled: true,
+    },
+    kazakhstan: {
+      geo: "kazakhstan",
+      timezone: "Asia/Almaty",
+    locale: "ru-KZ",
+    languages: ["ru-KZ", "ru", "en-US", "en"],
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgentRandom: true,
+    userAgentPool: [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    ],
+    geolocation: { latitude: 51.1694, longitude: 71.4491, accuracy: 100, jitter: 0.01 },
+    screen: {
+      width: 1920,
+      height: 1080,
+      dpr: 1.0,
+      options: [
+        { width: 1920, height: 1080, dpr: 1.0 },
+        { width: 1366, height: 768, dpr: 1.0 },
+      ],
+    },
+    hardware: {
+      cores: 6,
+      memory: 8,
+      platform: "Windows",
+      deviceName: "Windows 10",
+      coresOptions: [4, 6],
+      memoryOptions: [4, 8],
+      webglProfiles: [
+        { vendor: "Intel Inc.", renderer: "Intel(R) UHD Graphics 610" },
+      ],
+    },
+      webrtc: "disable",
+      canvasNoise: "light",
+      webglNoise: false,
+      audioNoise: false,
+      fontsSpoofing: true,
+      dnt: false,
+      dohEnabled: true,
+    },
+    nigeria: {
+      geo: "nigeria",
+      timezone: "Africa/Lagos",
+    locale: "en-NG",
+    languages: ["en-NG", "en"],
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgentRandom: true,
+    userAgentPool: [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    ],
+    geolocation: { latitude: 6.5244, longitude: 3.3792, accuracy: 150, jitter: 0.01 },
+    screen: {
+      width: 1366,
+      height: 768,
+      dpr: 1.0,
+      options: [
+        { width: 1366, height: 768, dpr: 1.0 },
+        { width: 1920, height: 1080, dpr: 1.0 },
+      ],
+    },
+    hardware: {
+      cores: 6,
+      memory: 8,
+      platform: "Windows",
+      deviceName: "Windows 10",
+      coresOptions: [4, 6],
+      memoryOptions: [4, 8],
+      webglProfiles: [
+        { vendor: "Intel Inc.", renderer: "Intel(R) UHD Graphics 620" },
+        { vendor: "AMD", renderer: "Radeon RX 570" },
+      ],
+    },
+      webrtc: "replace_ip",
+      canvasNoise: "medium",
+      webglNoise: true,
+      audioNoise: false,
+      fontsSpoofing: true,
+      dnt: false,
+      dohEnabled: true,
+    },
+    lithuania: {
+      geo: "lithuania",
+      timezone: "Europe/Vilnius",
+    locale: "lt-LT",
+    languages: ["lt-LT", "lt", "en-US", "en"],
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgentRandom: true,
+    userAgentPool: [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    ],
+    geolocation: { latitude: 54.6872, longitude: 25.2797, accuracy: 100, jitter: 0.01 },
+    screen: {
+      width: 1920,
+      height: 1080,
+      dpr: 1.0,
+      options: [
+        { width: 1920, height: 1080, dpr: 1.0 },
+        { width: 1366, height: 768, dpr: 1.0 },
+      ],
+    },
+    hardware: {
+      cores: 8,
+      memory: 16,
+      platform: "Windows",
+      deviceName: "Windows 11",
+      coresOptions: [6, 8],
+      memoryOptions: [8, 16],
+      webglProfiles: [
+        { vendor: "Intel Inc.", renderer: "Intel(R) UHD Graphics 630" },
+        { vendor: "AMD", renderer: "Radeon RX 5700" },
+      ],
+    },
+      webrtc: "replace_ip",
+      canvasNoise: "light",
+      webglNoise: true,
+      audioNoise: true,
+      fontsSpoofing: true,
+      dnt: false,
+      dohEnabled: true,
+    },
+    custom: {
+      geo: "custom",
+      timezone: "UTC",
+      locale: "en-US",
+    languages: ["en-US", "en"],
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgentRandom: true,
+    userAgentPool: [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    ],
+    geolocation: { latitude: 0, longitude: 0, accuracy: 100, jitter: 0.01 },
+    screen: {
+      width: 1920,
+      height: 1080,
+      dpr: 1.0,
+      options: [
+        { width: 1920, height: 1080, dpr: 1.0 },
+        { width: 1366, height: 768, dpr: 1.0 },
+      ],
+    },
+    hardware: {
+      cores: 4,
+      memory: 8,
+      platform: "Windows",
+      deviceName: "Desktop",
+      coresOptions: [4, 6],
+      memoryOptions: [8, 16],
+      webglProfiles: [
+        { vendor: "Intel Inc.", renderer: "Intel(R) UHD Graphics 620" },
+      ],
+    },
+      webrtc: "replace_ip",
+      canvasNoise: "light",
+      webglNoise: true,
+      audioNoise: false,
+      fontsSpoofing: true,
+      dnt: false,
+      dohEnabled: true,
+    },
   };
 
+  const randomChoice = <T,>(items: T[] | undefined): T | undefined => {
+    if (!items || !items.length) return undefined;
+    return items[Math.floor(Math.random() * items.length)];
+  };
 
+  const normalizeConfig = (cfg: Partial<AntidetectConfig> | undefined, preset: GeoPreset) => {
+    const base = presetMap[preset] ?? presetMap.russia;
+    if (!cfg) return base;
+    const merge = (value: any, fallback: any) => (value === undefined ? fallback : value);
+    return {
+      ...base,
+      ...cfg,
+      geo: cfg.geo ?? preset,
+      geolocation: { ...base.geolocation, ...(cfg.geolocation ?? {}) },
+      screen: { ...base.screen, ...(cfg.screen ?? {}) },
+      hardware: {
+        ...base.hardware,
+        ...(cfg.hardware ?? {}),
+        platform: (cfg.hardware?.platform as PlatformPreset) ?? base.hardware.platform,
+        deviceName: cfg.hardware?.deviceName ?? base.hardware.deviceName,
+        coresOptions: cfg.hardware?.coresOptions ?? base.hardware.coresOptions,
+        memoryOptions: cfg.hardware?.memoryOptions ?? base.hardware.memoryOptions,
+        webglProfiles: cfg.hardware?.webglProfiles ?? base.hardware.webglProfiles,
+      },
+      webrtc: cfg.webrtc ?? base.webrtc,
+      canvasNoise: cfg.canvasNoise ?? base.canvasNoise,
+      webglNoise: merge(cfg.webglNoise, base.webglNoise),
+      audioNoise: merge(cfg.audioNoise, base.audioNoise),
+      fontsSpoofing: merge(cfg.fontsSpoofing, base.fontsSpoofing),
+      dnt: merge(cfg.dnt, base.dnt),
+      dohEnabled: merge(cfg.dohEnabled, base.dohEnabled),
+      userAgentPool: cfg.userAgentPool ?? base.userAgentPool,
+      userAgentRandom: cfg.userAgentRandom ?? base.userAgentRandom,
+      clientHints: cfg.clientHints ?? base.clientHints,
+    };
+  };
+
+  const applyRandom = (preset: GeoPreset): AntidetectConfig => {
+    const base = presetMap[preset] ?? presetMap.russia;
+    const jitter = base.geolocation.jitter ?? 0;
+    const pickScreen = randomChoice(base.screen.options) ?? base.screen;
+    const pickUA = base.userAgentRandom ? randomChoice(base.userAgentPool) ?? base.userAgent : base.userAgent;
+    const pickCores = base.hardware.coresOptions ? randomChoice(base.hardware.coresOptions) ?? base.hardware.cores : base.hardware.cores;
+    const pickMem = base.hardware.memoryOptions ? randomChoice(base.hardware.memoryOptions) ?? base.hardware.memory : base.hardware.memory;
+    const pickWebgl = base.hardware.webglProfiles ? randomChoice(base.hardware.webglProfiles) : undefined;
+    const jitteredGeo = {
+      latitude: base.geolocation.latitude + (Math.random() * 2 - 1) * jitter,
+      longitude: base.geolocation.longitude + (Math.random() * 2 - 1) * jitter,
+      accuracy: base.geolocation.accuracy,
+      jitter,
+    };
+    return {
+      ...base,
+      geolocation: jitter ? jitteredGeo : base.geolocation,
+      screen: { ...base.screen, ...pickScreen },
+      hardware: {
+        ...base.hardware,
+        cores: pickCores,
+        memory: pickMem,
+        webglProfiles: base.hardware.webglProfiles,
+      },
+      userAgent: pickUA,
+      webglProfile: pickWebgl,
+    };
+  };
+
+  const toGeoPreset = (fp: string | undefined): GeoPreset => {
+    if (!fp) return "russia";
+    const normalized = fp.toLowerCase();
+    if (normalized.includes("usa")) return "usa";
+    if (normalized.includes("kz") || normalized.includes("kazakhstan")) return "kazakhstan";
+    if (normalized.includes("nigeria") || normalized.includes("ng")) return "nigeria";
+    if (normalized.includes("lithuania") || normalized.includes("lt")) return "lithuania";
+    if (normalized.includes("russia")) return "russia";
+    return "russia";
+  };
+
+  const fingerprintToPreset = toGeoPreset(account.fingerprint as string | undefined);
+  const [preset, setPreset] = useState<GeoPreset>(account.antidetect?.geo ?? fingerprintToPreset);
+  const [config, setConfig] = useState<AntidetectConfig>(
+    normalizeConfig(account.antidetect, account.antidetect?.geo ?? fingerprintToPreset),
+  );
+
+  const updateDraft = (nextConfig: AntidetectConfig, nextPreset: GeoPreset) => {
+    const fingerprintValue =
+      nextPreset === "usa"
+        ? "usa_standard"
+        : nextPreset === "kazakhstan"
+          ? "kazakhstan_standard"
+          : nextPreset === "russia"
+            ? "russia_standard"
+            : (nextPreset as Account["fingerprint"]);
+    onUpdateDraft?.({
+      fingerprint: fingerprintValue,
+      antidetect: nextConfig,
+    });
+  };
+
+  useEffect(() => {
+    const freshPreset = account.antidetect?.geo ?? toGeoPreset(account.fingerprint as string | undefined);
+    setPreset(freshPreset);
+    setConfig(normalizeConfig(account.antidetect, freshPreset));
+  }, [account.id, account.fingerprint]);
 
   return (
-
     <div className="tab-content active">
-
       <div className="form-group">
-
-        <label>Предустановка</label>
-
-        <select
-
-            value={preset}
-
-            onChange={(e) => handleChangePreset(e.target.value as Account["fingerprint"])}
-
-        >
-
-          <option value="russia_standard">🇷🇺 Россия (стандарт)</option>
-
-          <option value="kazakhstan_standard">🇰🇿 Казахстан (стандарт)</option>
-
-          <option value="no_spoofing">🌐 Без подмены</option>
-
+        <label>Антидетект-пресет</label>
+        <select value={preset} onChange={(e) => {
+          const nextPreset = e.target.value as GeoPreset;
+          setPreset(nextPreset);
+          const nextConfig = normalizeConfig(nextPreset === config.geo ? config : undefined, nextPreset);
+          setConfig(nextConfig);
+          updateDraft(nextConfig, nextPreset);
+        }}>
+          <option value="usa">🇺🇸 USA</option>
+          <option value="russia">🇷🇺 Россия</option>
+          <option value="kazakhstan">🇰🇿 Казахстан</option>
+          <option value="nigeria">🇳🇬 Нигерия</option>
+          <option value="lithuania">🇱🇹 Литва</option>
+          <option value="custom">🔧 Custom</option>
         </select>
-
+        <div style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            onClick={() => {
+              const randomized = applyRandom(preset);
+              setConfig(randomized);
+              updateDraft(randomized, preset);
+            }}
+          >
+            🎲 Сгенерировать случайный
+          </button>
+        </div>
       </div>
 
-        <div className="info-section">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="form-group">
+          <label>WebRTC</label>
+          <select
+            value={config.webrtc}
+            onChange={(e) => {
+              const next = { ...config, webrtc: e.target.value as WebRTCMode };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          >
+            <option value="disable">Disable</option>
+            <option value="replace_ip">Replace IP</option>
+            <option value="sync_with_proxy">Sync with Proxy</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Canvas Noise</label>
+          <select
+            value={config.canvasNoise}
+            onChange={(e) => {
+              const next = { ...config, canvasNoise: e.target.value as CanvasNoise };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          >
+            <option value="off">Off</option>
+            <option value="light">Light</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      </div>
 
-          <div className="info-item">
+      <div className="form-group checkbox-group">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.webglNoise}
+            onChange={(e) => {
+              const next = { ...config, webglNoise: e.target.checked };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          />
+          <span className="checkmark" /> WebGL Spoofing
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.audioNoise}
+            onChange={(e) => {
+              const next = { ...config, audioNoise: e.target.checked };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          />
+          <span className="checkmark" /> Audio Noise
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.fontsSpoofing}
+            onChange={(e) => {
+              const next = { ...config, fontsSpoofing: e.target.checked };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          />
+          <span className="checkmark" /> Fonts Spoofing
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.dohEnabled}
+            onChange={(e) => {
+              const next = { ...config, dohEnabled: e.target.checked };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          />
+          <span className="checkmark" /> DoH через прокси
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.dnt}
+            onChange={(e) => {
+              const next = { ...config, dnt: e.target.checked };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+          />
+          <span className="checkmark" /> DNT Header
+        </label>
+      </div>
 
-            <span className="info-label">Описание пресета:</span>
-
-            <span className="info-value">
-
-              Управляет User-Agent, языком интерфейса и часовым поясом браузера для этого аккаунта.
-
-            </span>
-
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="form-group">
+          <label>Экран</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <input
+              type="number"
+              value={config.screen.width}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  screen: { ...config.screen, width: Number(e.target.value) || 0 },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+              placeholder="1920"
+            />
+            <input
+              type="number"
+              value={config.screen.height}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  screen: { ...config.screen, height: Number(e.target.value) || 0 },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+              placeholder="1080"
+            />
           </div>
-
+          <div style={{ marginTop: 8 }}>
+            <label>DPR</label>
+            <select
+              value={config.screen.dpr}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  screen: { ...config.screen, dpr: Number(e.target.value) || 1 },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+            >
+              <option value={1}>1.0</option>
+              <option value={1.25}>1.25</option>
+              <option value={1.5}>1.5</option>
+            </select>
+          </div>
         </div>
 
         <div className="form-group">
-
-          <small style={{ color: "#6b7280" }}>
-
-            Настройки применяются при следующем запуске браузера или мультипарсера под этим аккаунтом.
-
-          </small>
-
+          <label>Железо</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <select
+              value={config.hardware.cores}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  hardware: { ...config.hardware, cores: Number(e.target.value) || config.hardware.cores },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+            >
+              <option value={4}>4 cores</option>
+              <option value={6}>6 cores</option>
+              <option value={8}>8 cores</option>
+            </select>
+            <select
+              value={config.hardware.memory}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  hardware: { ...config.hardware, memory: Number(e.target.value) || config.hardware.memory },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+            >
+              <option value={4}>4 GB</option>
+              <option value={8}>8 GB</option>
+              <option value={16}>16 GB</option>
+            </select>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+            <select
+              value={config.hardware.platform}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  hardware: { ...config.hardware, platform: e.target.value as PlatformPreset },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+            >
+              <option value="Windows">Windows</option>
+              <option value="MacOS">MacOS</option>
+              <option value="Linux">Linux</option>
+            </select>
+            <input
+              type="text"
+              value={config.hardware.deviceName}
+              onChange={(e) => {
+                const next = {
+                  ...config,
+                  hardware: { ...config.hardware, deviceName: e.target.value },
+                };
+                setConfig(next);
+                updateDraft(next, preset);
+              }}
+              placeholder="Device name"
+            />
+          </div>
         </div>
-
       </div>
 
-    );
+      <div className="info-section">
+        <div className="info-item">
+          <span className="info-label">User-Agent:</span>
+          <span className="info-value">{config.userAgent}</span>
+        </div>
+        <div className="info-item">
+          <span className="info-label">Locale/Timezone:</span>
+          <span className="info-value">
+            {config.locale} · {config.timezone}
+          </span>
+        </div>
+        <div className="info-item">
+          <span className="info-label">Accept-Language:</span>
+          <span className="info-value">{config.languages.join(", ")}</span>
+        </div>
+        <div className="info-item">
+          <span className="info-label">Гео:</span>
+          <span className="info-value">
+            {config.geolocation.latitude}, {config.geolocation.longitude} (±
+            {config.geolocation.accuracy}м)
+          </span>
+        </div>
+      </div>
 
+      <div className="form-group">
+        <label>Геолокация (ручная настройка)</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <input
+            type="number"
+            step="0.0001"
+            value={config.geolocation.latitude}
+            onChange={(e) => {
+              const next = {
+                ...config,
+                geolocation: {
+                  ...config.geolocation,
+                  latitude: Number(e.target.value) || 0,
+                },
+              };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+            placeholder="Latitude"
+          />
+          <input
+            type="number"
+            step="0.0001"
+            value={config.geolocation.longitude}
+            onChange={(e) => {
+              const next = {
+                ...config,
+                geolocation: {
+                  ...config.geolocation,
+                  longitude: Number(e.target.value) || 0,
+                },
+              };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+            placeholder="Longitude"
+          />
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <input
+            type="number"
+            value={config.geolocation.accuracy}
+            onChange={(e) => {
+              const next = {
+                ...config,
+                geolocation: {
+                  ...config.geolocation,
+                  accuracy: Number(e.target.value) || 0,
+                },
+              };
+              setConfig(next);
+              updateDraft(next, preset);
+            }}
+            placeholder="Accuracy (м)"
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <small style={{ color: "#6b7280" }}>
+          Настройки применяются при следующем запуске браузера или мультипарсера под этим аккаунтом.
+        </small>
+      </div>
+    </div>
+  );
 }
 
 
@@ -1966,6 +2109,11 @@ function BasicTab({ account, onUpdateDraft }: BasicTabProps) {
           <span className="info-value">{account.profileSize || "0 МБ"}</span>
         </div>
       </div>
+
+      <ProfileSlotsSection
+        accountId={account.id}
+        profilePath={account.profilePath}
+      />
     </div>
   );
 }

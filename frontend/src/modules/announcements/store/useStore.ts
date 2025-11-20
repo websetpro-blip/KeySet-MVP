@@ -35,6 +35,7 @@ interface AnnouncementsStore extends AnnouncementsState {
   selectAllAds: () => void;
   deselectAllAds: () => void;
   applyCommonSettings: (settings: { clarifications?: string; quickLinks?: QuickLink[] }) => void;
+  applyDisplaySettings: (settings: { useDynamicDisplayUrl: boolean; customDisplayPath?: string }) => void;
 
   // Утилиты
   clearAll: () => void;
@@ -119,6 +120,8 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
       addons = [],
       bodyText,
       groupId,
+      useDynamicDisplayUrl = true,
+      customDisplayPath,
     } = options;
     const template = get().templates.find((t) => t.id === templateId);
 
@@ -157,7 +160,7 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
       if (title1Result.warning) {
         warnings.push(`Заголовок 1: ${title1Result.warning}`);
       }
-      if (title2Result.warning) {
+      if (title2Result?.warning) {
         warnings.push(`Заголовок 2: ${title2Result.warning}`);
       }
       if (preparedBodyText?.warning) {
@@ -165,13 +168,14 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
       }
 
       const url = domain ? buildUrl(domain, utm, ad.phrase) : ad.url;
-      const path = transliteratePath(ad.phrase);
-      const displayUrl = url ? buildDisplayUrl(url, path) : ad.displayUrl;
+      const sanitizedPath = customDisplayPath?.trim().replace(/^\/+|\/+$/g, '') || undefined;
+      const displayPath = useDynamicDisplayUrl ? transliteratePath(ad.phrase) : sanitizedPath;
+      const displayUrl = url ? buildDisplayUrl(url, displayPath) : ad.displayUrl;
 
       return {
         ...ad,
         title1: title1Result.text,
-        title2: title2Result.text ?? ad.title2,
+        title2: title2Result?.text ?? ad.title2,
         text: preparedBodyText?.text ?? ad.text,
         url,
         displayUrl,
@@ -248,6 +252,25 @@ export const useStore = create<AnnouncementsStore>((set, get) => ({
         clarifications: settings.clarifications ?? ad.clarifications,
         quickLinks: settings.quickLinks ?? ad.quickLinks,
       })),
+    }));
+  },
+  applyDisplaySettings: ({ useDynamicDisplayUrl, customDisplayPath }) => {
+    const sanitizePath = (path?: string) => {
+      if (!path) return undefined;
+      const trimmed = path.trim().replace(/^\/+|\/+$/g, '');
+      return trimmed || undefined;
+    };
+    set((state) => ({
+      generatedAds: state.generatedAds.map((ad) => {
+        if (!ad.url) {
+          return ad;
+        }
+        const path = useDynamicDisplayUrl ? transliteratePath(ad.phrase) : sanitizePath(customDisplayPath);
+        return {
+          ...ad,
+          displayUrl: buildDisplayUrl(ad.url, path),
+        };
+      }),
     }));
   },
 

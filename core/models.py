@@ -36,8 +36,50 @@ class Account(Base):
     proxy_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     proxy_strategy: Mapped[str] = mapped_column(String(32), default='fixed', nullable=False)
     cookies: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    active_slot_id: Mapped[int | None] = mapped_column(ForeignKey('profile_slots.id'), nullable=True)
 
+    slots: Mapped[list['ProfileSlot']] = relationship(
+        'ProfileSlot',
+        back_populates='account',
+        cascade='all, delete-orphan',
+        foreign_keys='ProfileSlot.account_id',
+    )
+    active_slot: Mapped['ProfileSlot | None'] = relationship(
+        'ProfileSlot',
+        foreign_keys=[active_slot_id],
+        post_update=True,
+    )
     tasks: Mapped[list['Task']] = relationship('Task', back_populates='account', cascade='all, delete-orphan')
+
+
+class ProfileSlot(Base):
+    __tablename__ = 'profile_slots'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey('accounts.id'), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    profile_path: Mapped[str] = mapped_column(String(255), nullable=False)
+    cookies_file: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    profile_size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cookies_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    account: Mapped['Account'] = relationship(
+        'Account',
+        back_populates='slots',
+        foreign_keys=[account_id],
+    )
+
+    __table_args__ = (
+        UniqueConstraint('account_id', 'name', name='ux_slots_account_name'),
+        {
+            'sqlite_autoincrement': True,
+        },
+    )
 
 
 class Task(Base):
@@ -86,7 +128,7 @@ class FrequencyResult(Base):
     )
 
 
-__all__ = ['Account', 'Task', 'FrequencyResult', 'ACCOUNT_STATUSES']
+__all__ = ['Account', 'ProfileSlot', 'Task', 'FrequencyResult', 'ACCOUNT_STATUSES']
 
 
 class PhraseGroup(Base):

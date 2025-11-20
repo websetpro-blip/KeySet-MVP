@@ -26,52 +26,55 @@ export function GeneratedAdsTable({ ads }: GeneratedAdsTableProps) {
           <thead>
             <tr>
               <th>№</th>
-              <th>Ключ</th>
-              <th>H1</th>
-              <th>H2</th>
+              <th>Фраза (с минус-словами)</th>
+              <th>Заголовок 1</th>
+              <th>Заголовок 2</th>
               <th>Текст</th>
-              <th>URL</th>
-              <th>Отобр. ссылка</th>
+              <th>Ссылка</th>
+              <th>Отображаемая ссылка</th>
+              <th>Заголовки быстрых ссылок</th>
+              <th>Описания быстрых ссылок</th>
+              <th>Адреса быстрых ссылок</th>
               <th>Уточнения</th>
-              <th>SL1</th>
-              <th>SL1 Desc</th>
-              <th>SL1 URL</th>
-              <th>SL2</th>
-              <th>SL2 Desc</th>
-              <th>SL2 URL</th>
-              <th>SL3</th>
-              <th>SL3 Desc</th>
-              <th>SL3 URL</th>
-              <th>SL4</th>
-              <th>SL4 Desc</th>
-              <th>SL4 URL</th>
             </tr>
           </thead>
           <tbody>
-            {ads.map((ad, index) => (
-              <tr key={ad.id}>
-                <td>{index + 1}</td>
-                <td>{ad.phrase}</td>
-                <td>{ad.title1}</td>
-                <td>{ad.title2 || ''}</td>
-                <td>{ad.text}</td>
-                <td>{ad.url || ''}</td>
-                <td>{ad.displayUrl || ''}</td>
-                <td>{ad.clarifications || ''}</td>
-                <td>{ad.quickLinks?.[0]?.title || ''}</td>
-                <td>{ad.quickLinks?.[0]?.description || ''}</td>
-                <td>{ad.quickLinks?.[0]?.url || ''}</td>
-                <td>{ad.quickLinks?.[1]?.title || ''}</td>
-                <td>{ad.quickLinks?.[1]?.description || ''}</td>
-                <td>{ad.quickLinks?.[1]?.url || ''}</td>
-                <td>{ad.quickLinks?.[2]?.title || ''}</td>
-                <td>{ad.quickLinks?.[2]?.description || ''}</td>
-                <td>{ad.quickLinks?.[2]?.url || ''}</td>
-                <td>{ad.quickLinks?.[3]?.title || ''}</td>
-                <td>{ad.quickLinks?.[3]?.description || ''}</td>
-                <td>{ad.quickLinks?.[3]?.url || ''}</td>
-              </tr>
-            ))}
+            {ads.map((ad, index) => {
+              const quickLinks = ad.quickLinks ?? [];
+              const quickLinkTitles = quickLinks.map((ql) => ql.title || '').filter(Boolean).join('||');
+              const quickLinkDescriptions = quickLinks
+                .map((ql) => ql.description || '')
+                .filter(Boolean)
+                .join('||');
+              const quickLinkUrls = quickLinks.map((ql) => ql.url || '').filter(Boolean).join('||');
+              const clarifications = (ad.clarifications || '')
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .join('||');
+
+              return (
+                <tr key={ad.id}>
+                  <td>{index + 1}</td>
+                  <td>{ad.phrase}</td>
+                  <td>{ad.title1}</td>
+                  <td>{ad.title2 || ''}</td>
+                  <td>{ad.text}</td>
+                  <td className="url-cell" title={ad.url || ''}>
+                    {ad.url || ''}
+                  </td>
+                  <td className="url-cell" title={ad.displayUrl || ''}>
+                    {ad.displayUrl || ''}
+                  </td>
+                  <td>{quickLinkTitles}</td>
+                  <td>{quickLinkDescriptions}</td>
+                  <td className="url-cell" title={quickLinkUrls}>
+                    {quickLinkUrls}
+                  </td>
+                  <td>{clarifications}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

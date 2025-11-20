@@ -66,6 +66,7 @@ app.include_router(data.router)
 app.include_router(regions.router)
 app.include_router(proxies.router)
 app.include_router(proxies.legacy_router)
+app.include_router(proxies.px6_router)
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 

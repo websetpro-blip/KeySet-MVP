@@ -3,6 +3,7 @@ import { apiUrl } from "../../lib/apiClient";
 const API_BASE = apiUrl("/api");
 const ACCOUNTS_URL = `${API_BASE}/accounts`;
 const PROXIES_URL = `${API_BASE}/proxies`;
+const PROXY_LEGACY_URL = `${API_BASE}/proxy`;
 
 export interface ApiAccount {
   id: number;
@@ -89,6 +90,9 @@ export interface ProxyItem {
   notes: string;
   last_check?: number | null;
   last_ip?: string | null;
+  provider?: string | null;
+  external_id?: string | null;
+  expires_at?: number | null;
 }
 
 export interface ProxyListResponse {
@@ -146,6 +150,39 @@ export interface ClearProxiesResponse {
 export interface ProfilesRootResponse {
   status: string;
   path: string;
+}
+
+export interface Px6AccountResponse {
+  user_id: string;
+  balance: number;
+  currency: string;
+}
+
+export interface Px6OptionsResponse {
+  countries: string[];
+}
+
+export interface Px6PriceResponse {
+  price: number;
+  priceSingle: number;
+  currency: string;
+}
+
+export interface Px6BuyResponse {
+  proxies: ProxyItem[];
+}
+
+export interface Px6SyncResponse {
+  proxies: ProxyItem[];
+}
+
+export interface Px6SimpleResponse {
+  status: string;
+}
+
+export interface Px6DistributeResponse {
+  status: string;
+  assigned: number;
 }
 
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -303,6 +340,108 @@ export function clearProxies(ids?: string[]): Promise<ClearProxiesResponse> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: payload ? JSON.stringify(payload) : undefined,
+  });
+}
+
+export function px6CheckAccount(apiKey: string): Promise<Px6AccountResponse> {
+  return request<Px6AccountResponse>(`${PROXY_LEGACY_URL}/px6/account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: apiKey }),
+  });
+}
+
+export function px6FetchOptions(
+  apiKey: string,
+  version: number
+): Promise<Px6OptionsResponse> {
+  return request<Px6OptionsResponse>(`${PROXY_LEGACY_URL}/px6/options`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, version }),
+  });
+}
+
+export function px6GetPrice(
+  apiKey: string,
+  version: number,
+  count: number,
+  period: number
+): Promise<Px6PriceResponse> {
+  return request<Px6PriceResponse>(`${PROXY_LEGACY_URL}/px6/price`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, version, count, period }),
+  });
+}
+
+export function px6Buy(
+  apiKey: string,
+  params: {
+    country: string;
+    version: number;
+    type: "http" | "socks";
+    count: number;
+    period: number;
+    autoProlong: boolean;
+    descr?: string;
+  }
+): Promise<Px6BuyResponse> {
+  return request<Px6BuyResponse>(`${PROXY_LEGACY_URL}/px6/buy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      apiKey,
+      country: params.country,
+      version: params.version,
+      type: params.type,
+      count: params.count,
+      period: params.period,
+      autoProlong: params.autoProlong,
+      descr: params.descr,
+    }),
+  });
+}
+
+export function px6Sync(apiKey: string, state: string = "active"): Promise<Px6SyncResponse> {
+  return request<Px6SyncResponse>(`${PROXY_LEGACY_URL}/px6/sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, state }),
+  });
+}
+
+export function px6Prolong(
+  apiKey: string,
+  proxyIds: string[],
+  period: number,
+): Promise<Px6SimpleResponse> {
+  return request<Px6SimpleResponse>(`${PROXY_LEGACY_URL}/px6/prolong`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, proxyIds, period }),
+  });
+}
+
+export function px6Delete(
+  apiKey: string,
+  proxyIds: string[],
+): Promise<Px6SimpleResponse> {
+  return request<Px6SimpleResponse>(`${PROXY_LEGACY_URL}/px6/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, proxyIds }),
+  });
+}
+
+export function px6Distribute(payload: {
+  accountIds?: number[];
+  allWithoutProxy?: boolean;
+}): Promise<Px6DistributeResponse> {
+  return request<Px6DistributeResponse>(`${PROXIES_URL}/px6/distribute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 }
 

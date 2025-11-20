@@ -40,6 +40,9 @@ class Proxy:
     notes: str = ""
     last_check: Optional[float] = None
     last_ip: Optional[str] = None
+    provider: str = "manual"
+    external_id: Optional[str] = None
+    expires_at: Optional[float] = None
     _in_use: int = field(default=0, repr=False)
 
     @property
@@ -123,8 +126,9 @@ class ProxyManager:
                 except TypeError:
                     continue
                 self._items[proxy.id] = proxy
-            if not self._items:
-                self._bootstrap_from_accounts()
+            # Раньше при пустом списке прокси автоматически подхватывались
+            # прокси из аккаунтов. Сейчас менеджер прокси отвечает только
+            # за отдельный пул, поэтому автозаполнение отключено.
 
 
     def _bootstrap_from_accounts(self) -> None:

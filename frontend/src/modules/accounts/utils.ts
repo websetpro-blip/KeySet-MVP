@@ -30,6 +30,34 @@ const FINGERPRINT_META: Record<
     label: "🇰🇿 Kazakhstan Standard",
     badgeClass: "fp-kz",
   },
+  usa_standard: {
+    label: "🇺🇸 USA Standard",
+    badgeClass: "fp-default",
+  },
+  usa: {
+    label: "🇺🇸 USA",
+    badgeClass: "fp-default",
+  },
+  russia: {
+    label: "🇷🇺 Russia",
+    badgeClass: "fp-russia",
+  },
+  kazakhstan: {
+    label: "🇰🇿 Kazakhstan",
+    badgeClass: "fp-kz",
+  },
+  nigeria: {
+    label: "🇳🇬 Nigeria",
+    badgeClass: "fp-default",
+  },
+  lithuania: {
+    label: "🇱🇹 Lithuania",
+    badgeClass: "fp-default",
+  },
+  custom: {
+    label: "🔧 Custom",
+    badgeClass: "fp-default",
+  },
   no_spoofing: {
     label: "🌐 Без подмены",
     badgeClass: "fp-default",
@@ -172,4 +200,3 @@ export function formatCombinedAccountLog(accounts: Account[]): string {
 
   return lines.join("\n");
 }
-

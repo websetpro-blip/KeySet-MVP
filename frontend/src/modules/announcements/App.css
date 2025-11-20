@@ -27,7 +27,7 @@
 .announcements-app .announcements-content {
   flex: 1;
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 20px;
   padding: 20px;
   min-height: 0;
@@ -39,6 +39,7 @@
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  position: relative;
 }
 
 .announcements-app .announcements-sidebar-scroll {
@@ -48,19 +49,22 @@
   gap: 15px;
   overflow-y: auto;
   padding-right: 4px;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+  max-height: calc(100vh - 190px);
 }
 
 .announcements-app .announcements-sidebar-scroll::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .announcements-app .announcements-sidebar-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 5px;
 }
 
 .announcements-app .announcements-sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 5px;
 }
 
 /* Таблица сгенерированных объявлений */
@@ -107,6 +111,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed;
 }
 
 .announcements-app .generated-ads-table th,
@@ -114,6 +119,8 @@
   border: 1px solid #e5e7eb;
   padding: 4px 6px;
   text-align: left;
+  vertical-align: top;
+  white-space: normal;
 }
 
 .announcements-app .generated-ads-table th {
@@ -121,6 +128,9 @@
   position: sticky;
   top: 0;
   z-index: 1;
+}
+.announcements-app .generated-ads-table td.url-cell {
+  word-break: break-all;
 }
 
 .announcements-app .generated-ads-empty {
@@ -306,6 +316,10 @@
   cursor: not-allowed;
 }
 
+.announcements-app .btn-generate-top {
+  margin-bottom: 12px;
+}
+
 /* Правая панель */
 .announcements-app .announcements-main {
   flex: 1;
@@ -326,6 +340,8 @@
 .announcements-app .yandex-preview-wrapper {
   flex: 0 0 auto;
   margin-bottom: 16px;
+  max-height: calc(100vh - 240px);
+  overflow: hidden;
 }
 
 .announcements-app .yandex-preview-page {
@@ -333,6 +349,8 @@
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 16px 20px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .announcements-app .announcements-results {
@@ -340,6 +358,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 
 .announcements-app .preview-input {
@@ -349,6 +368,12 @@
   padding: 4px 6px;
   font-size: 12px;
   background: #fff;
+}
+
+.announcements-app .preview-input:focus {
+  border-color: #06b34c;
+  box-shadow: 0 0 0 2px rgba(6, 179, 76, 0.25);
+  outline: none;
 }
 
 .announcements-app .announcements-toolbar {
@@ -899,7 +924,7 @@
 }
 
 .announcements-app .yandex-ad-quick-links .active {
-  border: 2px solid #0a8a00;
+  border: 1px solid #0a8a00;
 }
 
 /* Контакты и тексты */
@@ -916,6 +941,14 @@
 
 .announcements-app .yandex-ad-body a:hover {
   text-decoration: underline;
+}
+
+.announcements-app .yandex-contact-lines {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 320px;
 }
 
 /* Таблицы (уточнения, адреса/якоря/описания) */

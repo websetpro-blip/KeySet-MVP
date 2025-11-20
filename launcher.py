@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import ctypes
+import logging
 import os
 import shutil
 import subprocess
+import sys
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -12,6 +16,56 @@ from pathlib import Path
 import uvicorn
 
 from core.app_paths import APP_ROOT, RUNTIME, bootstrap_files, ensure_runtime
+from core.app_paths import BROWSERS
+
+# Ensure project root is on sys.path when running from .exe
+if getattr(sys, "frozen", False):
+    sys.path.insert(0, str(APP_ROOT))
+    if hasattr(sys, "_MEIPASS"):
+        sys.path.insert(0, str(Path(sys._MEIPASS)))
+
+PACKAGED_INTERNAL = APP_ROOT / "_internal"
+LOGS_DIR = RUNTIME / "logs"
+LOG_FILE = LOGS_DIR / "launcher.log"
+
+
+def _hydrate_packaged_data() -> None:
+    """
+    Ensure packaged folders (www, backend, runtime) are available next to the exe.
+
+    При сборке PyInstaller данные попадают в _internal; копируем их наружу, если отсутствуют.
+    """
+    if not PACKAGED_INTERNAL.exists():
+        return
+    for name in ("www", "backend", "runtime"):
+        src = PACKAGED_INTERNAL / name
+        dst = APP_ROOT / name
+        if src.exists() and not dst.exists():
+            try:
+                shutil.copytree(src, dst)
+            except Exception:
+                pass
+
+
+def _configure_logging() -> None:
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(LOG_FILE, encoding="utf-8", mode="a"),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
+    logging.info("Launcher started (frozen=%s, APP_ROOT=%s)", getattr(sys, "frozen", False), APP_ROOT)
+
+
+def _message_box(title: str, text: str) -> None:
+    """Show a Windows message box; ignore errors if not supported."""
+    try:
+        ctypes.windll.user32.MessageBoxW(None, text, title, 0x10)  # 0x10 = MB_ICONERROR
+    except Exception:
+        pass
 
 BACKEND_HOST = "127.0.0.1"
 BACKEND_PORT = int(os.environ.get("KEYSET_PORT", "8765"))
@@ -39,6 +93,65 @@ EDGE_CANDIDATES = [
     Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"),
     Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
 ]
+
+
+def ensure_playwright() -> None:
+    """Убедиться, что Playwright Chromium доступен в runtime/browsers."""
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(BROWSERS)
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            _ = p.chromium.executable_path  # noqa: F841
+            print(f"[launcher] Chromium найден: {_}")
+            return
+    except Exception:
+        print("[launcher] Скачиваю Chromium (первый запуск, ~400MB)...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                print("[launcher] Chromium установлен")
+                return
+        except Exception as exc:  # pragma: no cover
+            print(f"[launcher] Не удалось установить Chromium: {exc}")
+        sys.exit(1)
+
+
+def ensure_database() -> None:
+    """Создать БД из шаблона при первом запуске."""
+    from core.app_paths import DB_DIR
+
+    db_file = DB_DIR / "keyset.db"
+
+    # Если БД уже существует, ничего не делаем
+    if db_file.exists():
+        logging.info("БД существует: %s", db_file)
+        return
+
+    # Создать директорию для БД
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Найти шаблон БД
+    if getattr(sys, "frozen", False):
+        # В .exe шаблон находится в _internal
+        template = Path(sys._MEIPASS) / "resources" / "db" / "keyset_template.db"
+    else:
+        # В dev режиме шаблон рядом с launcher.py
+        template = APP_ROOT / "resources" / "db" / "keyset_template.db"
+
+    if not template.exists():
+        error_msg = f"Шаблон БД не найден: {template}"
+        logging.error(error_msg)
+        raise FileNotFoundError(error_msg)
+
+    # Скопировать шаблон
+    logging.info("Копирую шаблон БД из %s", template)
+    shutil.copy2(template, db_file)
+    logging.info("БД создана: %s", db_file)
 
 
 def _pick_browser() -> Path | None:
@@ -132,7 +245,15 @@ def _launch_edge(url: str) -> subprocess.Popen | None:
 
 
 def main() -> None:
+    logging.info("Hydrating packaged data (if needed)")
+    _hydrate_packaged_data()
+    logging.info("Ensuring database template is copied")
+    ensure_database()
+    logging.info("Ensuring Playwright browser is available")
+    ensure_playwright()
+    logging.info("Checking frontend build")
     _ensure_frontend_build()
+    logging.info("Ensuring runtime folders and bootstrap files")
     ensure_runtime()
     bootstrap_files()
 
@@ -173,7 +294,25 @@ def main() -> None:
                 time.sleep(0.5)
     except KeyboardInterrupt:
         print("Завершение по Ctrl+C")
+    except Exception:
+        logging.exception("Launcher main loop error")
+        raise
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        _configure_logging()
+        main()
+    except Exception as exc:  # pragma: no cover
+        tb = traceback.format_exc()
+        try:
+            LOGS_DIR.mkdir(parents=True, exist_ok=True)
+            with open(LOG_FILE, "a", encoding="utf-8") as fh:
+                fh.write(tb + "\n")
+        except Exception:
+            pass
+        _message_box(
+            "KeySet launch error",
+            f"Не удалось запустить KeySet: {exc}\nПодробности в логе:\n{LOG_FILE}",
+        )
+        sys.exit(1)

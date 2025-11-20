@@ -179,6 +179,19 @@ body {
     color: white;
 }
 
+.btn-wide {
+    width: 230px;
+}
+
+.btn-px6 {
+    background-color: #f47a20;
+    color: #ffffff;
+}
+
+.btn-px6:hover {
+    background-color: #e36b12;
+}
+
 .btn-success:hover {
     background-color: #218838;
 }
@@ -1688,18 +1701,20 @@ body {
 }
 
 .proxy-table-container {
-    max-height: 300px;
+    max-height: 420px;
     overflow-y: auto;
 }
 
 .proxy-table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 8px; /* ещё более компактный список прокси */
+    line-height: 1.1;
 }
 
 .proxy-table th,
 .proxy-table td {
-    padding: 10px 12px;
+    padding: 2px 4px;
     text-align: left;
     border-bottom: 1px solid #e0e0e0;
 }
@@ -1724,6 +1739,51 @@ body {
 
 .test-results {
     margin-bottom: 15px;
+}
+
+.px6-buy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 18px;
+    min-height: 36px;
+    background: linear-gradient(180deg, #ffb155 0%, #f47a20 100%);
+    color: #ffffff;
+    border: 1px solid #e36b12;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.16);
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.05s ease;
+}
+
+.px6-buy-btn span {
+    font-weight: 700;
+}
+
+.px6-buy-btn:hover {
+    background: linear-gradient(180deg, #ffa141 0%, #e36b12 100%);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
+}
+
+.px6-buy-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+}
+
+.px6-buy-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+    box-shadow: none;
 }
 
 .test-summary {
@@ -1990,9 +2050,8 @@ body {
     border-top: 1px solid #e2e8f0;
     padding: 12px 20px 16px;
     background: #f8fafc;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
+    position: static;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -2000,8 +2059,8 @@ body {
     justify-content: flex-end;
     width: 100%;
     flex-shrink: 0;
-    box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
-    margin-top: auto;
+    box-shadow: none;
+    margin-top: 12px;
 }
 
 .sidebar-floating-actions::before {
@@ -2109,8 +2168,7 @@ body {
 .account-log-panel-wrapper {
     display: flex;
     flex-direction: column;
-    flex: 0 0 160px;
-    max-height: 160px;
+    min-height: 160px;
     background: #ffffff;
     border-top: 1px solid #d8dee9;
     padding: 0;

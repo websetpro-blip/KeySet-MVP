@@ -29,7 +29,8 @@ LEGACY_DATA = APP_ROOT / "keyset" / "data"
 
 # Runtime subdirectories
 DB_DIR = RUNTIME / "db"
-PROFILES = RUNTIME / "profiles"
+PROFILES_DIR = RUNTIME / ".profiles"
+PROFILES = PROFILES_DIR  # backwards compatibility
 BROWSERS = RUNTIME / "browsers"  # PLAYWRIGHT_BROWSERS_PATH
 GEO_DIR = RUNTIME / "geo"
 CONFIG_DIR = RUNTIME / "config"
@@ -42,7 +43,7 @@ os.environ.setdefault("KEYSET_RUNTIME_ROOT", str(RUNTIME))
 
 def ensure_runtime() -> None:
     """Create all runtime directories if they don't exist."""
-    for path in (DB_DIR, PROFILES, BROWSERS, GEO_DIR, CONFIG_DIR, LOGS_DIR):
+    for path in (DB_DIR, PROFILES_DIR, BROWSERS, GEO_DIR, CONFIG_DIR, LOGS_DIR):
         path.mkdir(parents=True, exist_ok=True)
 
 
@@ -99,6 +100,30 @@ def bootstrap_files() -> None:
     ensure_runtime()
 
     # Database
+    def _db_has_table(db_path: Path, table: str) -> bool:
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            row = cur.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            ).fetchone()
+            conn.close()
+            return bool(row)
+        except Exception:
+            return False
+
+    # Template DB packaged with the app (dev: APP_ROOT/resources/db, exe: _MEIPASS/resources/db)
+    template_bases = [APP_ROOT, Path(getattr(sys, "_MEIPASS", APP_ROOT))]
+    for base in template_bases:
+        template_db = base / "resources" / "db" / "keyset_template.db"
+        if template_db.exists():
+            target_db = DB_DIR / "keyset.db"
+            if (not target_db.exists()) or (not _db_has_table(target_db, "accounts")):
+                shutil.copy2(template_db, target_db)
+            break
+
     bundled_db = locate_data_file("keyset.db")
     target_db = DB_DIR / "keyset.db"
     if bundled_db and not target_db.exists():

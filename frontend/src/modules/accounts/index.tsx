@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./legacy/styles.css";
 
@@ -23,6 +23,8 @@ import {
   accountToUpdatePayload,
 } from "./mapper";
 
+const clampLogRatio = (value: number) => Math.min(0.6, Math.max(0.2, value));
+
 export default function AccountsModule() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +37,10 @@ export default function AccountsModule() {
   const [clientLogs, setClientLogs] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [currentAccount, setCurrentAccount] = useState<Account | null>(null);
+  const [logRatio, setLogRatio] = useState(0.3);
+  const [isResizingLog, setIsResizingLog] = useState(false);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const dragActiveRef = useRef(false);
 
   const appendClientLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleString("ru-RU");
@@ -286,9 +292,6 @@ export default function AccountsModule() {
           await launchAccounts({ ids });
           break;
         }
-        case "proxy-manager":
-          alert("Открытие менеджера прокси пока не реализовано.");
-          break;
         case "consistency-check":
           alert("Проверка консистентности находится в разработке.");
           break;
@@ -301,6 +304,44 @@ export default function AccountsModule() {
       appendClientLog(`Ошибка действия "${action}": ${message}`);
     }
   };
+
+  const handleDragMove = useCallback((event: MouseEvent) => {
+    if (!dragActiveRef.current || !layoutRef.current) {
+      return;
+    }
+    const rect = layoutRef.current.getBoundingClientRect();
+    const offsetFromBottom = rect.bottom - event.clientY;
+    const nextRatio = clampLogRatio(offsetFromBottom / rect.height);
+    setLogRatio(nextRatio);
+  }, []);
+
+  const stopDrag = useCallback(() => {
+    if (!dragActiveRef.current) {
+      return;
+    }
+    dragActiveRef.current = false;
+    setIsResizingLog(false);
+    window.removeEventListener("mousemove", handleDragMove);
+    window.removeEventListener("mouseup", stopDrag);
+  }, [handleDragMove]);
+
+  const startDrag = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      dragActiveRef.current = true;
+      setIsResizingLog(true);
+      window.addEventListener("mousemove", handleDragMove);
+      window.addEventListener("mouseup", stopDrag);
+    },
+    [handleDragMove, stopDrag],
+  );
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("mousemove", handleDragMove);
+      window.removeEventListener("mouseup", stopDrag);
+    };
+  }, [handleDragMove, stopDrag]);
 
   return (
     <div className="app-container">
@@ -360,8 +401,11 @@ export default function AccountsModule() {
               </button>
             </div>
           ) : (
-            <div className="table-log-container">
-              <div className="accounts-table-wrapper">
+            <div className="table-log-container" ref={layoutRef}>
+              <div
+                className="accounts-table-wrapper"
+                style={{ flex: Math.max(0.3, 1 - logRatio) }}
+              >
                 <div className="accounts-table-scroll">
                   <AccountsTable
                     accounts={filteredAccounts}
@@ -377,7 +421,18 @@ export default function AccountsModule() {
                 </div>
               </div>
 
-              <div className="account-log-panel-wrapper">
+              <div
+                className={`log-resizer ${isResizingLog ? "dragging" : ""}`}
+                onMouseDown={startDrag}
+                role="presentation"
+              >
+                <span />
+              </div>
+
+              <div
+                className="account-log-panel-wrapper"
+                style={{ flex: logRatio, minHeight: 200 }}
+              >
                 <AccountLogPanel accounts={accounts} extraLogs={clientLogs} />
               </div>
             </div>
@@ -389,6 +444,7 @@ export default function AccountsModule() {
           onClose={() => {}}
           onLog={appendClientLog}
           onReloadAccounts={loadAccounts}
+           selectedAccountIds={Array.from(selectedIds)}
           onUpdateAccount={async (id: number, changes: Partial<Account>) => {
             const payload = accountToUpdatePayload(changes);
             const updated = await updateAccount(id, payload);
